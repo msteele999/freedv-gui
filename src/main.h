@@ -644,6 +644,8 @@ class MainFrame : public TopFrame
         DisplayWorkspace displayWorkspace_{*m_auiNbookCtrl};
         void OnDisplayVisibilityRequest(DisplayId id, bool visible) override;
         void updateDisplayVisibilityControls_();
+        void captureWorkspace_();
+        bool switchWorkspace_(bool independent, bool captureCurrent = true);
         
         int         getSoundCardIDFromName(wxString& name, bool input);
         bool        validateSoundCardSetup(bool silent = false);

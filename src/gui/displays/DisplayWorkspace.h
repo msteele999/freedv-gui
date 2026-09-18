@@ -7,6 +7,7 @@
 #include <functional>
 #include <vector>
 #include <wx/string.h>
+#include <wx/gdicmn.h>
 
 class wxAuiNotebook;
 class wxWindow;
@@ -52,7 +53,9 @@ public:
     void SetLayoutHandlers(std::function<wxString()> save,
                            std::function<void(const wxString&)> restore);
     wxString GetNotebookLayout() const;
-    bool SetIndependent(bool independent);
+    bool SetIndependent(bool independent, bool showDisplays = true);
+    wxRect GetDisplayGeometry(DisplayId id) const;
+    wxRect RestoreDisplayGeometry(DisplayId id, const wxRect& rect);
     bool IsIndependent() const { return presentation_ == Presentation::Independent; }
     bool HasActiveDisplay() const;
     void FocusOperatingWindow();

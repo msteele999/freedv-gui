@@ -1,5 +1,6 @@
 #include "DisplayWorkspace.h"
 #include "DisplayFrame.h"
+#include "../util/WindowPositionRestore.h"
 
 #include <wx/aui/auibook.h>
 #include <algorithm>
@@ -146,7 +147,32 @@ DisplayFrame* DisplayWorkspace::FrameFor(wxWindow* plot) const
     return nullptr;
 }
 
-bool DisplayWorkspace::SetIndependent(bool independent)
+wxRect DisplayWorkspace::GetDisplayGeometry(DisplayId id) const
+{
+    const auto index = static_cast<std::size_t>(id);
+    wxCHECK_MSG(index < frames_.size(), wxRect(), "Invalid display identifier");
+    auto* frame = frames_[index];
+    if (frame == nullptr || frame->IsIconized() || frame->IsMaximized())
+        return wxRect();
+    return frame->GetRect();
+}
+
+wxRect DisplayWorkspace::RestoreDisplayGeometry(DisplayId id, const wxRect& rect)
+{
+    const auto index = static_cast<std::size_t>(id);
+    wxCHECK_MSG(index < frames_.size() && frames_[index] != nullptr, wxRect(), "Display frame not created");
+    auto* frame = frames_[index];
+    if (frame->IsIconized() || frame->IsMaximized())
+    {
+        frame->Restore();
+        frame->Hide();
+    }
+    const wxSize minimum = frame->FromDIP(wxSize(320, 240));
+    frame->SetMinSize(minimum);
+    return RestoreWindowGeometry(frame, rect, minimum);
+}
+
+bool DisplayWorkspace::SetIndependent(bool independent, bool showDisplays)
 {
     if (switching_)
         return false;
@@ -208,8 +234,9 @@ bool DisplayWorkspace::SetIndependent(bool independent)
     notebook_.Hide();
     notebook_.GetParent()->Layout();
     notebook_.GetParent()->Refresh();
-    for (auto* frame : frames_)
-        frame->Show();
+    if (showDisplays)
+        for (auto* frame : frames_)
+            frame->Show();
     RefreshAll();
     return true;
 }

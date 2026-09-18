@@ -919,42 +919,35 @@ void MainFrame::loadConfiguration_()
     int w = wxGetApp().appConfiguration.mainWindowWidth;
     int h = wxGetApp().appConfiguration.mainWindowHeight;
 
-    // sanitise frame position as a first pass at Win32 registry bug
-
-    if (x < 0 || x > 2048) x = 20;
-    if (y < 0 || y > 2048) y = 20;
-    if (w < 0 || w > 2048) w = 800;
-    if (h < 0 || h > 2048) h = 780;
-
     g_SquelchActive = wxGetApp().appConfiguration.squelchActive;
     g_SquelchLevel = wxGetApp().appConfiguration.squelchLevel;
     g_SquelchLevel /= 2.0;
     
-    wxSize size = GetMinSize();
-
-    if (w < size.GetWidth()) w = size.GetWidth();
-    if (h < size.GetHeight()) h = size.GetHeight();
-
-    RestoreWindowPosition(this, x, y);
-
-    // XXX - with really short windows, wxWidgets sometimes doesn't size
-    // the components properly until the user resizes the window (even if only
-    // by a pixel or two). As a really hacky workaround, we emulate this behavior
-    // when restoring window sizing. These resize events also happen after configuration
-    // is restored but I'm not sure this is necessary.
-    CallAfter([=, this]()
+    if (!wxGetApp().appConfiguration.independentWorkspace)
     {
-        SetSize(w, h);
-    });
-    CallAfter([=, this]()
-    {
-        SetSize(w + 1, h + 1);
-    });
-    CallAfter([=, this]()
-    {
-        SetSize(w, h);
-    });
-    
+        const wxRect rect = RestoreWindowGeometry(this, wxRect(x, y, w, h), GetMinSize());
+        w = rect.width;
+        h = rect.height;
+
+        // XXX - with really short windows, wxWidgets sometimes doesn't size
+        // the components properly until the user resizes the window (even if only
+        // by a pixel or two). As a really hacky workaround, we emulate this behavior
+        // when restoring window sizing. These resize events also happen after configuration
+        // is restored but I'm not sure this is necessary.
+        CallAfter([=, this]()
+        {
+            SetSize(w, h);
+        });
+        CallAfter([=, this]()
+        {
+            SetSize(w + 1, h + 1);
+        });
+        CallAfter([=, this]()
+        {
+            SetSize(w, h);
+        });
+    }
+
     // Load AGC state
     g_agcEnabled.store(wxGetApp().appConfiguration.filterConfiguration.agcEnabled, std::memory_order_release);
     
@@ -1217,6 +1210,9 @@ setDefaultMode:
     statsBox->Show(wxGetApp().appConfiguration.showDecodeStats);
     modeBox->Show(wxGetApp().appConfiguration.enableLegacyModes);
     m_BtnReSync->Show(wxGetApp().appConfiguration.enableLegacyModes);
+
+    if (wxGetApp().appConfiguration.independentWorkspace && !switchWorkspace_(true, false))
+        wxMessageBox("Could not restore the Independent workspace.", "Displays", wxOK | wxICON_ERROR, this);
 
     // Initialize FreeDV Reporter as required
     CallAfter(&MainFrame::initializeFreeDVReporter_);
@@ -1585,7 +1581,7 @@ MainFrame::MainFrame(wxWindow *parent) : TopFrame(parent, wxID_ANY, _("FreeDV ")
             !m_btnTogPTT->GetValue() && !g_recVoiceKeyerFile && vk_state == VK_IDLE;
     };
     Bind(wxEVT_MENU, [this, canSwitchDisplays](wxCommandEvent& event) {
-        if (canSwitchDisplays() && !displayWorkspace_.SetIndependent(event.IsChecked()))
+        if (canSwitchDisplays() && !switchWorkspace_(event.IsChecked()))
             wxMessageBox("Display transfer failed. Retry returning to the notebook.",
                          "Displays", wxOK | wxICON_ERROR, this);
         SetIndependentControlPresentation(displayWorkspace_.IsIndependent());
@@ -1703,19 +1699,7 @@ void MainFrame::setConfiguration_(wxConfigBase* config)
 
 void MainFrame::exportConfiguration_(wxConfigBase* config)
 {
-    if (!IsIconized()) {
-        int w = 0;
-        int h = 0;
-        int x = 0;
-        int y = 0;
-        GetSize(&w, &h);
-        GetPosition(&x, &y);
-        
-        wxGetApp().appConfiguration.mainWindowLeft = x;
-        wxGetApp().appConfiguration.mainWindowTop = y;
-        wxGetApp().appConfiguration.mainWindowWidth = w;
-        wxGetApp().appConfiguration.mainWindowHeight = h;
-    }
+    captureWorkspace_();
 
     if (tabLayoutPersistenceEnabledAtStartup_)
     {
@@ -1741,6 +1725,102 @@ void MainFrame::exportConfiguration_(wxConfigBase* config)
     
     wxGetApp().appConfiguration.currentFreeDVMode = mode;
     wxGetApp().appConfiguration.save(config);
+}
+
+void MainFrame::captureWorkspace_()
+{
+    auto& config = wxGetApp().appConfiguration;
+    const bool independent = displayWorkspace_.IsIndependent();
+    config.independentWorkspace = independent;
+    if (!IsIconized() && !IsMaximized())
+    {
+        const wxRect rect = GetRect();
+        if (independent)
+        {
+            config.independentWindowLeft = rect.x;
+            config.independentWindowTop = rect.y;
+            config.independentWindowWidth = rect.width;
+            config.independentWindowHeight = rect.height;
+        }
+        else
+        {
+            config.mainWindowLeft = rect.x;
+            config.mainWindowTop = rect.y;
+            config.mainWindowWidth = rect.width;
+            config.mainWindowHeight = rect.height;
+        }
+    }
+    if (independent)
+    {
+        static_assert(std::tuple_size<decltype(config.independentDisplays)>::value ==
+                      static_cast<std::size_t>(DisplayId::Count));
+        for (std::size_t index = 0; index < config.independentDisplays.size(); ++index)
+        {
+            const auto id = static_cast<DisplayId>(index);
+            auto& display = config.independentDisplays[index];
+            const wxRect rect = displayWorkspace_.GetDisplayGeometry(id);
+            if (!rect.IsEmpty())
+            {
+                display.left = rect.x;
+                display.top = rect.y;
+                display.width = rect.width;
+                display.height = rect.height;
+            }
+            display.visible = displayWorkspace_.IsDisplayVisible(id);
+        }
+        config.independentVisibilitySaved = true;
+    }
+}
+
+bool MainFrame::switchWorkspace_(bool independent, bool captureCurrent)
+{
+    if (independent == displayWorkspace_.IsIndependent())
+        return true;
+    if (captureCurrent)
+        captureWorkspace_();
+    if (!displayWorkspace_.SetIndependent(independent, false))
+    {
+        SetIndependentControlPresentation(displayWorkspace_.IsIndependent());
+        updateDisplayVisibilityControls_();
+        return false;
+    }
+    if (IsIconized() || IsMaximized())
+        Restore();
+    SetIndependentControlPresentation(independent);
+    auto& config = wxGetApp().appConfiguration;
+    config.independentWorkspace = independent;
+    if (independent)
+    {
+        const wxRect control = RestoreWindowGeometry(this,
+            wxRect(config.independentWindowLeft, config.independentWindowTop,
+                   config.independentWindowWidth, config.independentWindowHeight), GetMinSize());
+        config.independentWindowLeft = control.x;
+        config.independentWindowTop = control.y;
+        config.independentWindowWidth = control.width;
+        config.independentWindowHeight = control.height;
+        for (std::size_t index = 0; index < config.independentDisplays.size(); ++index)
+        {
+            const auto id = static_cast<DisplayId>(index);
+            auto& display = config.independentDisplays[index];
+            const wxRect rect = displayWorkspace_.RestoreDisplayGeometry(id,
+                wxRect(display.left, display.top, display.width, display.height));
+            display.left = rect.x;
+            display.top = rect.y;
+            display.width = rect.width;
+            display.height = rect.height;
+            const bool visible = config.independentVisibilitySaved ? display.visible.get() : id == DisplayId::Waterfall;
+            displayWorkspace_.SetDisplayVisible(id, visible);
+        }
+    }
+    else
+    {
+        RestoreWindowGeometry(this,
+            wxRect(config.mainWindowLeft, config.mainWindowTop,
+                   config.mainWindowWidth, config.mainWindowHeight), GetMinSize());
+        m_panel->Layout();
+    }
+    updateDisplayVisibilityControls_();
+    return true;
 }
 
 void MainFrame::OnDisplayVisibilityRequest(DisplayId id, bool visible)
@@ -4289,4 +4369,3 @@ void MainFrame::OnRxOutAudioData_(IAudioDevice& dev, void* data, size_t size, vo
         }
     }
 }
-
