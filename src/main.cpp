@@ -910,6 +910,7 @@ void MainFrame::loadConfiguration_()
         return;
     }
     SetIndependentControlPresentation(false);
+    updateDisplayVisibilityControls_();
     wxGetApp().appConfiguration.load(pConfig);
     
     // restore frame position and size
@@ -1573,6 +1574,10 @@ MainFrame::MainFrame(wxWindow *parent) : TopFrame(parent, wxID_ANY, _("FreeDV ")
         });
     }
 
+    displayWorkspace_.SetVisibilityChangedHandler([this]() {
+        updateDisplayVisibilityControls_();
+    });
+
     // Temporary command for testing display transfers.
     auto* displayTestItem = tools->AppendCheckItem(wxID_ANY, _("Independent displays (test)"));
     const auto canSwitchDisplays = [this]() {
@@ -1584,6 +1589,7 @@ MainFrame::MainFrame(wxWindow *parent) : TopFrame(parent, wxID_ANY, _("FreeDV ")
             wxMessageBox("Display transfer failed. Retry returning to the notebook.",
                          "Displays", wxOK | wxICON_ERROR, this);
         SetIndependentControlPresentation(displayWorkspace_.IsIndependent());
+        updateDisplayVisibilityControls_();
     }, displayTestItem->GetId());
     Bind(wxEVT_UPDATE_UI, [this, canSwitchDisplays](wxUpdateUIEvent& event) {
         event.Enable(canSwitchDisplays());
@@ -1735,6 +1741,21 @@ void MainFrame::exportConfiguration_(wxConfigBase* config)
     
     wxGetApp().appConfiguration.currentFreeDVMode = mode;
     wxGetApp().appConfiguration.save(config);
+}
+
+void MainFrame::OnDisplayVisibilityRequest(DisplayId id, bool visible)
+{
+    displayWorkspace_.SetDisplayVisible(id, visible);
+    SetDisplayVisibilityChecked(id, displayWorkspace_.IsDisplayVisible(id));
+}
+
+void MainFrame::updateDisplayVisibilityControls_()
+{
+    for (std::size_t index = 0; index < static_cast<std::size_t>(DisplayId::Count); ++index)
+    {
+        const auto id = static_cast<DisplayId>(index);
+        SetDisplayVisibilityChecked(id, displayWorkspace_.IsDisplayVisible(id));
+    }
 }
 
 //-------------------------------------------------------------------------

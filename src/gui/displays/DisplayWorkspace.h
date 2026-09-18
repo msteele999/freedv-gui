@@ -30,9 +30,13 @@ class DisplayWorkspace
 {
 public:
     explicit DisplayWorkspace(wxAuiNotebook& notebook);
+    ~DisplayWorkspace();
 
     void RegisterDisplay(DisplayId id, wxWindow& plot);
     void ShowDisplay(DisplayId id);
+    void SetDisplayVisible(DisplayId id, bool visible);
+    bool IsDisplayVisible(DisplayId id) const;
+    void SetVisibilityChangedHandler(std::function<void()> handler);
 
     // Keep the existing notebook-index return value for currentNotebookTab.
     // Capture the active page in Frm Mic's split group, not just the notebook's
@@ -69,6 +73,7 @@ private:
     std::vector<Page> pages_;
     std::function<wxString()> saveLayout_;
     std::function<void(const wxString&)> restoreLayout_;
+    std::function<void()> visibilityChanged_;
     wxString layout_;
     int selection_ = -1;
     int micReturnPage_ = -1;

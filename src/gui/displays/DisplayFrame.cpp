@@ -19,8 +19,15 @@ DisplayFrame::DisplayFrame(wxWindow* owner, const wxString& caption, const wxSiz
         Hide();
         if (event.CanVeto())
             event.Veto();
+        if (hideHandler_)
+            hideHandler_();
         // Do not invoke the default handler, which would destroy the plot.
     });
+}
+
+void DisplayFrame::SetHideHandler(std::function<void()> handler)
+{
+    hideHandler_ = std::move(handler);
 }
 
 bool DisplayFrame::Attach(wxWindow& plot)

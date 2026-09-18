@@ -9,6 +9,40 @@ DisplayWorkspace::DisplayWorkspace(wxAuiNotebook& notebook)
 {
 }
 
+DisplayWorkspace::~DisplayWorkspace()
+{
+    // The owning window destroys its child frames after this workspace.
+    for (auto* frame : frames_)
+        if (frame != nullptr)
+            frame->SetHideHandler({});
+}
+
+void DisplayWorkspace::SetVisibilityChangedHandler(std::function<void()> handler)
+{
+    visibilityChanged_ = std::move(handler);
+}
+
+bool DisplayWorkspace::IsDisplayVisible(DisplayId id) const
+{
+    const auto index = static_cast<std::size_t>(id);
+    wxCHECK_MSG(index < frames_.size(), false, "Invalid display identifier");
+    return IsIndependent() && frames_[index] != nullptr && frames_[index]->IsShown();
+}
+
+void DisplayWorkspace::SetDisplayVisible(DisplayId id, bool visible)
+{
+    const auto index = static_cast<std::size_t>(id);
+    wxCHECK_RET(index < frames_.size(), "Invalid display identifier");
+    if (!IsIndependent() || switching_)
+        return;
+    auto* frame = frames_[index];
+    wxCHECK_RET(frame != nullptr, "Display frame not created");
+    if (frame->Show(visible) && visible)
+        plots_[index]->Refresh();
+    if (visibilityChanged_)
+        visibilityChanged_();
+}
+
 void DisplayWorkspace::RegisterDisplay(DisplayId id, wxWindow& plot)
 {
     const auto index = static_cast<std::size_t>(id);
@@ -26,7 +60,7 @@ void DisplayWorkspace::ShowDisplay(DisplayId id)
 
     if (IsIndependent())
     {
-        // A manually hidden frame stays hidden until the next presentation switch.
+        // Operational requests leave independent-frame visibility unchanged.
         plot->Refresh();
         return;
     }
@@ -149,8 +183,14 @@ bool DisplayWorkspace::SetIndependent(bool independent)
     {
         const auto index = std::find(plots_.begin(), plots_.end(), page.plot) - plots_.begin();
         if (frames_[index] == nullptr)
+        {
             frames_[index] = new DisplayFrame(wxGetTopLevelParent(&notebook_), page.caption,
                                              notebook_.GetClientSize());
+            frames_[index]->SetHideHandler([this]() {
+                if (visibilityChanged_)
+                    visibilityChanged_();
+            });
+        }
         frames_[index]->SetTitle(page.caption);
     }
 

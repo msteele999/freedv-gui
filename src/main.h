@@ -642,6 +642,8 @@ class MainFrame : public TopFrame
         bool tabLayoutPersistenceEnabledAtStartup_;
 
         DisplayWorkspace displayWorkspace_{*m_auiNbookCtrl};
+        void OnDisplayVisibilityRequest(DisplayId id, bool visible) override;
+        void updateDisplayVisibilityControls_();
         
         int         getSoundCardIDFromName(wxString& name, bool input);
         bool        validateSoundCardSetup(bool silent = false);

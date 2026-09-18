@@ -59,8 +59,10 @@
 #include <wx/collpane.h>
 #include <wx/combo.h>
 #include <vector>
+#include <array>
 
 #include "gui/util/wxListViewComboPopup.h"
+#include "gui/displays/DisplayWorkspace.h"
 
 #include "freedv_api.h" // for FREEDV_MODE_*
 
@@ -163,6 +165,8 @@ class TopFrame : public wxFrame
         wxToggleButton *m_reporterHidden;
 
         void SetIndependentControlPresentation(bool independent);
+        void SetDisplayVisibilityChecked(DisplayId id, bool visible);
+        virtual void OnDisplayVisibilityRequest(DisplayId, bool) {}
 
     private:
         void UpdateControlMinimumSize();
@@ -181,6 +185,8 @@ class TopFrame : public wxFrame
         wxSizer* notebookSizer_ = nullptr;
         wxSizer* independentSizer_ = nullptr;
         wxStaticText* controlHeading_ = nullptr;
+        wxStaticBoxSizer* displayVisibilitySizer_ = nullptr;
+        std::array<wxCheckBox*, static_cast<std::size_t>(DisplayId::Count)> displayVisibilityChecks_{};
         wxBoxSizer* callsignSizer_ = nullptr;
         wxStaticBoxSizer* statsSizer_ = nullptr;
         wxFlexGridSizer* statsFieldsSizer_ = nullptr;

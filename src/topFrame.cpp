@@ -946,7 +946,27 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
     auto* received = new wxBoxSizer(wxVERTICAL);
     independentSizer_->Add(received, 0, wxEXPAND | wxALL, 3);
     auto* operations = new wxBoxSizer(wxHORIZONTAL);
-    independentSizer_->Add(operations, 0, wxEXPAND | wxALL, 3);
+    auto* supporting = new wxBoxSizer(wxHORIZONTAL);
+    supporting->Add(operations, 0, wxEXPAND);
+    displayVisibilitySizer_ = new wxStaticBoxSizer(wxVERTICAL, m_panel, _("Displays"));
+    auto* displaySelectors = new wxFlexGridSizer(3, FromDIP(2), FromDIP(8));
+    const wxString displayNames[] = {
+        _("Waterfall"), _("Spectrum"), _("Frm Radio"), _("Frm Mic"), _("Frm Decoder"), _("SNR")
+    };
+    for (std::size_t index = 0; index < displayVisibilityChecks_.size(); ++index)
+    {
+        const auto id = static_cast<DisplayId>(index);
+        auto* checkbox = new wxCheckBox(displayVisibilitySizer_->GetStaticBox(), wxID_ANY, displayNames[index]);
+        displayVisibilityChecks_[index] = checkbox;
+        displaySelectors->Add(checkbox, 0, wxALL, 2);
+        checkbox->Bind(wxEVT_CHECKBOX, [this, id](wxCommandEvent& event) {
+            OnDisplayVisibilityRequest(id, event.IsChecked());
+        });
+    }
+    displayVisibilitySizer_->Add(displaySelectors, 0, wxALL, 3);
+    supporting->Add(displayVisibilitySizer_, 1, wxEXPAND | wxALL, 2);
+    independentSizer_->Add(supporting, 0, wxEXPAND | wxALL, 3);
+    displayVisibilitySizer_->ShowItems(false);
 
     // Keep each group's windows and event connections intact. Only its owning
     // sizer changes; the notebook's empty layout remains available for return.
@@ -1249,6 +1269,13 @@ TopFrame::~TopFrame()
     m_btnTogTune->Disconnect(wxEVT_COMMAND_TOGGLEBUTTON_CLICKED, wxCommandEventHandler(TopFrame::OnTogBtnTune), NULL, this);
 }
 
+void TopFrame::SetDisplayVisibilityChecked(DisplayId id, bool visible)
+{
+    const auto index = static_cast<std::size_t>(id);
+    wxCHECK_RET(index < displayVisibilityChecks_.size(), "Invalid display identifier");
+    displayVisibilityChecks_[index]->SetValue(visible);
+}
+
 void TopFrame::SetIndependentControlPresentation(bool independent)
 {
     if (independentControls_ == independent)
@@ -1291,6 +1318,7 @@ void TopFrame::SetIndependentControlPresentation(bool independent)
     }
 
     controlHeading_->Show(independent);
+    displayVisibilitySizer_->ShowItems(independent);
     independentControls_ = independent;
     m_panel->SetSizer(independent ? independentSizer_ : notebookSizer_, false);
     m_panel->SetMinSize(independent ? wxDefaultSize : notebookPanelMinimumSize_);
