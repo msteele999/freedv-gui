@@ -302,6 +302,8 @@ class MainFrame : public TopFrame
         MainFrame(wxWindow *parent);
         virtual ~MainFrame();
 
+        bool HasActiveDisplay() const { return displayWorkspace_.HasActiveDisplay(); }
+
         FilterDlg*              m_filterDialog;
         FreeDVReporterDialog*   m_reporterDialog;
         PlotSpectrum*           m_panelSpectrum;

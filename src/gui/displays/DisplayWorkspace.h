@@ -4,9 +4,13 @@
 
 #include <array>
 #include <cstddef>
+#include <functional>
+#include <vector>
+#include <wx/string.h>
 
 class wxAuiNotebook;
 class wxWindow;
+class DisplayFrame;
 
 // Stable identities, independent of notebook order and translated captions.
 enum class DisplayId
@@ -20,8 +24,8 @@ enum class DisplayId
     Count
 };
 
-// UI-thread-only, non-owning presentation controller. The notebook continues
-// to own all six controls. Registration does not add, move, or select pages.
+// UI-thread-only presentation controller. Controls belong to either the
+// notebook or a frame owned by MainFrame, never to this controller.
 class DisplayWorkspace
 {
 public:
@@ -39,9 +43,37 @@ public:
     // Preserve the existing RX-return repaint of every notebook page.
     void RefreshAll();
 
+    // Layout serialization stays with the application's existing version-
+    // specific implementation. The detached snapshot also serves config export.
+    void SetLayoutHandlers(std::function<wxString()> save,
+                           std::function<void(const wxString&)> restore);
+    wxString GetNotebookLayout() const;
+    bool SetIndependent(bool independent);
+    bool IsIndependent() const { return presentation_ == Presentation::Independent; }
+    bool HasActiveDisplay() const;
+    void FocusOperatingWindow();
+
 private:
+    enum class Presentation { Notebook, Independent };
+    struct Page
+    {
+        wxWindow* plot;
+        wxString caption;
+    };
+    bool ReturnToNotebook();
+    DisplayFrame* FrameFor(wxWindow* plot) const;
+
     wxAuiNotebook& notebook_;
     std::array<wxWindow*, static_cast<std::size_t>(DisplayId::Count)> plots_{};
+    std::array<DisplayFrame*, static_cast<std::size_t>(DisplayId::Count)> frames_{};
+    std::vector<Page> pages_;
+    std::function<wxString()> saveLayout_;
+    std::function<void(const wxString&)> restoreLayout_;
+    wxString layout_;
+    int selection_ = -1;
+    int micReturnPage_ = -1;
+    Presentation presentation_ = Presentation::Notebook;
+    bool switching_ = false;
 };
 
 #endif // FREEDV_DISPLAY_WORKSPACE_H

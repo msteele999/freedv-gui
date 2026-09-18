@@ -75,7 +75,10 @@ void clickTune(float frequency); // callback to pass new click freq
 //-------------------------------------------------------------------------
 void MainFrame::topFrame_OnSize( wxSizeEvent& event )
 {
-    m_auiNbookCtrl->Refresh();
+    if (displayWorkspace_.IsIndependent())
+        m_panel->Refresh();
+    else
+        m_auiNbookCtrl->Refresh();
     TopFrame::topFrame_OnSize(event);
 }
 
@@ -1091,7 +1094,7 @@ int MainApp::FilterEvent(wxEvent& event)
             PttKeyDown_ = true;
 
             // only use space to toggle PTT if we are running and no modal dialogs (like options) up
-            bool mainWindowActive = frame->IsActive();
+            bool mainWindowActive = frame->IsActive() || frame->HasActiveDisplay();
             bool reporterActiveButNotUpdatingTextMessage =
                 frame->m_reporterDialog != nullptr && frame->m_reporterDialog->IsActive() &&
                 !frame->m_reporterDialog->isTextMessageFieldInFocus();
@@ -1137,7 +1140,7 @@ int MainApp::FilterEvent(wxEvent& event)
         {
             PttKeyDown_ = false;
 
-            bool mainWindowActive = frame->IsActive();
+            bool mainWindowActive = frame->IsActive() || frame->HasActiveDisplay();
             bool reporterActiveButNotUpdatingTextMessage =
                 frame->m_reporterDialog != nullptr && frame->m_reporterDialog->IsActive() &&
                 !frame->m_reporterDialog->isTextMessageFieldInFocus();
@@ -1766,7 +1769,7 @@ void MainFrame::OnTogBtnTune(wxCommandEvent&)
 
     // Make sure focus on Tune button is actually cleared once tune state is switched.
     // Seems to be a common problem on some Linux systems for some reason.
-    m_auiNbookCtrl->SetFocus();
+    displayWorkspace_.FocusOperatingWindow();
 }
 
 HamlibRigController::Mode MainFrame::getCurrentMode_()

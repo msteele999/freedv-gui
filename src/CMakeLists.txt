@@ -4,6 +4,7 @@ set(FREEDV_SOURCES
     main.cpp
     topFrame.cpp
     gui/displays/DisplayWorkspace.cpp
+    gui/displays/DisplayFrame.cpp
     sox_biquad.c
     util.cpp
     eq.cpp

@@ -903,6 +903,12 @@ int MainApp::OnExit()
 //-------------------------------------------------------------------------
 void MainFrame::loadConfiguration_()
 {
+    // Existing layout restoration requires the plots to be in the notebook.
+    if (!displayWorkspace_.SetIndependent(false))
+    {
+        wxMessageBox("Could not return all displays to the notebook.", "Displays", wxOK | wxICON_ERROR, this);
+        return;
+    }
     wxGetApp().appConfiguration.load(pConfig);
     
     // restore frame position and size
@@ -1345,6 +1351,24 @@ MainFrame::MainFrame(wxWindow *parent) : TopFrame(parent, wxID_ANY, _("FreeDV ")
     displayWorkspace_.RegisterDisplay(DisplayId::FrmDecoder, *m_panelSpeechOut);
     displayWorkspace_.RegisterDisplay(DisplayId::SNR, *m_panelSNR);
 
+    displayWorkspace_.SetLayoutHandlers([this]() -> wxString {
+#if wxCHECK_VERSION(3, 3, 0)
+        TabLayoutSerializer serializer;
+        m_auiNbookCtrl->SaveLayout("notebook", serializer);
+        return serializer.GetLayout();
+#else
+        return static_cast<TabFreeAuiNotebook*>(m_auiNbookCtrl)->SavePerspective();
+#endif
+    }, [this](const wxString& layout) {
+#if wxCHECK_VERSION(3, 3, 0)
+        TabLayoutDeserializer deserializer(layout);
+        m_auiNbookCtrl->LoadLayout("notebook", deserializer);
+#else
+        static_cast<TabFreeAuiNotebook*>(m_auiNbookCtrl)->LoadPerspective(layout);
+#endif
+        const_cast<wxAuiManager&>(m_auiNbookCtrl->GetAuiManager()).Update();
+    });
+
     m_togBtnOnOff->Connect(wxEVT_UPDATE_UI, wxUpdateUIEventHandler(MainFrame::OnTogBtnOnOffUI), NULL, this);
     m_togBtnAnalog->Connect(wxEVT_UPDATE_UI, wxUpdateUIEventHandler(MainFrame::OnTogBtnAnalogClickUI), NULL, this);
     m_btnTogPTT->Bind(wxEVT_LEFT_DOWN, &MainFrame::OnTogBtnPTTMouseDown, this);
@@ -1548,6 +1572,22 @@ MainFrame::MainFrame(wxWindow *parent) : TopFrame(parent, wxID_ANY, _("FreeDV ")
         });
     }
 
+    // Temporary command for testing display transfers.
+    auto* displayTestItem = tools->AppendCheckItem(wxID_ANY, _("Independent displays (test)"));
+    const auto canSwitchDisplays = [this]() {
+        return !terminating_ && !txChangeoverOccurring_ &&
+            !m_btnTogPTT->GetValue() && !g_recVoiceKeyerFile && vk_state == VK_IDLE;
+    };
+    Bind(wxEVT_MENU, [this, canSwitchDisplays](wxCommandEvent& event) {
+        if (canSwitchDisplays() && !displayWorkspace_.SetIndependent(event.IsChecked()))
+            wxMessageBox("Display transfer failed. Retry returning to the notebook.",
+                         "Displays", wxOK | wxICON_ERROR, this);
+    }, displayTestItem->GetId());
+    Bind(wxEVT_UPDATE_UI, [this, canSwitchDisplays](wxUpdateUIEvent& event) {
+        event.Enable(canSwitchDisplays());
+        event.Check(displayWorkspace_.IsIndependent());
+    }, displayTestItem->GetId());
+
     wxGetApp().appConfiguration.firstTimeUse = false;
 
     //#define FTEST
@@ -1671,13 +1711,7 @@ void MainFrame::exportConfiguration_(wxConfigBase* config)
 
     if (tabLayoutPersistenceEnabledAtStartup_)
     {
-#if wxCHECK_VERSION(3, 3, 0)
-        TabLayoutSerializer serializer;
-        m_auiNbookCtrl->SaveLayout("notebook", serializer);
-        wxGetApp().appConfiguration.tabLayout = serializer.GetLayout();
-#else
-        wxGetApp().appConfiguration.tabLayout = ((TabFreeAuiNotebook*)m_auiNbookCtrl)->SavePerspective();
-#endif // wxCHECK_VERSION(3, 3, 0)
+        wxGetApp().appConfiguration.tabLayout = displayWorkspace_.GetNotebookLayout();
     }
 
 
@@ -3131,7 +3165,7 @@ void MainFrame::OnTogBtnOnOff(wxCommandEvent&)
                 // focus after clicking on Start. This causes the frequency
                 // to never update. To avoid this, we force focus to be elsewhere
                 // in the window.
-                m_auiNbookCtrl->SetFocus();
+                displayWorkspace_.FocusOperatingWindow();
             });
         });
         onOffExec.detach();
