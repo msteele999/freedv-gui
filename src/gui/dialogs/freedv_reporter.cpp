@@ -30,6 +30,7 @@
 #include <wx/numdlg.h>
 #include <wx/textdlg.h>
 #include "../controls/MsgListPopup.h"
+#include "../theme/FreeDVTheme.h"
 #include "../util/FrequencyOps.h"
 #include "../util/WindowPositionRestore.h"
 
@@ -214,6 +215,8 @@ FreeDVReporterDialog::FreeDVReporterDialog(wxWindow* parent, wxWindowID id, cons
     {
         SetTitle(wxString::Format("%s (%s)", _("FreeDV Reporter"), wxGetApp().customConfigFileName));
     }
+
+    FreeDVTheme::ApplyWindowSurface(*this);
 
     // Create top-level of control hierarchy.
     wxFlexGridSizer* sectionSizer = new wxFlexGridSizer(2, 1, 0, 0);

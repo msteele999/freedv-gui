@@ -58,6 +58,7 @@
 #include "gui/dialogs/dlg_filter.h"
 #include "gui/dialogs/dlg_easy_setup.h"
 #include "gui/dialogs/freedv_reporter.h"
+#include "gui/theme/FreeDVTheme.h"
 #include "gui/util/WindowPositionRestore.h"
 #include "gui/util/TabLayoutSerializer.h"
 
@@ -579,6 +580,7 @@ void MainApp::UnitTest_()
 void MainApp::OnInitCmdLine(wxCmdLineParser& parser)
 {
     wxApp::OnInitCmdLine(parser);
+    parser.AddSwitch(wxEmptyString, "dark-mode", "Use the dark theme for this session.");
     parser.AddOption("f", "config", "Use different configuration file instead of the default.");
     parser.AddOption("ut", "unit_test", "Execute FreeDV in unit test mode.");
     parser.AddOption("utmode", wxEmptyString, "Switch FreeDV to the given mode before UT execution.");
@@ -606,6 +608,8 @@ bool MainApp::OnCmdLineParsed(wxCmdLineParser& parser)
     {
         return false;
     }
+
+    FreeDVTheme::SetDarkModeEnabled(parser.Found("dark-mode"));
 
     wxString configPath;
     if (parser.Found("f", &configPath))
@@ -1333,6 +1337,13 @@ MainFrame::MainFrame(wxWindow *parent) : TopFrame(parent, wxID_ANY, _("FreeDV ")
     // Add SNR window
     m_panelSNR = new PlotScalar(m_auiNbookCtrl, SNR_PLOT_SECONDS, DT, NO_SNR_VAL, MAX_SNR_VAL, SNR_PLOT_SECONDS / SNR_PLOT_SECOND_SEGMENTS, 5, "%.0f", 0, "", true, NO_SNR_VAL, false);
     m_auiNbookCtrl->AddPage(m_panelSNR, _("SNR"), false, wxNullBitmap);
+
+    displayWorkspace_.RegisterDisplay(DisplayId::Waterfall, *m_panelWaterfall);
+    displayWorkspace_.RegisterDisplay(DisplayId::Spectrum, *m_panelSpectrum);
+    displayWorkspace_.RegisterDisplay(DisplayId::FrmRadio, *m_panelDemodIn);
+    displayWorkspace_.RegisterDisplay(DisplayId::FrmMic, *m_panelSpeechIn);
+    displayWorkspace_.RegisterDisplay(DisplayId::FrmDecoder, *m_panelSpeechOut);
+    displayWorkspace_.RegisterDisplay(DisplayId::SNR, *m_panelSNR);
 
     m_togBtnOnOff->Connect(wxEVT_UPDATE_UI, wxUpdateUIEventHandler(MainFrame::OnTogBtnOnOffUI), NULL, this);
     m_togBtnAnalog->Connect(wxEVT_UPDATE_UI, wxUpdateUIEventHandler(MainFrame::OnTogBtnAnalogClickUI), NULL, this);

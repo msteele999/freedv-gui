@@ -29,6 +29,7 @@
 #include <wx/numformatter.h>
 
 #include "topFrame.h"
+#include "gui/theme/FreeDVTheme.h"
 
 #if !wxCHECK_VERSION(3, 3, 0)
 #include <set>
@@ -528,6 +529,9 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
     this->SetMenuBar(m_menubarMain);
 
     m_panel = new wxPanel(this);
+
+    FreeDVTheme::ApplyWindowSurface(*this);
+    FreeDVTheme::ApplyWindowSurface(*m_panel);
 
     wxBoxSizer* bSizer1;
     bSizer1 = new wxBoxSizer(wxHORIZONTAL);

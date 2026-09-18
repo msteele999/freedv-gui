@@ -3,6 +3,7 @@ set(WARNINGS_AS_ERRORS_FLAGS -Wall -Wextra -Werror -Wno-null-pointer-subtraction
 set(FREEDV_SOURCES
     main.cpp
     topFrame.cpp
+    gui/displays/DisplayWorkspace.cpp
     sox_biquad.c
     util.cpp
     eq.cpp
