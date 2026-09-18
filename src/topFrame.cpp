@@ -924,7 +924,10 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
 
     rightSizer->Add(sbSizer5, 0, static_cast<int>(wxALL)|static_cast<int>(wxEXPAND), 2);
 
-    bSizer1->Add(rightSizer, 0, static_cast<int>(wxALL)|static_cast<int>(wxEXPAND), 3);
+    auto* rightOuterSizer = new wxBoxSizer(wxVERTICAL);
+    rightOuterSizer->Add(rightSizer, 1, wxEXPAND);
+    rightOuterSizer->Add(CreateWorkspaceSelector(0), 0, wxALIGN_RIGHT | wxALL, 2);
+    bSizer1->Add(rightOuterSizer, 0, static_cast<int>(wxALL)|static_cast<int>(wxEXPAND), 3);
     
     notebookSizer_ = bSizer1;
     independentSizer_ = new wxBoxSizer(wxVERTICAL);
@@ -965,6 +968,8 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
     }
     displayVisibilitySizer_->Add(displaySelectors, 0, wxALL, 3);
     supporting->Add(displayVisibilitySizer_, 1, wxEXPAND | wxALL, 2);
+    supporting->Add(CreateWorkspaceSelector(1), 0, wxEXPAND | wxALL, 2);
+    workspaceSelectors_[1].sizer->ShowItems(false);
     independentSizer_->Add(supporting, 0, wxEXPAND | wxALL, 3);
     displayVisibilitySizer_->ShowItems(false);
 
@@ -1269,6 +1274,28 @@ TopFrame::~TopFrame()
     m_btnTogTune->Disconnect(wxEVT_COMMAND_TOGGLEBUTTON_CLICKED, wxCommandEventHandler(TopFrame::OnTogBtnTune), NULL, this);
 }
 
+wxStaticBoxSizer* TopFrame::CreateWorkspaceSelector(std::size_t index)
+{
+    auto& selector = workspaceSelectors_[index];
+    selector.sizer = new wxStaticBoxSizer(wxVERTICAL, m_panel, _("Workspace"));
+    for (bool independent : {false, true})
+    {
+        auto* button = new wxRadioButton(selector.sizer->GetStaticBox(), wxID_ANY,
+            independent ? _("Independent") : _("Notebook"), wxDefaultPosition,
+            wxDefaultSize, independent ? 0 : wxRB_GROUP);
+        if (independent)
+            selector.independent = button;
+        else
+            selector.notebook = button;
+        selector.sizer->Add(button, 0, wxALL, 2);
+        button->Bind(wxEVT_RADIOBUTTON, [this, independent](wxCommandEvent&) {
+            OnWorkspaceRequest(independent);
+        });
+    }
+    selector.notebook->SetValue(true);
+    return selector.sizer;
+}
+
 void TopFrame::SetDisplayVisibilityChecked(DisplayId id, bool visible)
 {
     const auto index = static_cast<std::size_t>(id);
@@ -1278,6 +1305,11 @@ void TopFrame::SetDisplayVisibilityChecked(DisplayId id, bool visible)
 
 void TopFrame::SetIndependentControlPresentation(bool independent)
 {
+    for (const auto& selector : workspaceSelectors_)
+    {
+        selector.notebook->SetValue(!independent);
+        selector.independent->SetValue(independent);
+    }
     if (independentControls_ == independent)
         return;
 
@@ -1318,6 +1350,8 @@ void TopFrame::SetIndependentControlPresentation(bool independent)
     }
 
     controlHeading_->Show(independent);
+    workspaceSelectors_[0].sizer->ShowItems(!independent);
+    workspaceSelectors_[1].sizer->ShowItems(independent);
     displayVisibilitySizer_->ShowItems(independent);
     independentControls_ = independent;
     m_panel->SetSizer(independent ? independentSizer_ : notebookSizer_, false);

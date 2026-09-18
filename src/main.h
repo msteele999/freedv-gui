@@ -643,6 +643,8 @@ class MainFrame : public TopFrame
 
         DisplayWorkspace displayWorkspace_{*m_auiNbookCtrl};
         void OnDisplayVisibilityRequest(DisplayId id, bool visible) override;
+        void OnWorkspaceRequest(bool independent) override;
+        bool canSwitchWorkspace_() const;
         void updateDisplayVisibilityControls_();
         void captureWorkspace_();
         bool switchWorkspace_(bool independent, bool captureCurrent = true);

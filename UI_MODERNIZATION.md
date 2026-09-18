@@ -41,8 +41,13 @@ transition. Closing a detached frame hides it without destroying its plot.
 
 Each display can be moved, resized, shown, and hidden independently. The
 Independent Control Displays checkboxes reflect user-selected visibility;
-closing a frame unchecks its selector without destroying the plot. The mode
-switch remains Tools > Independent displays (test).
+closing a frame unchecks its selector without destroying the plot. Select the
+workspace using the checkable Tools > Independent Windows item or the Workspace
+radio buttons (Notebook / Independent). Notebook places Workspace above the left
+status groups; Independent Control places it beside Displays in the lower
+supporting area. All selectors reflect the active workspace and use the same
+transition path. They are disabled during transmission/changeover, Voice Keyer
+operation or recording, and application shutdown.
 
 Workspace persistence restores the last active presentation. With no saved
 Independent visibility, entry shows only Waterfall. Once Independent visibility

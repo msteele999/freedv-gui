@@ -167,9 +167,19 @@ class TopFrame : public wxFrame
         void SetIndependentControlPresentation(bool independent);
         void SetDisplayVisibilityChecked(DisplayId id, bool visible);
         virtual void OnDisplayVisibilityRequest(DisplayId, bool) {}
+        virtual void OnWorkspaceRequest(bool) {}
 
     private:
         void UpdateControlMinimumSize();
+        wxStaticBoxSizer* CreateWorkspaceSelector(std::size_t index);
+
+        struct WorkspaceSelector
+        {
+            wxStaticBoxSizer* sizer;
+            wxRadioButton* notebook;
+            wxRadioButton* independent;
+        };
+        std::array<WorkspaceSelector, 2> workspaceSelectors_{};
 
         struct ControlGroup
         {

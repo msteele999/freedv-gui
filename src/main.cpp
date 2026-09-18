@@ -1574,23 +1574,14 @@ MainFrame::MainFrame(wxWindow *parent) : TopFrame(parent, wxID_ANY, _("FreeDV ")
         updateDisplayVisibilityControls_();
     });
 
-    // Temporary command for testing display transfers.
-    auto* displayTestItem = tools->AppendCheckItem(wxID_ANY, _("Independent displays (test)"));
-    const auto canSwitchDisplays = [this]() {
-        return !terminating_ && !txChangeoverOccurring_ &&
-            !m_btnTogPTT->GetValue() && !g_recVoiceKeyerFile && vk_state == VK_IDLE;
-    };
-    Bind(wxEVT_MENU, [this, canSwitchDisplays](wxCommandEvent& event) {
-        if (canSwitchDisplays() && !switchWorkspace_(event.IsChecked()))
-            wxMessageBox("Display transfer failed. Retry returning to the notebook.",
-                         "Displays", wxOK | wxICON_ERROR, this);
-        SetIndependentControlPresentation(displayWorkspace_.IsIndependent());
-        updateDisplayVisibilityControls_();
-    }, displayTestItem->GetId());
-    Bind(wxEVT_UPDATE_UI, [this, canSwitchDisplays](wxUpdateUIEvent& event) {
-        event.Enable(canSwitchDisplays());
+    auto* independentWindowsItem = tools->AppendCheckItem(wxID_ANY, _("Independent Windows"));
+    Bind(wxEVT_MENU, [this](wxCommandEvent& event) {
+        OnWorkspaceRequest(event.IsChecked());
+    }, independentWindowsItem->GetId());
+    Bind(wxEVT_UPDATE_UI, [this](wxUpdateUIEvent& event) {
+        event.Enable(canSwitchWorkspace_());
         event.Check(displayWorkspace_.IsIndependent());
-    }, displayTestItem->GetId());
+    }, independentWindowsItem->GetId());
 
     wxGetApp().appConfiguration.firstTimeUse = false;
 
@@ -1821,6 +1812,21 @@ bool MainFrame::switchWorkspace_(bool independent, bool captureCurrent)
     }
     updateDisplayVisibilityControls_();
     return true;
+}
+
+bool MainFrame::canSwitchWorkspace_() const
+{
+    return !terminating_ && !txChangeoverOccurring_ &&
+        !m_btnTogPTT->GetValue() && !g_recVoiceKeyerFile && vk_state == VK_IDLE;
+}
+
+void MainFrame::OnWorkspaceRequest(bool independent)
+{
+    if (canSwitchWorkspace_() && !switchWorkspace_(independent))
+        wxMessageBox("Display transfer failed. Retry returning to the notebook.",
+                     "Displays", wxOK | wxICON_ERROR, this);
+    SetIndependentControlPresentation(displayWorkspace_.IsIndependent());
+    updateDisplayVisibilityControls_();
 }
 
 void MainFrame::OnDisplayVisibilityRequest(DisplayId id, bool visible)
