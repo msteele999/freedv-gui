@@ -58,6 +58,7 @@
 #include <wx/listctrl.h>
 #include <wx/collpane.h>
 #include <wx/combo.h>
+#include <vector>
 
 #include "gui/util/wxListViewComboPopup.h"
 
@@ -160,6 +161,34 @@ class TopFrame : public wxFrame
         wxMenuItem* m_menuItemImportConfig;
 
         wxToggleButton *m_reporterHidden;
+
+        void SetIndependentControlPresentation(bool independent);
+
+    private:
+        void UpdateControlMinimumSize();
+
+        struct ControlGroup
+        {
+            wxSizer* sizer;
+            wxSizer* notebookParent;
+            wxSizer* independentParent;
+            int independentOrder;
+            int proportion;
+            int flags;
+            int border;
+        };
+        std::vector<ControlGroup> controlGroups_;
+        wxSizer* notebookSizer_ = nullptr;
+        wxSizer* independentSizer_ = nullptr;
+        wxStaticText* controlHeading_ = nullptr;
+        wxBoxSizer* callsignSizer_ = nullptr;
+        wxStaticBoxSizer* statsSizer_ = nullptr;
+        wxFlexGridSizer* statsFieldsSizer_ = nullptr;
+        wxSize notebookMinimumSize_;
+        wxSize notebookPanelMinimumSize_;
+        bool independentControls_ = false;
+
+    protected:
     
         // Virtual event handlers, override them in your derived class
         virtual void OnActivateWindow(wxActivateEvent& event) { event.Skip(); }

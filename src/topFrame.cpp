@@ -20,6 +20,7 @@
 //
 //==========================================================================
 
+#include <algorithm>
 #include <map>
 #include <set>
 
@@ -649,27 +650,31 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
     wxStaticBoxSizer* sbSizer_ber;
     statsBox = new wxStaticBox(m_panel, wxID_ANY, _("Stats"), wxDefaultPosition, wxSize(100,-1));
     sbSizer_ber = new wxStaticBoxSizer(statsBox, wxVERTICAL);
+    statsSizer_ = sbSizer_ber;
+    statsFieldsSizer_ = new wxFlexGridSizer(1);
 
     m_BtnBerReset = new wxButton(statsBox, wxID_ANY, _("&Reset"), wxDefaultPosition, wxDefaultSize, 0);
     sbSizer_ber->Add(m_BtnBerReset, 0, wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL|static_cast<int>(wxALL), 5);
 
     m_textBits = new wxStaticText(statsBox, wxID_ANY, wxT("Bits: 0"), wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
-    sbSizer_ber->Add(m_textBits, 0, static_cast<int>(wxALL) | wxALIGN_LEFT, 1);
+    statsFieldsSizer_->Add(m_textBits, 0, static_cast<int>(wxALL) | wxALIGN_LEFT, 1);
     m_textErrors = new wxStaticText(statsBox, wxID_ANY, wxT("Errs: 0"), wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
-    sbSizer_ber->Add(m_textErrors, 0, static_cast<int>(wxALL) | wxALIGN_LEFT, 1);
+    statsFieldsSizer_->Add(m_textErrors, 0, static_cast<int>(wxALL) | wxALIGN_LEFT, 1);
     m_textBER = new wxStaticText(statsBox, wxID_ANY, wxT("BER: 0.0"), wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
-    sbSizer_ber->Add(m_textBER, 0, static_cast<int>(wxALL) | wxALIGN_LEFT, 1);
+    statsFieldsSizer_->Add(m_textBER, 0, static_cast<int>(wxALL) | wxALIGN_LEFT, 1);
     m_textResyncs = new wxStaticText(statsBox, wxID_ANY, wxT("Resyncs: 0"), wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
-    sbSizer_ber->Add(m_textResyncs, 0, static_cast<int>(wxALL) | wxALIGN_LEFT, 1);
+    statsFieldsSizer_->Add(m_textResyncs, 0, static_cast<int>(wxALL) | wxALIGN_LEFT, 1);
     m_textClockOffset = new wxStaticText(statsBox, wxID_ANY, wxT("ClkOff: 0"), wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
     m_textClockOffset->SetMinSize(wxSize(125,-1));
-    sbSizer_ber->Add(m_textClockOffset, 0, static_cast<int>(wxALL) | wxALIGN_LEFT, 1);
+    statsFieldsSizer_->Add(m_textClockOffset, 0, static_cast<int>(wxALL) | wxALIGN_LEFT, 1);
     m_textFreqOffset = new wxStaticText(statsBox, wxID_ANY, wxT("FreqOff: 0"), wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
-    sbSizer_ber->Add(m_textFreqOffset, 0, static_cast<int>(wxALL) | wxALIGN_LEFT, 1);
+    statsFieldsSizer_->Add(m_textFreqOffset, 0, static_cast<int>(wxALL) | wxALIGN_LEFT, 1);
     m_textSyncMetric = new wxStaticText(statsBox, wxID_ANY, wxT("Sync: 0"), wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
-    sbSizer_ber->Add(m_textSyncMetric, 0, static_cast<int>(wxALL) | wxALIGN_LEFT, 1);
+    statsFieldsSizer_->Add(m_textSyncMetric, 0, static_cast<int>(wxALL) | wxALIGN_LEFT, 1);
     m_textCodec2Var = new wxStaticText(statsBox, wxID_ANY, wxT("Var: 0"), wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
-    sbSizer_ber->Add(m_textCodec2Var, 0, static_cast<int>(wxALL) | wxALIGN_LEFT, 1);
+    statsFieldsSizer_->Add(m_textCodec2Var, 0, static_cast<int>(wxALL) | wxALIGN_LEFT, 1);
+
+    sbSizer_ber->Add(statsFieldsSizer_, 0, wxEXPAND);
 
     leftSizer->Add(sbSizer_ber,0, static_cast<int>(wxALL)|static_cast<int>(wxEXPAND)|wxFIXED_MINSIZE, 2);
 
@@ -719,6 +724,7 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
 
     wxBoxSizer* bSizer15;
     bSizer15 = new wxBoxSizer(wxVERTICAL);
+    callsignSizer_ = bSizer15;
     m_txtCtrlCallSign = new wxTextCtrl(m_panel, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxTE_READONLY);
     m_txtCtrlCallSign->SetToolTip(_("Call Sign of transmitting station will appear here"));
     m_txtCtrlCallSign->SetSizeHints(wxSize(100,-1));
@@ -920,7 +926,55 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
 
     bSizer1->Add(rightSizer, 0, static_cast<int>(wxALL)|static_cast<int>(wxEXPAND), 3);
     
+    notebookSizer_ = bSizer1;
+    independentSizer_ = new wxBoxSizer(wxVERTICAL);
+    controlHeading_ = new wxStaticText(m_panel, wxID_ANY, _("FreeDV Control"));
+    controlHeading_->Hide();
+
+    auto* columns = new wxBoxSizer(wxHORIZONTAL);
+    auto* receive = new wxBoxSizer(wxVERTICAL);
+    auto* radioAudio = new wxBoxSizer(wxVERTICAL);
+    auto* statistics = new wxBoxSizer(wxVERTICAL);
+    auto* control = new wxBoxSizer(wxVERTICAL);
+    receive->Add(controlHeading_, 0, wxALL, 5);
+    columns->Add(receive, 5, wxEXPAND | wxALL, 3);
+    columns->Add(radioAudio, 6, wxEXPAND | wxALL, 3);
+    columns->Add(statistics, 5, wxEXPAND | wxALL, 3);
+    columns->Add(control, 5, wxEXPAND | wxALL, 3);
+    independentSizer_->Add(columns, 1, wxEXPAND);
+
+    auto* received = new wxBoxSizer(wxVERTICAL);
+    independentSizer_->Add(received, 0, wxEXPAND | wxALL, 3);
+    auto* operations = new wxBoxSizer(wxHORIZONTAL);
+    independentSizer_->Add(operations, 0, wxEXPAND | wxALL, 3);
+
+    // Keep each group's windows and event connections intact. Only its owning
+    // sizer changes; the notebook's empty layout remains available for return.
+    auto shareGroup = [this](wxSizer* group, wxSizer* notebookParent, wxSizer* independentParent, int independentOrder) {
+        auto* item = notebookParent->GetItem(group);
+        controlGroups_.push_back({group, notebookParent, independentParent, independentOrder,
+                                  item->GetProportion(), item->GetFlag(), item->GetBorder()});
+    };
+    shareGroup(snrSizer, leftSizer, receive, 0);
+    shareGroup(levelSizer, leftSizer, receive, 1);
+    shareGroup(sbSizer3_33, leftSizer, receive, 2);
+    shareGroup(sbSizerAudioRecordPlay, leftSizer, operations, 0);
+    shareGroup(sbSizerLogging, leftSizer, operations, 1);
+    shareGroup(sbSizerReporterBox, leftSizer, operations, 2);
+    shareGroup(sbSizer_ber, leftSizer, statistics, 0);
+    shareGroup(sbSizer3, rightSizer, radioAudio, 4);
+    shareGroup(txLevelSizer, rightSizer, radioAudio, 0);
+    shareGroup(micSpeakerLevelSizer, rightSizer, radioAudio, 1);
+    shareGroup(reportFrequencySizer, rightSizer, radioAudio, 2);
+    shareGroup(sbSizer_mode, rightSizer, radioAudio, 3);
+    shareGroup(sbSizer5, rightSizer, control, 0);
+    shareGroup(lowerSizer, centerSizer, received, 0);
+
     m_panel->SetSizerAndFit(bSizer1);
+    m_panel->Bind(wxEVT_UPDATE_UI, [this](wxUpdateUIEvent& event) {
+        UpdateControlMinimumSize();
+        event.Skip();
+    });
     this->Layout();
 
     m_statusBar1 = this->CreateStatusBar(1, wxSTB_DEFAULT_STYLE, wxID_ANY);
@@ -1088,6 +1142,8 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
 
 TopFrame::~TopFrame()
 {
+    delete (independentControls_ ? notebookSizer_ : independentSizer_);
+
     //-------------------
     // Disconnect Events
     //-------------------   
@@ -1191,6 +1247,89 @@ TopFrame::~TopFrame()
     m_reporterHidden->Disconnect(wxEVT_COMMAND_TOGGLEBUTTON_CLICKED, wxCommandEventHandler(TopFrame::OnToggleReporterVisibility), NULL, this);
 
     m_btnTogTune->Disconnect(wxEVT_COMMAND_TOGGLEBUTTON_CLICKED, wxCommandEventHandler(TopFrame::OnTogBtnTune), NULL, this);
+}
+
+void TopFrame::SetIndependentControlPresentation(bool independent)
+{
+    if (independentControls_ == independent)
+        return;
+
+    Freeze();
+    if (independent)
+    {
+        notebookMinimumSize_ = GetMinSize();
+        notebookPanelMinimumSize_ = m_panel->GetMinSize();
+    }
+
+    callsignSizer_->SetOrientation(independent ? wxHORIZONTAL : wxVERTICAL);
+    sbSizer_mode->SetOrientation(independent ? wxHORIZONTAL : wxVERTICAL);
+    statsFieldsSizer_->SetVGap(independent ? FromDIP(4) : 0);
+    m_cboReportFrequency->GetContainingSizer()->GetItem(m_cboReportFrequency)->SetFlag(
+        independent ? wxALL | wxEXPAND : wxALL);
+    const int levelFlags = independent ? static_cast<int>(wxEXPAND) : static_cast<int>(wxALIGN_CENTER_HORIZONTAL);
+    m_gaugeSNR->GetContainingSizer()->GetItem(m_gaugeSNR)->SetFlag(
+        wxALL | levelFlags);
+    m_sliderMicSpkrLevel->GetContainingSizer()->GetItem(m_sliderMicSpkrLevel)->SetFlag(levelFlags);
+    m_sliderSQ->GetContainingSizer()->GetItem(m_sliderSQ)->SetFlag(levelFlags);
+
+    // Retain the registration order for restoring the notebook's sizers.
+    auto groups = controlGroups_;
+    if (independent)
+        std::stable_sort(groups.begin(), groups.end(), [](const ControlGroup& lhs, const ControlGroup& rhs) {
+            return lhs.independentOrder < rhs.independentOrder;
+        });
+
+    for (const auto& group : groups)
+    {
+        auto* source = independent ? group.notebookParent : group.independentParent;
+        auto* destination = independent ? group.independentParent : group.notebookParent;
+        source->Detach(group.sizer);
+        if (independent)
+            destination->Add(group.sizer, group.sizer == statsSizer_ ? 1 : 0, wxEXPAND | wxALL, 2);
+        else
+            destination->Add(group.sizer, group.proportion, group.flags, group.border);
+    }
+
+    controlHeading_->Show(independent);
+    independentControls_ = independent;
+    m_panel->SetSizer(independent ? independentSizer_ : notebookSizer_, false);
+    m_panel->SetMinSize(independent ? wxDefaultSize : notebookPanelMinimumSize_);
+    SetMinSize(independent ? wxDefaultSize : notebookMinimumSize_);
+    if (independent)
+    {
+        UpdateControlMinimumSize();
+        if (!IsMaximized())
+            SetSize(GetMinSize());
+    }
+    else
+    {
+        // A compact control window needs room for the restored notebook.
+        wxSize minimum = ClientToWindowSize(notebookSizer_->GetMinSize());
+        minimum.IncTo(GetSize());
+        SetSize(minimum);
+    }
+    Layout();
+    m_panel->Layout();
+    Thaw();
+    m_panel->Refresh();
+}
+
+void TopFrame::UpdateControlMinimumSize()
+{
+    if (!independentControls_)
+        return;
+
+    // Conditional groups and the Voice Keyer filename can change the minimum.
+    wxSize minimum = ClientToWindowSize(independentSizer_->GetMinSize());
+    if (minimum != GetMinSize())
+    {
+        SetMinSize(minimum);
+        wxSize size = GetSize();
+        size.IncTo(minimum);
+        if (size != GetSize())
+            SetSize(size);
+        m_panel->Layout();
+    }
 }
 
 void TopFrame::setVoiceKeyerButtonLabel_(wxString filename)

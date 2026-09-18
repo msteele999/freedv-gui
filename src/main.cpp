@@ -909,6 +909,7 @@ void MainFrame::loadConfiguration_()
         wxMessageBox("Could not return all displays to the notebook.", "Displays", wxOK | wxICON_ERROR, this);
         return;
     }
+    SetIndependentControlPresentation(false);
     wxGetApp().appConfiguration.load(pConfig);
     
     // restore frame position and size
@@ -1582,6 +1583,7 @@ MainFrame::MainFrame(wxWindow *parent) : TopFrame(parent, wxID_ANY, _("FreeDV ")
         if (canSwitchDisplays() && !displayWorkspace_.SetIndependent(event.IsChecked()))
             wxMessageBox("Display transfer failed. Retry returning to the notebook.",
                          "Displays", wxOK | wxICON_ERROR, this);
+        SetIndependentControlPresentation(displayWorkspace_.IsIndependent());
     }, displayTestItem->GetId());
     Bind(wxEVT_UPDATE_UI, [this, canSwitchDisplays](wxUpdateUIEvent& event) {
         event.Enable(canSwitchDisplays());
