@@ -27,7 +27,8 @@ bool DisplayWorkspace::IsDisplayVisible(DisplayId id) const
 {
     const auto index = static_cast<std::size_t>(id);
     wxCHECK_MSG(index < frames_.size(), false, "Invalid display identifier");
-    return IsIndependent() && frames_[index] != nullptr && frames_[index]->IsShown();
+    return IsIndependent() && !(id == DisplayId::FrmMic && micTransient_) &&
+        frames_[index] != nullptr && frames_[index]->IsShown();
 }
 
 void DisplayWorkspace::SetDisplayVisible(DisplayId id, bool visible)
@@ -38,6 +39,8 @@ void DisplayWorkspace::SetDisplayVisible(DisplayId id, bool visible)
         return;
     auto* frame = frames_[index];
     wxCHECK_RET(frame != nullptr, "Display frame not created");
+    if (id == DisplayId::FrmMic)
+        micTransient_ = false;
     if (frame->Show(visible) && visible)
         plots_[index]->Refresh();
     if (visibilityChanged_)
@@ -61,7 +64,17 @@ void DisplayWorkspace::ShowDisplay(DisplayId id)
 
     if (IsIndependent())
     {
-        // Operational requests leave independent-frame visibility unchanged.
+        if (id == DisplayId::FrmMic && !micOperationActive_)
+        {
+            auto* frame = frames_[index];
+            wxCHECK_RET(frame != nullptr, "Display frame not created");
+            micOperationActive_ = true;
+            if (!frame->IsShown())
+            {
+                micTransient_ = true;
+                frame->Show();
+            }
+        }
         plot->Refresh();
         return;
     }
@@ -110,6 +123,13 @@ void DisplayWorkspace::RestoreAfterMic(long page)
 {
     if (!IsIndependent())
         notebook_.ChangeSelection(page);
+    else
+    {
+        if (micTransient_)
+            frames_[static_cast<std::size_t>(DisplayId::FrmMic)]->Hide();
+        micTransient_ = false;
+        micOperationActive_ = false;
+    }
 }
 
 void DisplayWorkspace::RefreshAll()
@@ -276,6 +296,8 @@ bool DisplayWorkspace::ReturnToNotebook()
     if (selection_ >= 0 && selection_ < static_cast<int>(notebook_.GetPageCount()))
         notebook_.ChangeSelection(selection_);
     presentation_ = Presentation::Notebook;
+    micTransient_ = false;
+    micOperationActive_ = false;
     notebook_.GetParent()->Layout();
     notebook_.GetParent()->Refresh();
     RefreshAll();

@@ -36,6 +36,7 @@ public:
     void RegisterDisplay(DisplayId id, wxWindow& plot);
     void ShowDisplay(DisplayId id);
     void SetDisplayVisible(DisplayId id, bool visible);
+    // User-selected visibility, excluding temporary Frm Mic presentation.
     bool IsDisplayVisible(DisplayId id) const;
     void SetVisibilityChangedHandler(std::function<void()> handler);
 
@@ -82,6 +83,8 @@ private:
     int micReturnPage_ = -1;
     Presentation presentation_ = Presentation::Notebook;
     bool switching_ = false;
+    bool micOperationActive_ = false;
+    bool micTransient_ = false;
 };
 
 #endif // FREEDV_DISPLAY_WORKSPACE_H

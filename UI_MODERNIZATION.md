@@ -40,7 +40,7 @@ them. It retains notebook page order, selection, and layout for the return
 transition. Closing a detached frame hides it without destroying its plot.
 
 Each display can be moved, resized, shown, and hidden independently. The
-Independent Control Displays checkboxes reflect current frame visibility;
+Independent Control Displays checkboxes reflect user-selected visibility;
 closing a frame unchecks its selector without destroying the plot. The mode
 switch remains Tools > Independent displays (test).
 
@@ -49,6 +49,18 @@ Independent visibility, entry shows only Waterfall. Once Independent visibility
 has been captured and saved, entry restores the exact selection, including zero
 visible displays. These rules also apply to switching presentations within a
 session; Frm Mic operational requests do not alter user-selected visibility.
+
+In Independent mode, an operational Frm Mic request during PTT or Voice Keyer
+temporarily shows the existing frame if the user has it hidden. Its checkbox
+remains unchecked, and this transient presentation does not become persisted
+visibility. Frm Mic automatically hides when the operation ends. If it was already
+user-visible, it remains visible throughout and after the operation.
+
+Checking Frm Mic while it is transiently visible promotes it to normal
+user-selected visibility, so it remains visible afterward. X-closing transient
+Frm Mic keeps it hidden for the rest of that operation; the next operation may
+show it again. Notebook Frm Mic selection and return behavior, including split-group
+handling, remain unchanged.
 
 Independent mode uses a purpose-built **FreeDV Control** presentation for the
 non-display controls. `TopFrame` moves existing control-group sizers between the
@@ -139,6 +151,15 @@ Phase 4 was manually validated on Windows for:
   Control geometry, display positions and sizes, and visibility.
 - Normal modem/RX operation with live displays after the persistence changes.
 
+Independent Frm Mic transient presentation was manually validated on Windows for:
+
+- Temporary display during normal PTT and automatic hide on return to RX.
+- Promotion to persistent visibility by checking Frm Mic during TX.
+- X-close suppression for the remainder of that TX, followed by automatic display
+  on the next TX.
+- Already-visible Frm Mic remaining visible through TX/RX.
+- Transient presentation during Voice Keyer recording.
+
 A full Windows cross-compiled build also completed successfully. The runtime
 checks above are manual validation, not a claim of automated test coverage or
 equivalent validation on other platforms.
@@ -178,7 +199,8 @@ brought within an available work area. Actual positioning reuses
 
 Minimized or maximized windows retain their previously captured ordinary geometry
 rather than saving an iconized or maximized rectangle. Workspace switching and
-shutdown capture current visibility even when a display is hidden.
+shutdown capture user-selected visibility even when a display is hidden or Frm Mic
+is transiently shown.
 
 Phase 4 persistence has passed focused compilation, source-level checks, and the
 Windows runtime checks listed above. Recovery after physically disconnecting a
@@ -188,9 +210,8 @@ monitor and GTK/Wayland placement remain unvalidated.
 
 ### 1. Remaining workspace behavior
 
-Implement transient Frm Mic presentation during TX/Voice Keyer without changing
-persistent visibility unless the user explicitly selects it. A future vertical
-Control orientation should reuse the existing controls and persist its orientation.
+A future vertical Control orientation should reuse the existing controls and
+persist its orientation.
 
 ### 2. Persistence validation
 
@@ -215,7 +236,7 @@ semantic operational state colors throughout this work.
 ## Current known limitations
 
 Windows without saved geometry may initially use default or stacked placement.
-Docking/snapping, transient Independent Frm Mic presentation, and vertical Control
-orientation remain unimplemented. Physically missing/disconnected-monitor recovery
+Docking/snapping and vertical Control orientation remain unimplemented.
+Physically missing/disconnected-monitor recovery
 and GTK/Wayland placement have not been runtime-validated. Validation does not yet
 cover all supported desktop platforms.
