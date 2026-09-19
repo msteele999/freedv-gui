@@ -215,14 +215,41 @@ monitor and GTK/Wayland placement remain unvalidated.
 
 ### Phase 6 - Visual modernization
 
-The workspace architecture is mature enough for visual modernization to proceed.
-Develop dark mode, typography and font sizing, spacing, group treatment,
-button/control appearance, and visual hierarchy as a shared visual system for the
-main application and Reporter. Preserve semantic operational state colors and
-existing application behavior throughout this work.
+Visual modernization is in progress on top of the completed workspace
+architecture. Native wxWidgets appearance selection now provides coherent Light
+and Dark presentation for application windows and native controls. The selected
+appearance is persisted through the existing FreeDV configuration store, with
+Appearance selectors available in both Notebook and Independent Control
+presentations. The `--dark-mode` command-line option remains available as a
+session-only override.
 
-The existing theme foundation should remain the central source for visual tokens
-and platform-neutral styling. Prefer standard wxWidgets behavior where practical,
+Appearance changes take effect on the next launch rather than attempting live
+restyling. This keeps behavior consistent across supported platforms, including
+Windows where wxWidgets does not support changing application appearance after
+top-level windows have been created.
+
+The SNR and Level indicators now use a custom platform-neutral gauge. SNR uses a
+shared blue-green-red signal gradient and its presentation range is aligned with
+the existing SNR plot range of -10 through +35 dB. The Level indicator preserves
+its existing 0-100 peak-level behavior and uses the gradient midpoint green as a
+solid fill. Signal-gradient colors are centralized in the theme layer so future
+plot rendering can use the same visual scale without duplicating color values.
+These changes are presentation-only and do not alter DSP, audio-level, or modem
+behavior.
+
+Windows runtime testing has covered Light and Dark startup, persisted appearance
+selection, the command-line Dark override, workspace-specific selector placement,
+semantic transmit-state coloring, and the updated SNR and Level indicators. Full
+Windows cross-builds pass after these changes.
+
+Remaining Phase 6 work includes investigating shared gradient treatment for SNR
+and waveform plots, followed by typography and font sizing, spacing and group
+treatment, button/control appearance, visual hierarchy, and Reporter integration.
+Preserve semantic operational state colors and existing application behavior
+throughout this work.
+
+The existing theme foundation remains the central source for visual tokens and
+platform-neutral styling. Prefer standard wxWidgets behavior where practical,
 with narrowly scoped platform-specific treatment only when required for equivalent
 appearance or behavior.
 
