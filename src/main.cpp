@@ -723,8 +723,10 @@ bool MainApp::OnCmdLineParsed(wxCmdLineParser& parser)
     FreeDVTheme::SetSignalDisplayStyle(
         static_cast<FreeDVTheme::SignalDisplayStyle>(signalDisplayStyle));
 
+#if wxCHECK_VERSION(3, 3, 0)
     SetAppearance(darkModeEnabled ? wxApp::Appearance::Dark
                                   : wxApp::Appearance::Light);
+#endif
     
     if (parser.Found("ut", &testName))
     {
