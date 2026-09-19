@@ -38,6 +38,9 @@ void SetDarkModeEnabled(bool enabled);
 // supplies dark design values without changing system appearance or preferences.
 const Palette& GetPalette();
 
+// Shared blue-green-red signal scale. Position is clamped to 0.0-1.0.
+wxColour GetSignalGradientColour(double position);
+
 // Derive roles from the platform's default GUI font, preserving its face and
 // using point sizes rather than fixed pixels. Applying fonts is opt-in.
 wxFont GetFont(TypographyRole role);

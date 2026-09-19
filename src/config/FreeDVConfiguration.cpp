@@ -36,6 +36,8 @@ FreeDVConfiguration::FreeDVConfiguration()
     , mainWindowWidth("/MainFrame/width", 800)
     , mainWindowHeight("/MainFrame/height", 780)
 
+    , darkMode("/Appearance/DarkMode", false)
+
     , independentWorkspace("/Windows/Independent/active", false)
     , independentVisibilitySaved("/Windows/Independent/visibilitySaved", false)
     , independentWindowLeft("/Windows/Independent/Control/left", 20)
@@ -176,6 +178,8 @@ void FreeDVConfiguration::load(wxConfigBase* config)
     load_(config, mainWindowTop);
     load_(config, mainWindowWidth);
     load_(config, mainWindowHeight);
+
+    load_(config, darkMode);
 
     load_(config, independentWorkspace);
     load_(config, independentVisibilitySaved);
@@ -324,6 +328,8 @@ void FreeDVConfiguration::save(wxConfigBase* config)
     save_(config, mainWindowTop);
     save_(config, mainWindowWidth);
     save_(config, mainWindowHeight);
+
+    save_(config, darkMode);
 
     save_(config, independentWorkspace);
     save_(config, independentVisibilitySaved);

@@ -550,7 +550,7 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
     //------------------------------
     // S/N ratio Gauge (vert. bargraph)
     //------------------------------
-    m_gaugeSNR = new wxGauge(snrBox, wxID_ANY, 45, wxDefaultPosition, wxSize(135,15), wxGA_SMOOTH);
+    m_gaugeSNR = new LevelGauge(snrBox, wxID_ANY, 45, wxDefaultPosition, wxSize(135,15));
     m_gaugeSNR->SetToolTip(_("Displays signal to noise ratio in dB."));
     snrSizer->Add(m_gaugeSNR, 1, wxALIGN_CENTER_HORIZONTAL|static_cast<int>(wxALL), 10);
 
@@ -577,7 +577,8 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
     wxStaticBox* levelBox = new wxStaticBox(m_panel, wxID_ANY, _("Level"), wxDefaultPosition, wxSize(100,-1));
     levelSizer = new wxStaticBoxSizer(levelBox, wxHORIZONTAL);
 
-    m_gaugeLevel = new wxGauge(levelBox, wxID_ANY, 100, wxDefaultPosition, wxSize(135,15), wxGA_SMOOTH);
+    m_gaugeLevel = new LevelGauge(levelBox, wxID_ANY, 100, wxDefaultPosition, wxSize(135,15),
+        LevelGauge::FillStyle::SolidGreen);
     m_gaugeLevel->SetToolTip(_("Peak of From Radio in Rx, or peak of From Mic in Tx mode."));
     levelSizer->Add(m_gaugeLevel, 1, wxALIGN_CENTER_VERTICAL|static_cast<int>(wxALL), 10);
     
@@ -926,7 +927,10 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
 
     auto* rightOuterSizer = new wxBoxSizer(wxVERTICAL);
     rightOuterSizer->Add(rightSizer, 1, wxEXPAND);
-    rightOuterSizer->Add(CreateWorkspaceSelector(0), 0, wxALIGN_RIGHT | wxALL, 2);
+    auto* presentationSizer = new wxBoxSizer(wxHORIZONTAL);
+    presentationSizer->Add(CreateAppearanceSelector(0), 0, wxEXPAND | wxALL, 2);
+    presentationSizer->Add(CreateWorkspaceSelector(0), 0, wxEXPAND | wxALL, 2);
+    rightOuterSizer->Add(presentationSizer, 0, wxALIGN_RIGHT);
     bSizer1->Add(rightOuterSizer, 0, static_cast<int>(wxALL)|static_cast<int>(wxEXPAND), 3);
     
     notebookSizer_ = bSizer1;
@@ -968,7 +972,9 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
     }
     displayVisibilitySizer_->Add(displaySelectors, 0, wxALL, 3);
     supporting->Add(displayVisibilitySizer_, 1, wxEXPAND | wxALL, 2);
+    supporting->Add(CreateAppearanceSelector(1), 0, wxEXPAND | wxALL, 2);
     supporting->Add(CreateWorkspaceSelector(1), 0, wxEXPAND | wxALL, 2);
+    appearanceSelectors_[1].sizer->ShowItems(false);
     workspaceSelectors_[1].sizer->ShowItems(false);
     independentSizer_->Add(supporting, 0, wxEXPAND | wxALL, 3);
     displayVisibilitySizer_->ShowItems(false);
@@ -1274,6 +1280,30 @@ TopFrame::~TopFrame()
     m_btnTogTune->Disconnect(wxEVT_COMMAND_TOGGLEBUTTON_CLICKED, wxCommandEventHandler(TopFrame::OnTogBtnTune), NULL, this);
 }
 
+wxStaticBoxSizer* TopFrame::CreateAppearanceSelector(std::size_t index)
+{
+    auto& selector = appearanceSelectors_[index];
+    selector.sizer = new wxStaticBoxSizer(wxVERTICAL, m_panel, _("Appearance"));
+
+    selector.light = new wxRadioButton(selector.sizer->GetStaticBox(), wxID_ANY,
+        _("Light"), wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
+    selector.dark = new wxRadioButton(selector.sizer->GetStaticBox(), wxID_ANY,
+        _("Dark"));
+
+    selector.sizer->Add(selector.light, 0, wxALL, 2);
+    selector.sizer->Add(selector.dark, 0, wxALL, 2);
+
+    selector.light->Bind(wxEVT_RADIOBUTTON, [this](wxCommandEvent&) {
+        OnAppearanceRequest(false);
+    });
+    selector.dark->Bind(wxEVT_RADIOBUTTON, [this](wxCommandEvent&) {
+        OnAppearanceRequest(true);
+    });
+
+    selector.light->SetValue(true);
+    return selector.sizer;
+}
+
 wxStaticBoxSizer* TopFrame::CreateWorkspaceSelector(std::size_t index)
 {
     auto& selector = workspaceSelectors_[index];
@@ -1301,6 +1331,15 @@ void TopFrame::SetDisplayVisibilityChecked(DisplayId id, bool visible)
     const auto index = static_cast<std::size_t>(id);
     wxCHECK_RET(index < displayVisibilityChecks_.size(), "Invalid display identifier");
     displayVisibilityChecks_[index]->SetValue(visible);
+}
+
+void TopFrame::SetAppearanceSelection(bool dark)
+{
+    for (const auto& selector : appearanceSelectors_)
+    {
+        selector.light->SetValue(!dark);
+        selector.dark->SetValue(dark);
+    }
 }
 
 void TopFrame::SetIndependentControlPresentation(bool independent)
@@ -1352,6 +1391,8 @@ void TopFrame::SetIndependentControlPresentation(bool independent)
     controlHeading_->Show(independent);
     workspaceSelectors_[0].sizer->ShowItems(!independent);
     workspaceSelectors_[1].sizer->ShowItems(independent);
+    appearanceSelectors_[0].sizer->ShowItems(!independent);
+    appearanceSelectors_[1].sizer->ShowItems(independent);
     displayVisibilitySizer_->ShowItems(independent);
     independentControls_ = independent;
     m_panel->SetSizer(independent ? independentSizer_ : notebookSizer_, false);

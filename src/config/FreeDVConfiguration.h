@@ -50,6 +50,8 @@ public:
     ConfigurationDataElement<long> mainWindowWidth;
     ConfigurationDataElement<long> mainWindowHeight;
 
+    ConfigurationDataElement<bool> darkMode;
+
     ConfigurationDataElement<bool> independentWorkspace;
     ConfigurationDataElement<bool> independentVisibilitySaved;
     ConfigurationDataElement<long> independentWindowLeft;

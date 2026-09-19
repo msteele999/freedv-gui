@@ -63,6 +63,7 @@
 
 #include "gui/util/wxListViewComboPopup.h"
 #include "gui/displays/DisplayWorkspace.h"
+#include "gui/controls/LevelGauge.h"
 
 #include "freedv_api.h" // for FREEDV_MODE_*
 
@@ -102,10 +103,10 @@ class TopFrame : public wxFrame
         wxMenu* edit;
         wxMenu* tools;
         wxMenu* help;
-        wxGauge* m_gaugeSNR;
+        LevelGauge* m_gaugeSNR;
         wxStaticText* m_textSNR;
         wxCheckBox* m_ckboxSNR;
-        wxGauge* m_gaugeLevel;
+        LevelGauge* m_gaugeLevel;
 
         wxButton*     m_BtnCallSignReset;
         wxTextCtrl*   m_txtCtrlCallSign;
@@ -165,13 +166,16 @@ class TopFrame : public wxFrame
         wxToggleButton *m_reporterHidden;
 
         void SetIndependentControlPresentation(bool independent);
+        void SetAppearanceSelection(bool dark);
         void SetDisplayVisibilityChecked(DisplayId id, bool visible);
         virtual void OnDisplayVisibilityRequest(DisplayId, bool) {}
         virtual void OnWorkspaceRequest(bool) {}
+        virtual void OnAppearanceRequest(bool) {}
 
     private:
         void UpdateControlMinimumSize();
         wxStaticBoxSizer* CreateWorkspaceSelector(std::size_t index);
+        wxStaticBoxSizer* CreateAppearanceSelector(std::size_t index);
 
         struct WorkspaceSelector
         {
@@ -180,6 +184,14 @@ class TopFrame : public wxFrame
             wxRadioButton* independent;
         };
         std::array<WorkspaceSelector, 2> workspaceSelectors_{};
+
+        struct AppearanceSelector
+        {
+            wxStaticBoxSizer* sizer;
+            wxRadioButton* light;
+            wxRadioButton* dark;
+        };
+        std::array<AppearanceSelector, 2> appearanceSelectors_{};
 
         struct ControlGroup
         {

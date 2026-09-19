@@ -609,13 +609,7 @@ bool MainApp::OnCmdLineParsed(wxCmdLineParser& parser)
         return false;
     }
 
-    const bool darkModeEnabled = parser.Found("dark-mode");
-    FreeDVTheme::SetDarkModeEnabled(darkModeEnabled);
-
-    if (darkModeEnabled)
-    {
-        SetAppearance(wxApp::Appearance::Dark);
-    }
+    const bool darkModeOverride = parser.Found("dark-mode");
 
     wxString configPath;
     if (parser.Found("f", &configPath))
@@ -713,6 +707,14 @@ bool MainApp::OnCmdLineParsed(wxCmdLineParser& parser)
 
     pConfig = wxConfigBase::Get();
     pConfig->SetRecordDefaults();
+
+    bool darkModeEnabled = false;
+    pConfig->Read("/Appearance/DarkMode", &darkModeEnabled, false);
+    darkModeEnabled = darkModeEnabled || darkModeOverride;
+
+    FreeDVTheme::SetDarkModeEnabled(darkModeEnabled);
+    SetAppearance(darkModeEnabled ? wxApp::Appearance::Dark
+                                  : wxApp::Appearance::Light);
     
     if (parser.Found("ut", &testName))
     {
@@ -1220,6 +1222,8 @@ setDefaultMode:
 
     if (wxGetApp().appConfiguration.independentWorkspace && !switchWorkspace_(true, false))
         wxMessageBox("Could not restore the Independent workspace.", "Displays", wxOK | wxICON_ERROR, this);
+
+    SetAppearanceSelection(wxGetApp().appConfiguration.darkMode);
 
     // Initialize FreeDV Reporter as required
     CallAfter(&MainFrame::initializeFreeDVReporter_);
@@ -1838,6 +1842,20 @@ void MainFrame::OnWorkspaceRequest(bool independent)
     updateDisplayVisibilityControls_();
 }
 
+void MainFrame::OnAppearanceRequest(bool dark)
+{
+    auto& config = wxGetApp().appConfiguration;
+    config.darkMode = dark;
+    SetAppearanceSelection(dark);
+
+    auto* pConfig = wxConfigBase::Get();
+    config.save(pConfig);
+    pConfig->Flush();
+
+    wxMessageBox(_("Appearance will change the next time FreeDV starts."),
+                 _("Appearance"), wxOK | wxICON_INFORMATION, this);
+}
+
 void MainFrame::OnDisplayVisibilityRequest(DisplayId id, bool visible)
 {
     displayWorkspace_.SetDisplayVisible(id, visible);
@@ -2154,14 +2172,14 @@ void MainFrame::OnTimer(wxTimerEvent &evt)
             g_snr = m_snrBeta*g_snr + (1.0 - m_snrBeta)*snrEstimate;
         }
         snr_limited = g_snr;
-        if (snr_limited < -5.0) snr_limited = -5.0;
-        if (snr_limited > 40.0) snr_limited = 40.0;
+        if (snr_limited < NO_SNR_VAL) snr_limited = NO_SNR_VAL;
+        if (snr_limited > MAX_SNR_VAL) snr_limited = MAX_SNR_VAL;
         wxString snrString = wxString::Format(SNR_FORMAT_STR, (int)(g_snr + 0.5));
 
         if (syncState)
         {
             m_textSNR->SetLabel(snrString);
-            m_gaugeSNR->SetValue((int)(snr_limited+5));
+            m_gaugeSNR->SetValue((int)(snr_limited - NO_SNR_VAL));
         }
         else
         {
