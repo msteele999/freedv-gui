@@ -9,7 +9,7 @@ public:
     enum class FillStyle
     {
         Gradient,
-        SolidGreen
+        Solid
     };
 
     LevelGauge(wxWindow* parent, wxWindowID id, int range,

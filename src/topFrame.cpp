@@ -578,7 +578,7 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
     levelSizer = new wxStaticBoxSizer(levelBox, wxHORIZONTAL);
 
     m_gaugeLevel = new LevelGauge(levelBox, wxID_ANY, 100, wxDefaultPosition, wxSize(135,15),
-        LevelGauge::FillStyle::SolidGreen);
+        LevelGauge::FillStyle::Solid);
     m_gaugeLevel->SetToolTip(_("Peak of From Radio in Rx, or peak of From Mic in Tx mode."));
     levelSizer->Add(m_gaugeLevel, 1, wxALIGN_CENTER_VERTICAL|static_cast<int>(wxALL), 10);
     

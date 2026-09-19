@@ -713,6 +713,16 @@ bool MainApp::OnCmdLineParsed(wxCmdLineParser& parser)
     darkModeEnabled = darkModeEnabled || darkModeOverride;
 
     FreeDVTheme::SetDarkModeEnabled(darkModeEnabled);
+
+    long signalDisplayStyle = 0;
+    pConfig->Read("/Waterfall/Color", &signalDisplayStyle, 0);
+    if (signalDisplayStyle < 0 || signalDisplayStyle > 2)
+    {
+        signalDisplayStyle = 0;
+    }
+    FreeDVTheme::SetSignalDisplayStyle(
+        static_cast<FreeDVTheme::SignalDisplayStyle>(signalDisplayStyle));
+
     SetAppearance(darkModeEnabled ? wxApp::Appearance::Dark
                                   : wxApp::Appearance::Light);
     
@@ -1276,6 +1286,9 @@ MainFrame::MainFrame(wxWindow *parent) : TopFrame(parent, wxID_ANY, _("FreeDV ")
     CLK_OFF_FMT("ClkOff: %+-d")
 {
     SetThreadName("GUI");
+
+    std::fill_n(g_avmag_waterfall, MODEM_STATS_NSPEC, MIN_MAG_DB);
+    std::fill_n(g_avmag_spectrum, MODEM_STATS_NSPEC, MIN_MAG_DB);
 
     terminating_ = false;
     realigned_ = false;

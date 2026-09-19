@@ -22,6 +22,7 @@
 #include "gui/dialogs/freedv_reporter.h"
 #include "gui/dialogs/monitor_volume_adj.h"
 #include "gui/dialogs/log_entry.h"
+#include "gui/theme/FreeDVTheme.h"
 #include "gui/util/FrequencyOps.h"
 
 #if defined(WIN32)
@@ -229,6 +230,15 @@ void MainFrame::OnToolsOptions(wxCommandEvent& event)
     wxUnusedVar(event);
     if (optionsDlg->ShowModal() == wxOK)
     {
+        const int signalDisplayStyle =
+            wxGetApp().appConfiguration.waterfallColor;
+        if (signalDisplayStyle >= 0 && signalDisplayStyle <= 2)
+        {
+            FreeDVTheme::SetSignalDisplayStyle(
+                static_cast<FreeDVTheme::SignalDisplayStyle>(
+                    signalDisplayStyle));
+        }
+
         // Enable/disable FreeDV Reporter quick options
         m_reporterHidden->Enable(
             wxGetApp().appConfiguration.reportingConfiguration.reportingEnabled &&

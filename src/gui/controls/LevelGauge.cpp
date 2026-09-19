@@ -60,17 +60,17 @@ void LevelGauge::OnPaint(wxPaintEvent&)
         if (fillStyle_ == FillStyle::Gradient)
         {
             wxGraphicsGradientStops stops(
-                FreeDVTheme::GetSignalGradientColour(0.0),
-                FreeDVTheme::GetSignalGradientColour(1.0));
+                FreeDVTheme::GetSignalDisplayColour(0.0),
+                FreeDVTheme::GetSignalDisplayColour(1.0));
             stops.Add(wxGraphicsGradientStop(
-                FreeDVTheme::GetSignalGradientColour(0.5), 0.50));
+                FreeDVTheme::GetSignalDisplayColour(0.5), 0.50));
             context->SetBrush(context->CreateLinearGradientBrush(
                 0, 0, size.x, 0, stops));
         }
         else
         {
             context->SetBrush(wxBrush(
-                FreeDVTheme::GetSignalGradientColour(0.5)));
+                FreeDVTheme::GetSignalDisplayColour(0.6)));
         }
 
         context->DrawRectangle(0, 0, fillWidth, size.y);

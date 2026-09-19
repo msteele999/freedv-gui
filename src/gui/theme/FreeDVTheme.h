@@ -38,8 +38,25 @@ void SetDarkModeEnabled(bool enabled);
 // supplies dark design values without changing system appearance or preferences.
 const Palette& GetPalette();
 
-// Shared blue-green-red signal scale. Position is clamped to 0.0-1.0.
-wxColour GetSignalGradientColour(double position);
+// Existing FreeDV signal display colour schemes. Numeric values match the
+// persisted /Waterfall/Color setting for backward compatibility.
+enum class SignalDisplayStyle
+{
+    Multicolor = 0,
+    BlackAndWhite = 1,
+    BlueTint = 2
+};
+
+void SetSignalDisplayStyle(SignalDisplayStyle style);
+SignalDisplayStyle GetSignalDisplayStyle();
+
+// Maps a normalized signal value to the selected display colour.
+// Position is clamped to 0.0-1.0.
+wxColour GetSignalDisplayColour(double position);
+
+// Returns a higher-visibility version of the selected signal display colour
+// for signal plots drawn over dark backgrounds.
+wxColour GetSignalTraceColour(double position);
 
 // Derive roles from the platform's default GUI font, preserving its face and
 // using point sizes rather than fixed pixels. Applying fonts is opt-in.

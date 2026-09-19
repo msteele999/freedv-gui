@@ -228,27 +228,42 @@ restyling. This keeps behavior consistent across supported platforms, including
 Windows where wxWidgets does not support changing application appearance after
 top-level windows have been created.
 
-The SNR and Level indicators now use a custom platform-neutral gauge. SNR uses a
-shared blue-green-red signal gradient and its presentation range is aligned with
-the existing SNR plot range of -10 through +35 dB. The Level indicator preserves
-its existing 0-100 peak-level behavior and uses the gradient midpoint green as a
-solid fill. Signal-gradient colors are centralized in the theme layer so future
-plot rendering can use the same visual scale without duplicating color values.
-These changes are presentation-only and do not alter DSP, audio-level, or modem
-behavior.
+The SNR and Level indicators now use a custom platform-neutral gauge. The SNR
+presentation range is aligned with the existing SNR plot range of -10 through
++35 dB, while the Level indicator preserves its existing 0-100 peak-level
+behavior. These changes are presentation-only and do not alter DSP, audio-level,
+or modem behavior.
+
+Signal-display colors are centralized in the theme layer and follow the existing
+FreeDV display styles: Multicolor, Black & White, and Blue Tint. Their numeric
+identities remain compatible with the existing `/Waterfall/Color` setting. The
+selected style is applied to all signal displays when configuration is loaded
+and is synchronized immediately when the Display preference changes. The
+historic display palette remains available without modification for intensity
+rendering such as Waterfall. Plot traces use a higher-visibility derivative of
+the selected palette so thin or low-level signals remain readable against dark
+plot backgrounds without introducing an unrelated color scheme.
+
+Frm Radio, Frm Mic, and Frm Decoder use symmetric magnitude-based coloring. Their
+filled waveform presentation retains the selected signal-display palette while
+using a visible low-magnitude center color and progressing through the palette
+toward stronger positive and negative excursions.
+
+Spectrum uses value-based coloring across its existing dB range with a 2-pixel
+trace and a translucent color-matched fill extending to the plot baseline. SNR
+uses the same 2-pixel trace and translucent-fill treatment across its existing
+-10 through +35 dB range. The fill is presentation-only; plot scales, sampling,
+scrolling, averaging, and signal data remain unchanged. Waterfall and Spectrum
+buffers are initialized to the existing minimum-magnitude floor before their
+first paint so an idle Spectrum starts in the quiet state rather than displaying
+zero-initialized bins as maximum signal.
 
 Windows runtime testing has covered Light and Dark startup, persisted appearance
 selection, the command-line Dark override, workspace-specific selector placement,
-semantic transmit-state coloring, and the updated SNR and Level indicators. Full
+semantic transmit-state coloring, the updated SNR and Level indicators, live
+signal-display style changes, persisted signal-display style selection, and
+Multicolor, Black & White, and Blue Tint rendering in Independent Windows. Full
 Windows cross-builds pass after these changes.
-
-The SNR, waveform, and spectrum plots now use the shared signal gradient
-defined by the theme layer. SNR and Spectrum use value-based blue-to-green-to-red
-mapping across their displayed ranges. The Frm Radio, Frm Mic, and Frm Decoder
-waveforms use a symmetric magnitude mapping, with blue at the centerline, green
-through moderate amplitude, and red toward the positive and negative extremes.
-These changes preserve the existing plot ranges, sampling, scrolling, and signal
-data behavior while providing a consistent visual language across signal displays.
 
 Remaining Phase 6 work includes typography and font sizing, spacing and group
 treatment, button/control appearance, visual hierarchy, and Reporter integration.

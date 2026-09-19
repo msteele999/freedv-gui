@@ -207,8 +207,28 @@ void PlotSpectrum::draw(wxGraphicsContext* ctx, bool repaintDataOnly)
                 ((static_cast<double>(prev_mag) + mag) * 0.5 - m_min_mag_db) /
                 (m_max_mag_db - m_min_mag_db);
 
-            ctx->SetPen(wxPen(
-                FreeDVTheme::GetSignalGradientColour(position), 1));
+            const wxColour traceColour =
+                FreeDVTheme::GetSignalTraceColour(position);
+            const wxColour fillColour(
+                traceColour.Red(),
+                traceColour.Green(),
+                traceColour.Blue(),
+                80);
+
+            wxGraphicsPath fillPath = ctx->CreatePath();
+            const double baseline =
+                PLOT_BORDER + bottomOffset_ + m_rGrid.GetHeight();
+            fillPath.MoveToPoint(prev_x, baseline);
+            fillPath.AddLineToPoint(prev_x, prev_y);
+            fillPath.AddLineToPoint(x, y);
+            fillPath.AddLineToPoint(x, baseline);
+            fillPath.CloseSubpath();
+
+            ctx->SetPen(*wxTRANSPARENT_PEN);
+            ctx->SetBrush(wxBrush(fillColour));
+            ctx->FillPath(fillPath);
+
+            ctx->SetPen(wxPen(traceColour, 2));
             ctx->StrokeLine(prev_x, prev_y, x, y);
 
             prev_x = x;

@@ -398,14 +398,14 @@ void PlotScalar::draw(wxGraphicsContext* ctx, bool repaintDataOnly)
             if (traceStyle_ == TraceStyle::MagnitudeGradient)
             {
                 wxGraphicsGradientStops stops(
-                    FreeDVTheme::GetSignalGradientColour(1.0),
-                    FreeDVTheme::GetSignalGradientColour(1.0));
+                    FreeDVTheme::GetSignalTraceColour(1.0),
+                    FreeDVTheme::GetSignalTraceColour(1.0));
                 stops.Add(wxGraphicsGradientStop(
-                    FreeDVTheme::GetSignalGradientColour(0.5), 0.25));
+                    FreeDVTheme::GetSignalTraceColour(0.5), 0.25));
                 stops.Add(wxGraphicsGradientStop(
-                    FreeDVTheme::GetSignalGradientColour(0.0), 0.50));
+                    FreeDVTheme::GetSignalTraceColour(0.15), 0.50));
                 stops.Add(wxGraphicsGradientStop(
-                    FreeDVTheme::GetSignalGradientColour(0.5), 0.75));
+                    FreeDVTheme::GetSignalTraceColour(0.5), 0.75));
 
                 plotCtx->SetBrush(plotCtx->CreateLinearGradientBrush(
                     0, 0, 0, plotHeight, stops));
@@ -422,9 +422,26 @@ void PlotScalar::draw(wxGraphicsContext* ctx, bool repaintDataOnly)
                 const double position = 1.0 -
                     (static_cast<double>(previous->y1 + current->y1) /
                      (2.0 * plotHeight));
+                const wxColour traceColour =
+                    FreeDVTheme::GetSignalTraceColour(position);
+                const wxColour fillColour(
+                    traceColour.Red(),
+                    traceColour.Green(),
+                    traceColour.Blue(),
+                    80);
 
-                plotCtx->SetPen(wxPen(
-                    FreeDVTheme::GetSignalGradientColour(position), 1));
+                wxGraphicsPath fillPath = plotCtx->CreatePath();
+                fillPath.MoveToPoint(index - 1, plotHeight);
+                fillPath.AddLineToPoint(index - 1, previous->y1);
+                fillPath.AddLineToPoint(index, current->y1);
+                fillPath.AddLineToPoint(index, plotHeight);
+                fillPath.CloseSubpath();
+
+                plotCtx->SetPen(*wxTRANSPARENT_PEN);
+                plotCtx->SetBrush(wxBrush(fillColour));
+                plotCtx->FillPath(fillPath);
+
+                plotCtx->SetPen(wxPen(traceColour, 2));
                 plotCtx->StrokeLine(index - 1, previous->y1,
                                     index, current->y1);
             }
