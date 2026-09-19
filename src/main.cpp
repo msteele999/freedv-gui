@@ -609,7 +609,13 @@ bool MainApp::OnCmdLineParsed(wxCmdLineParser& parser)
         return false;
     }
 
-    FreeDVTheme::SetDarkModeEnabled(parser.Found("dark-mode"));
+    const bool darkModeEnabled = parser.Found("dark-mode");
+    FreeDVTheme::SetDarkModeEnabled(darkModeEnabled);
+
+    if (darkModeEnabled)
+    {
+        SetAppearance(wxApp::Appearance::Dark);
+    }
 
     wxString configPath;
     if (parser.Found("f", &configPath))
