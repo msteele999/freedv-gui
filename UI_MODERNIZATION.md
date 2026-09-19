@@ -211,43 +211,40 @@ Phase 4 persistence has passed focused compilation, source-level checks, and the
 Windows runtime checks listed above. Recovery after physically disconnecting a
 monitor and GTK/Wayland placement remain unvalidated.
 
-## Planned work
+## Active work
 
-### 1. Remaining workspace behavior
+### Phase 6 - Visual modernization
 
-A future vertical Control orientation should reuse the existing controls and
-persist its orientation.
+The workspace architecture is mature enough for visual modernization to proceed.
+Develop dark mode, typography and font sizing, spacing, group treatment,
+button/control appearance, and visual hierarchy as a shared visual system for the
+main application and Reporter. Preserve semantic operational state colors and
+existing application behavior throughout this work.
 
-### 2. Persistence validation
+The existing theme foundation should remain the central source for visual tokens
+and platform-neutral styling. Prefer standard wxWidgets behavior where practical,
+with narrowly scoped platform-specific treatment only when required for equivalent
+appearance or behavior.
+
+## Icebox
+
+The following workspace enhancements are intentionally deferred and do not block
+Phase 6:
+
+- Persistent docking relationships and group movement.
+- Automatic window arrangement.
+- Vertical Independent Control orientation.
+
+These features should build on the existing workspace and snapping architecture
+without changing the independent-window model established through Phase 5A.
+
+## Remaining validation
 
 Remaining checks include physically missing/disconnected-monitor recovery,
-configuration reload/reset, and minimum usable sizes. Validate GTK/Wayland
-placement and other supported desktop platforms separately; the completed Windows
-checks do not establish behavior on those platforms.
-
-### 3. Docking / snapping
-
-Phase 5A adds magnetic move and resize snapping between registered top-level
-windows while preserving ordinary independent window operation. In Notebook
-workspace the main FreeDV window and Reporter participate. In Independent
-workspace the Control window, Reporter, and visible display windows participate,
-including Frm Mic while it is transiently visible.
-
-Snapping aligns compatible edges without resizing neighboring windows or creating
-persistent relationships between them. Windows remain independently movable,
-resizable, closable, and governed by the existing geometry persistence. Windows
-uses live move/resize events; other platforms use the available wxWidgets move
-event behavior and require separate runtime validation.
-
-Future docking work may add persistent window relationships, group movement, or
-automatic arrangement without changing the Phase 5A independent-window model.
-
-### 4. Visual modernization
-
-After workspace architecture is mature, develop dark mode, typography/font sizing,
-spacing, group treatment, button/control appearance, and visual hierarchy as a
-shared visual system for the main application and Reporter. Continue preserving
-semantic operational state colors throughout this work.
+configuration reload/reset, and minimum usable sizes. Native Linux and macOS
+builds and runtime validation remain required, including workspace placement and
+snapping behavior. The completed Windows checks do not establish behavior on
+those platforms.
 
 ## Current known limitations
 
