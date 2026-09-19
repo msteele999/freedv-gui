@@ -242,8 +242,15 @@ selection, the command-line Dark override, workspace-specific selector placement
 semantic transmit-state coloring, and the updated SNR and Level indicators. Full
 Windows cross-builds pass after these changes.
 
-Remaining Phase 6 work includes investigating shared gradient treatment for SNR
-and waveform plots, followed by typography and font sizing, spacing and group
+The SNR, waveform, and spectrum plots now use the shared signal gradient
+defined by the theme layer. SNR and Spectrum use value-based blue-to-green-to-red
+mapping across their displayed ranges. The Frm Radio, Frm Mic, and Frm Decoder
+waveforms use a symmetric magnitude mapping, with blue at the centerline, green
+through moderate amplitude, and red toward the positive and negative extremes.
+These changes preserve the existing plot ranges, sampling, scrolling, and signal
+data behavior while providing a consistent visual language across signal displays.
+
+Remaining Phase 6 work includes typography and font sizing, spacing and group
 treatment, button/control appearance, visual hierarchy, and Reporter integration.
 Preserve semantic operational state colors and existing application behavior
 throughout this work.
