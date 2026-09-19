@@ -28,6 +28,7 @@
 
 #include "plot_scalar.h"
 
+#include "gui/theme/FreeDVTheme.h"
 #include "util/logging/ulog.h"
 
 BEGIN_EVENT_TABLE(PlotScalar, PlotPanel)
@@ -55,7 +56,8 @@ PlotScalar::PlotScalar(wxWindow* parent,
                        const char* plotName,
                        bool halfPlot,
                        float defaultVal,
-                       bool disableFirstLastLabels)
+                       bool disableFirstLastLabels,
+                       TraceStyle traceStyle)
     : PlotPanel(parent, plotName)
 {
     // XXX - FreeDV only supports English but makes a best effort to at least use regional formatting
@@ -67,6 +69,7 @@ PlotScalar::PlotScalar(wxWindow* parent,
     addedPoints_ = 0;
     halfPlot_ = halfPlot;
     disableFirstLastLabels_ = disableFirstLastLabels;
+    traceStyle_ = traceStyle;
 
     int i;
 
@@ -391,7 +394,40 @@ void PlotScalar::draw(wxGraphicsContext* ctx, bool repaintDataOnly)
                 path.AddLineToPoint(x, item->y2);
             }
             path.AddLineToPoint(from, lineMap_[from].y1);
+
+            if (traceStyle_ == TraceStyle::MagnitudeGradient)
+            {
+                wxGraphicsGradientStops stops(
+                    FreeDVTheme::GetSignalGradientColour(1.0),
+                    FreeDVTheme::GetSignalGradientColour(1.0));
+                stops.Add(wxGraphicsGradientStop(
+                    FreeDVTheme::GetSignalGradientColour(0.5), 0.25));
+                stops.Add(wxGraphicsGradientStop(
+                    FreeDVTheme::GetSignalGradientColour(0.0), 0.50));
+                stops.Add(wxGraphicsGradientStop(
+                    FreeDVTheme::GetSignalGradientColour(0.5), 0.75));
+
+                plotCtx->SetBrush(plotCtx->CreateLinearGradientBrush(
+                    0, 0, 0, plotHeight, stops));
+            }
+
             plotCtx->FillPath(path);
+        }
+        else if (traceStyle_ == TraceStyle::ValueGradient)
+        {
+            for (int index = from + 1; index < plotWidth; index++)
+            {
+                const auto previous = &lineMap_[index - 1];
+                const auto current = &lineMap_[index];
+                const double position = 1.0 -
+                    (static_cast<double>(previous->y1 + current->y1) /
+                     (2.0 * plotHeight));
+
+                plotCtx->SetPen(wxPen(
+                    FreeDVTheme::GetSignalGradientColour(position), 1));
+                plotCtx->StrokeLine(index - 1, previous->y1,
+                                    index, current->y1);
+            }
         }
         else
         {
