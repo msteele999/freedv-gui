@@ -227,9 +227,20 @@ checks do not establish behavior on those platforms.
 
 ### 3. Docking / snapping
 
-After ordinary geometry persistence is reliable, allow Independent Control and
-display windows to dock/snap to one another while retaining ordinary independent
-window operation. Do not couple the initial persistence implementation to docking.
+Phase 5A adds magnetic move and resize snapping between registered top-level
+windows while preserving ordinary independent window operation. In Notebook
+workspace the main FreeDV window and Reporter participate. In Independent
+workspace the Control window, Reporter, and visible display windows participate,
+including Frm Mic while it is transiently visible.
+
+Snapping aligns compatible edges without resizing neighboring windows or creating
+persistent relationships between them. Windows remain independently movable,
+resizable, closable, and governed by the existing geometry persistence. Windows
+uses live move/resize events; other platforms use the available wxWidgets move
+event behavior and require separate runtime validation.
+
+Future docking work may add persistent window relationships, group movement, or
+automatic arrangement without changing the Phase 5A independent-window model.
 
 ### 4. Visual modernization
 
@@ -241,7 +252,8 @@ semantic operational state colors throughout this work.
 ## Current known limitations
 
 Windows without saved geometry may initially use default or stacked placement.
-Docking/snapping and vertical Control orientation remain unimplemented.
-Physically missing/disconnected-monitor recovery
-and GTK/Wayland placement have not been runtime-validated. Validation does not yet
+Persistent docking relationships, group movement, automatic arrangement, and
+vertical Control orientation remain unimplemented. Physically
+missing/disconnected-monitor recovery and GTK/Wayland placement have not been
+runtime-validated. Validation does not yet
 cover all supported desktop platforms.

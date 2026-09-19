@@ -8,6 +8,17 @@
 DisplayWorkspace::DisplayWorkspace(wxAuiNotebook& notebook)
     : notebook_(notebook)
 {
+    snapManager_.AddWindow(*wxDynamicCast(wxGetTopLevelParent(&notebook_), wxTopLevelWindow));
+}
+
+void DisplayWorkspace::SetSnappingEnabled(bool enabled)
+{
+    snapManager_.SetEnabled(enabled && !switching_);
+}
+
+void DisplayWorkspace::RegisterSnapWindow(wxTopLevelWindow& window)
+{
+    snapManager_.AddWindow(window);
 }
 
 DisplayWorkspace::~DisplayWorkspace()
@@ -199,6 +210,8 @@ bool DisplayWorkspace::SetIndependent(bool independent, bool showDisplays)
     if (independent == IsIndependent())
         return true;
 
+    snapManager_.SetEnabled(false);
+
     struct TransitionGuard
     {
         bool& flag;
@@ -232,6 +245,7 @@ bool DisplayWorkspace::SetIndependent(bool independent, bool showDisplays)
         {
             frames_[index] = new DisplayFrame(wxGetTopLevelParent(&notebook_), page.caption,
                                              notebook_.GetClientSize());
+            snapManager_.AddWindow(*frames_[index]);
             frames_[index]->SetHideHandler([this]() {
                 if (visibilityChanged_)
                     visibilityChanged_();

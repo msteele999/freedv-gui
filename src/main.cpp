@@ -907,6 +907,7 @@ void MainFrame::loadConfiguration_()
     if (!displayWorkspace_.SetIndependent(false))
     {
         wxMessageBox("Could not return all displays to the notebook.", "Displays", wxOK | wxICON_ERROR, this);
+        displayWorkspace_.SetSnappingEnabled(true);
         return;
     }
     SetIndependentControlPresentation(false);
@@ -1773,6 +1774,7 @@ bool MainFrame::switchWorkspace_(bool independent, bool captureCurrent)
     {
         SetIndependentControlPresentation(displayWorkspace_.IsIndependent());
         updateDisplayVisibilityControls_();
+        displayWorkspace_.SetSnappingEnabled(true);
         return false;
     }
     if (IsIconized() || IsMaximized())
@@ -1811,6 +1813,7 @@ bool MainFrame::switchWorkspace_(bool independent, bool captureCurrent)
         m_panel->Layout();
     }
     updateDisplayVisibilityControls_();
+    displayWorkspace_.SetSnappingEnabled(true);
     return true;
 }
 
@@ -2596,6 +2599,7 @@ void MainFrame::OnTimer(wxTimerEvent &evt)
 
 void MainFrame::topFrame_OnClose( wxCloseEvent& event )
 {
+    displayWorkspace_.SetSnappingEnabled(false);
     if (terminating_)
     {
         // A previous close request already kicked off the async RX/PTT
@@ -2657,6 +2661,7 @@ void MainFrame::topFrame_OnClose( wxCloseEvent& event )
 //-------------------------------------------------------------------------
 void MainFrame::OnExit(wxCommandEvent&)
 {
+    displayWorkspace_.SetSnappingEnabled(false);
     if (m_RxRunning)
     {
         if (m_btnTogPTT->GetValue())
@@ -4133,6 +4138,7 @@ void MainFrame::initializeFreeDVReporter_()
     if (m_reporterDialog == nullptr)
     {
         m_reporterDialog = new FreeDVReporterDialog(this);
+        displayWorkspace_.RegisterSnapWindow(*m_reporterDialog);
     }
         
     m_reporterDialog->setReporter(wxGetApp().m_sharedReporterObject);

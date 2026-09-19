@@ -5,6 +5,7 @@ set(FREEDV_SOURCES
     topFrame.cpp
     gui/displays/DisplayWorkspace.cpp
     gui/displays/DisplayFrame.cpp
+    gui/displays/WindowSnapManager.cpp
     sox_biquad.c
     util.cpp
     eq.cpp

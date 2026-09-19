@@ -147,6 +147,7 @@ void MainFrame::OnToolsFreeDVReporter(wxCommandEvent&)
     if (m_reporterDialog == nullptr)
     {
         m_reporterDialog = new FreeDVReporterDialog(this);
+        displayWorkspace_.RegisterSnapWindow(*m_reporterDialog);
     }
 
     m_reporterDialog->refreshLayout();

@@ -8,6 +8,7 @@
 #include <vector>
 #include <wx/string.h>
 #include <wx/gdicmn.h>
+#include "WindowSnapManager.h"
 
 class wxAuiNotebook;
 class wxWindow;
@@ -60,6 +61,8 @@ public:
     bool IsIndependent() const { return presentation_ == Presentation::Independent; }
     bool HasActiveDisplay() const;
     void FocusOperatingWindow();
+    void SetSnappingEnabled(bool enabled);
+    void RegisterSnapWindow(wxTopLevelWindow& window);
 
 private:
     enum class Presentation { Notebook, Independent };
@@ -72,6 +75,7 @@ private:
     DisplayFrame* FrameFor(wxWindow* plot) const;
 
     wxAuiNotebook& notebook_;
+    WindowSnapManager snapManager_;
     std::array<wxWindow*, static_cast<std::size_t>(DisplayId::Count)> plots_{};
     std::array<DisplayFrame*, static_cast<std::size_t>(DisplayId::Count)> frames_{};
     std::vector<Page> pages_;
