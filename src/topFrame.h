@@ -174,6 +174,7 @@ class TopFrame : public wxFrame
 
     private:
         void UpdateControlMinimumSize();
+        void StylePrimaryControlButton(wxToggleButton* button);
         wxStaticBoxSizer* CreateWorkspaceSelector(std::size_t index);
         wxStaticBoxSizer* CreateAppearanceSelector(std::size_t index);
 
