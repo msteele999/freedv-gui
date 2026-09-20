@@ -20,6 +20,7 @@
 //==========================================================================
 
 #include "WindowPositionRestore.h"
+#include "DpiUtils.h"
 
 #include <wx/frame.h>
 #include <wx/display.h>
@@ -36,9 +37,9 @@ wxRect RestoreWindowGeometry(wxFrame* frame, wxRect rect, const wxSize& minimum)
     for (unsigned int i = 0; i < wxDisplay::GetCount(); ++i)
     {
         const wxRect area = wxDisplay(i).GetClientArea();
-        const wxRect title(rect.x, rect.y, rect.width, frame->FromDIP(32));
+        const wxRect title(rect.x, rect.y, rect.width, FromDIP(frame, 32));
         const wxRect visible = title.Intersect(area);
-        if (visible.width >= frame->FromDIP(120) && visible.height >= frame->FromDIP(20))
+        if (visible.width >= FromDIP(frame, 120) && visible.height >= FromDIP(frame, 20))
         {
             monitor = i;
             break;

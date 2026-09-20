@@ -20,6 +20,7 @@
 //
 //==========================================================================
 
+#include "gui/util/DpiUtils.h"
 #include <algorithm>
 #include <map>
 #include <set>
@@ -956,7 +957,7 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
     auto* supporting = new wxBoxSizer(wxHORIZONTAL);
     supporting->Add(operations, 0, wxEXPAND);
     displayVisibilitySizer_ = new wxStaticBoxSizer(wxVERTICAL, m_panel, _("Displays"));
-    auto* displaySelectors = new wxFlexGridSizer(3, FromDIP(2), FromDIP(8));
+    auto* displaySelectors = new wxFlexGridSizer(3, ::FromDIP(this, 2), ::FromDIP(this, 8));
     const wxString displayNames[] = {
         _("Waterfall"), _("Spectrum"), _("Frm Radio"), _("Frm Mic"), _("Frm Decoder"), _("SNR")
     };
@@ -1361,7 +1362,7 @@ void TopFrame::SetIndependentControlPresentation(bool independent)
 
     callsignSizer_->SetOrientation(independent ? wxHORIZONTAL : wxVERTICAL);
     sbSizer_mode->SetOrientation(independent ? wxHORIZONTAL : wxVERTICAL);
-    statsFieldsSizer_->SetVGap(independent ? FromDIP(4) : 0);
+    statsFieldsSizer_->SetVGap(independent ? ::FromDIP(this, 4) : 0);
     m_cboReportFrequency->GetContainingSizer()->GetItem(m_cboReportFrequency)->SetFlag(
         independent ? wxALL | wxEXPAND : wxALL);
     const int levelFlags = independent ? static_cast<int>(wxEXPAND) : static_cast<int>(wxALIGN_CENTER_HORIZONTAL);

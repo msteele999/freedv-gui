@@ -1,4 +1,5 @@
 #include "WindowSnapManager.h"
+#include "gui/util/DpiUtils.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -125,14 +126,14 @@ void WindowSnapManager::OnMove(wxMoveEvent& event)
     }
 #ifdef __WXMSW__
     // Windows includes an invisible resize margin in top-level window bounds.
-    const int sideOverlap = window->FromDIP(10);
+    const int sideOverlap = FromDIP(window, 10);
 #else
     const int sideOverlap = 0;
 #endif
-    wxRect snapped = SnapRect(moving, Targets(window), window->FromDIP(7), sideOverlap);
+    wxRect snapped = SnapRect(moving, Targets(window), FromDIP(window, 7), sideOverlap);
     const wxPoint cursor = wxGetMousePosition();
-    snapped.x = horizontal_.Apply(moving.x, snapped.x, cursor.x, window->FromDIP(10), window->FromDIP(7));
-    snapped.y = vertical_.Apply(moving.y, snapped.y, cursor.y, window->FromDIP(10), window->FromDIP(7));
+    snapped.x = horizontal_.Apply(moving.x, snapped.x, cursor.x, FromDIP(window, 10), FromDIP(window, 7));
+    snapped.y = vertical_.Apply(moving.y, snapped.y, cursor.y, FromDIP(window, 10), FromDIP(window, 7));
 #ifdef __WXMSW__
     snapped.width++;
     snapped.height++;
@@ -269,7 +270,7 @@ void WindowSnapManager::OnSizing(wxSizeEvent& event)
     proposed.width--;
     proposed.height--;
     wxRect snapped = SnapResizeRect(proposed, resizeOrigin_.value_or(window->GetRect()),
-                                   Targets(window), window->FromDIP(7),
+                                   Targets(window), FromDIP(window, 7),
                                    window->GetMinSize(), window->GetMaxSize());
     snapped.width++;
     snapped.height++;

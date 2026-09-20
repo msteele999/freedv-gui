@@ -1,4 +1,5 @@
 #include "DisplayWorkspace.h"
+#include "gui/util/DpiUtils.h"
 #include "DisplayFrame.h"
 #include "../util/WindowPositionRestore.h"
 
@@ -198,7 +199,7 @@ wxRect DisplayWorkspace::RestoreDisplayGeometry(DisplayId id, const wxRect& rect
         frame->Restore();
         frame->Hide();
     }
-    const wxSize minimum = frame->FromDIP(wxSize(320, 240));
+    const wxSize minimum = FromDIP(frame, wxSize(320, 240));
     frame->SetMinSize(minimum);
     return RestoreWindowGeometry(frame, rect, minimum);
 }
