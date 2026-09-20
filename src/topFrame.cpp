@@ -546,6 +546,7 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
 
     wxStaticBoxSizer* snrSizer;
     wxStaticBox* snrBox = new wxStaticBox(m_panel, wxID_ANY, _("SNR"), wxDefaultPosition, wxSize(100,-1));
+    snrBox->SetFont(FreeDVTheme::GetFont(FreeDVTheme::TypographyRole::Emphasized));
     snrSizer = new wxStaticBoxSizer(snrBox, wxVERTICAL);
 
     //------------------------------
@@ -576,6 +577,7 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
     //------------------------------
     wxStaticBoxSizer* levelSizer;
     wxStaticBox* levelBox = new wxStaticBox(m_panel, wxID_ANY, _("Level"), wxDefaultPosition, wxSize(100,-1));
+    levelBox->SetFont(FreeDVTheme::GetFont(FreeDVTheme::TypographyRole::Emphasized));
     levelSizer = new wxStaticBoxSizer(levelBox, wxHORIZONTAL);
 
     m_gaugeLevel = new LevelGauge(levelBox, wxID_ANY, 100, wxDefaultPosition, wxSize(135,15),
@@ -590,6 +592,7 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
     //------------------------------
     wxStaticBoxSizer* sbSizer3_33;
     wxStaticBox* syncBox = new wxStaticBox(m_panel, wxID_ANY, _("Sync"), wxDefaultPosition, wxSize(100,-1));
+    syncBox->SetFont(FreeDVTheme::GetFont(FreeDVTheme::TypographyRole::Emphasized));
     sbSizer3_33 = new wxStaticBoxSizer(syncBox, wxVERTICAL);
 
     m_textSync = new wxStaticText(syncBox, wxID_ANY, wxT("Modem"), wxDefaultPosition, wxDefaultSize, wxALIGN_CENTRE);
@@ -612,6 +615,7 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
     // Audio Recording/Playback
     //------------------------------
     wxStaticBox* audioBox = new wxStaticBox(m_panel, wxID_ANY, _("Audio Recording"), wxDefaultPosition, wxSize(100,-1));
+    audioBox->SetFont(FreeDVTheme::GetFont(FreeDVTheme::TypographyRole::Emphasized));
     wxStaticBoxSizer* sbSizerAudioRecordPlay = new wxStaticBoxSizer(audioBox, wxVERTICAL);
     
     m_audioRecord = new wxToggleButton(audioBox, wxID_ANY, _("Record"), wxDefaultPosition, wxDefaultSize, 0);
@@ -624,6 +628,7 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
     // QSO logging
     //------------------------------
     wxStaticBox* logBox = new wxStaticBox(m_panel, wxID_ANY, _("Logging"), wxDefaultPosition, wxSize(100,-1));
+    logBox->SetFont(FreeDVTheme::GetFont(FreeDVTheme::TypographyRole::Emphasized));
     wxStaticBoxSizer* sbSizerLogging = new wxStaticBoxSizer(logBox, wxVERTICAL);
     
     m_logQSO = new wxButton(logBox, wxID_ANY, _("Log QSO"), wxDefaultPosition, wxDefaultSize, 0);
@@ -637,6 +642,7 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
     // FreeDV Reporter quick options
     //------------------------------
     wxStaticBox* reporterBox = new wxStaticBox(m_panel, wxID_ANY, _("FDV Reporting"), wxDefaultPosition, wxSize(100,-1));
+    reporterBox->SetFont(FreeDVTheme::GetFont(FreeDVTheme::TypographyRole::Emphasized));
     wxStaticBoxSizer* sbSizerReporterBox = new wxStaticBoxSizer(reporterBox, wxVERTICAL);
 
     m_reporterHidden = new wxToggleButton(reporterBox, wxID_ANY, _("Turn Off"), wxDefaultPosition, wxDefaultSize, 0);
@@ -651,6 +657,7 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
 
     wxStaticBoxSizer* sbSizer_ber;
     statsBox = new wxStaticBox(m_panel, wxID_ANY, _("Stats"), wxDefaultPosition, wxSize(100,-1));
+    statsBox->SetFont(FreeDVTheme::GetFont(FreeDVTheme::TypographyRole::Emphasized));
     sbSizer_ber = new wxStaticBoxSizer(statsBox, wxVERTICAL);
     statsSizer_ = sbSizer_ber;
     statsFieldsSizer_ = new wxFlexGridSizer(1);
@@ -761,6 +768,7 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
     //=====================================================
     wxStaticBoxSizer* sbSizer3;
     squelchBox = new wxStaticBox(m_panel, wxID_ANY, _("S&quelch"), wxDefaultPosition, wxSize(100,-1));
+    squelchBox->SetFont(FreeDVTheme::GetFont(FreeDVTheme::TypographyRole::Emphasized));
     sbSizer3 = new wxStaticBoxSizer(squelchBox, wxVERTICAL);
 
     m_sliderSQ = new wxSlider(squelchBox, wxID_ANY, 0, 0, 40, wxDefaultPosition, wxDefaultSize, wxSL_AUTOTICKS);
@@ -793,6 +801,7 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
 
     // Transmit Level slider
     m_txLevelBox = new wxStaticBox(m_panel, wxID_ANY, _("TX &Attenuation"), wxDefaultPosition, wxSize(100,-1));
+    m_txLevelBox->SetFont(FreeDVTheme::GetFont(FreeDVTheme::TypographyRole::Emphasized));
     wxBoxSizer* txLevelSizer = new wxStaticBoxSizer(m_txLevelBox, wxVERTICAL);
     
     wxBoxSizer* txBtnSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -821,6 +830,7 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
     
     // Mic/Speaker Level slider
     micSpeakerBox = new wxStaticBox(m_panel, wxID_ANY, _("Speaker &Level"), wxDefaultPosition, wxSize(100,-1));
+    micSpeakerBox->SetFont(FreeDVTheme::GetFont(FreeDVTheme::TypographyRole::Emphasized));
     wxBoxSizer* micSpeakerLevelSizer = new wxStaticBoxSizer(micSpeakerBox, wxVERTICAL);
     
     // Sliders are integer values, so we're multiplying min/max by 10 here to allow 1 decimal precision.
@@ -847,6 +857,7 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
     
     // Frequency text field (PSK Reporter)
     m_freqBox = new wxStaticBox(m_panel, wxID_ANY, _("Radio Freq. (MHz)"), wxDefaultPosition, wxSize(100,-1));
+    m_freqBox->SetFont(FreeDVTheme::GetFont(FreeDVTheme::TypographyRole::Emphasized));
 
     wxBoxSizer* reportFrequencySizer = new wxStaticBoxSizer(m_freqBox, wxHORIZONTAL);
     
@@ -868,6 +879,7 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
     // Mode box
     //------------------------------
     modeBox = new wxStaticBox(m_panel, wxID_ANY, _("&Mode"), wxDefaultPosition, wxSize(100,-1));
+    modeBox->SetFont(FreeDVTheme::GetFont(FreeDVTheme::TypographyRole::Emphasized));
     sbSizer_mode = new wxStaticBoxSizer(modeBox, wxVERTICAL);
 
     m_rbRADE = new wxRadioButton( modeBox, wxID_ANY, wxT("RADEV1"), wxDefaultPosition, wxDefaultSize,  wxRB_GROUP);
@@ -886,6 +898,7 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
     //=====================================================
     wxStaticBoxSizer* sbSizer5;
     wxStaticBox* controlBox = new wxStaticBox(m_panel, wxID_ANY, _("Control"), wxDefaultPosition, wxSize(100,-1));
+    controlBox->SetFont(FreeDVTheme::GetFont(FreeDVTheme::TypographyRole::Emphasized));
     sbSizer5 = new wxStaticBoxSizer(controlBox, wxVERTICAL);
 
     //-------------------------------
@@ -937,6 +950,7 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
     notebookSizer_ = bSizer1;
     independentSizer_ = new wxBoxSizer(wxVERTICAL);
     controlHeading_ = new wxStaticText(m_panel, wxID_ANY, _("FreeDV Control"));
+    controlHeading_->SetFont(FreeDVTheme::GetFont(FreeDVTheme::TypographyRole::Heading));
     controlHeading_->Hide();
 
     auto* columns = new wxBoxSizer(wxHORIZONTAL);
@@ -957,6 +971,7 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
     auto* supporting = new wxBoxSizer(wxHORIZONTAL);
     supporting->Add(operations, 0, wxEXPAND);
     displayVisibilitySizer_ = new wxStaticBoxSizer(wxVERTICAL, m_panel, _("Displays"));
+    displayVisibilitySizer_->GetStaticBox()->SetFont(FreeDVTheme::GetFont(FreeDVTheme::TypographyRole::Emphasized));
     auto* displaySelectors = new wxFlexGridSizer(3, ::FromDIP(this, 2), ::FromDIP(this, 8));
     const wxString displayNames[] = {
         _("Waterfall"), _("Spectrum"), _("Frm Radio"), _("Frm Mic"), _("Frm Decoder"), _("SNR")
@@ -1285,6 +1300,7 @@ wxStaticBoxSizer* TopFrame::CreateAppearanceSelector(std::size_t index)
 {
     auto& selector = appearanceSelectors_[index];
     selector.sizer = new wxStaticBoxSizer(wxVERTICAL, m_panel, _("Appearance"));
+    selector.sizer->GetStaticBox()->SetFont(FreeDVTheme::GetFont(FreeDVTheme::TypographyRole::Emphasized));
 
     selector.light = new wxRadioButton(selector.sizer->GetStaticBox(), wxID_ANY,
         _("Light"), wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
@@ -1309,6 +1325,7 @@ wxStaticBoxSizer* TopFrame::CreateWorkspaceSelector(std::size_t index)
 {
     auto& selector = workspaceSelectors_[index];
     selector.sizer = new wxStaticBoxSizer(wxVERTICAL, m_panel, _("Workspace"));
+    selector.sizer->GetStaticBox()->SetFont(FreeDVTheme::GetFont(FreeDVTheme::TypographyRole::Emphasized));
     for (bool independent : {false, true})
     {
         auto* button = new wxRadioButton(selector.sizer->GetStaticBox(), wxID_ANY,
