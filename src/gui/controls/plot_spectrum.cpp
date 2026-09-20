@@ -356,6 +356,14 @@ void PlotSpectrum::drawGraticuleFast(wxGraphicsContext* ctx, bool repaintDataOnl
             ctx->StrokeLine(x, 0, x, 2 * verticalBarLength / 3);
         }
     }
+
+    ctx->SetPen(wxPen(FreeDVTheme::GetPalette().accent, 1));
+    ctx->SetBrush(*wxTRANSPARENT_BRUSH);
+    ctx->DrawRectangle(
+        PLOT_BORDER + leftOffset_,
+        PLOT_BORDER + bottomOffset_,
+        m_rGrid.GetWidth(),
+        m_rGrid.GetHeight());
 }
 
 //-------------------------------------------------------------------------

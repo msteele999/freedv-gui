@@ -412,6 +412,46 @@ void PlotScalar::draw(wxGraphicsContext* ctx, bool repaintDataOnly)
             }
 
             plotCtx->FillPath(path);
+
+            if (traceStyle_ == TraceStyle::MagnitudeGradient)
+            {
+                const double center = plotHeight / 2.0;
+                constexpr double outlineLift = 0.65;
+
+                for (int index = from + 1; index < plotWidth; index++)
+                {
+                    const auto previous = &lineMap_[index - 1];
+                    const auto current = &lineMap_[index];
+
+                    for (bool upper : {true, false})
+                    {
+                        const int previousY = upper ? previous->y1 : previous->y2;
+                        const int currentY = upper ? current->y1 : current->y2;
+                        const double magnitude =
+                            std::min(1.0,
+                                std::abs(((previousY + currentY) / 2.0) - center) /
+                                center);
+
+                        const wxColour colour =
+                            FreeDVTheme::GetSignalDisplayColour(magnitude);
+                        const auto lift = [](unsigned char component)
+                        {
+                            return static_cast<unsigned char>(
+                                component + (255 - component) * outlineLift);
+                        };
+
+                        plotCtx->SetPen(wxPen(
+                            wxColour(
+                                lift(colour.Red()),
+                                lift(colour.Green()),
+                                lift(colour.Blue())),
+                            2));
+                        plotCtx->StrokeLine(
+                            index - 1, previousY,
+                            index, currentY);
+                    }
+                }
+            }
         }
         else if (traceStyle_ == TraceStyle::ValueGradient)
         {
@@ -614,6 +654,14 @@ void PlotScalar::drawGraticuleFast(wxGraphicsContext* ctx, bool repaintDataOnly)
    else
    {
        ctx->DrawBitmap(plotLinesBMP_, PLOT_BORDER + leftOffset_, PLOT_BORDER, plotWidth, plotHeight);
+
+       ctx->SetPen(wxPen(FreeDVTheme::GetPalette().accent, 1));
+       ctx->SetBrush(*wxTRANSPARENT_BRUSH);
+       ctx->DrawRectangle(
+           PLOT_BORDER + leftOffset_,
+           PLOT_BORDER,
+           plotWidth,
+           plotHeight);
    }
 }
 
