@@ -11,6 +11,40 @@ goals include dark mode, improved typography and font sizing, spacing, visual
 hierarchy, control/group presentation, buttons and interactive controls, and a
 coherent visual system shared with FreeDV Reporter.
 
+## UI modernization changes at a glance
+
+- Added an Independent Windows workspace using the existing six FreeDV signal
+  displays and operational controls rather than duplicated implementations.
+- Added persistent Independent Control and display geometry, visibility, workspace
+  selection, multi-monitor recovery, and transient Frm Mic presentation during
+  transmit and Voice Keyer operation.
+- Added native window snapping for the Independent workspace while retaining
+  normal platform window movement and resizing.
+- Added W2MWS build attribution for the modernization fork.
+- Added native Light and Dark appearance selection with persisted startup
+  preference and a session-only command-line Dark override.
+- Replaced the SNR and Level indicators with platform-neutral gauges while
+  preserving their existing operational ranges and semantics.
+- Unified Waterfall, Spectrum, waveform, SNR plot, and gauge presentation under
+  the existing Multicolor, Black & White, and Blue Tint Signal Display Style
+  preference.
+- Improved signal visualization with magnitude-aware waveform coloring, stronger
+  waveform edge definition, 2-pixel Spectrum and SNR traces, translucent plot
+  fills, and a theme-accent frame around signal plot areas.
+- Restored a high-visibility Multicolor SNR gauge palette after integration of
+  the shared signal-display colors.
+- Corrected initial Spectrum buffer state so an idle display starts at the
+  minimum-magnitude floor instead of appearing as maximum signal.
+- Added a restrained typography hierarchy to the main controls using native
+  platform fonts with emphasized group headings and a stronger Independent
+  Control heading.
+- Added compatibility guards and helpers required by the supported wxWidgets
+  versions, including wxWidgets 3.0 DPI scaling and wxWidgets 3.2 appearance
+  handling, without introducing platform-specific UI implementations.
+- Preserved modem, DSP, audio, radio-control, Reporter, configuration, and
+  operational event behavior while concentrating modernization changes in the
+  presentation and workspace layers.
+
 ## Design principles
 
 - Preserve existing operational behavior and event handlers wherever practical.
@@ -265,8 +299,20 @@ signal-display style changes, persisted signal-display style selection, and
 Multicolor, Black & White, and Blue Tint rendering in Independent Windows. Full
 Windows cross-builds pass after these changes.
 
-Remaining Phase 6 work includes typography and font sizing, spacing and group
-treatment, button/control appearance, visual hierarchy, and Reporter integration.
+The main application now uses a restrained typography hierarchy based on the
+native platform GUI font. Independent Control uses the Heading role for its
+primary title, while operational group headings use the Emphasized role. Body
+controls retain native platform typography rather than applying a blanket custom
+font treatment.
+
+Waveform plots now add a 2-pixel high-visibility outline derived from the same
+magnitude-dependent Signal Display Style color as the underlying signal. Signal
+plot areas also use a thin theme-accent frame across Waterfall, Spectrum,
+Frm Radio, Frm Mic, Frm Decoder, and SNR. The treatment is intentionally more
+prominent in Dark appearance and subtler in Light appearance.
+
+Remaining Phase 6 work includes spacing and group treatment, button/control
+appearance, further visual hierarchy where useful, and Reporter integration.
 Preserve semantic operational state colors and existing application behavior
 throughout this work.
 
@@ -290,10 +336,12 @@ without changing the independent-window model established through Phase 5A.
 ## Remaining validation
 
 Remaining checks include physically missing/disconnected-monitor recovery,
-configuration reload/reset, and minimum usable sizes. Native Linux and macOS
-builds and runtime validation remain required, including workspace placement and
-snapping behavior. The completed Windows checks do not establish behavior on
-those platforms.
+configuration reload/reset, and minimum usable sizes. Linux CI has validated
+source compatibility with the older supported wxWidgets configuration, and macOS
+CI builds have completed successfully. A macOS build has also been installed and
+run successfully with Dark appearance and Independent Windows. macOS
+window-snapping behavior requires additional platform-specific validation and
+polish, and native Linux runtime validation remains required.
 
 ## Current known limitations
 
@@ -301,5 +349,6 @@ Windows without saved geometry may initially use default or stacked placement.
 Persistent docking relationships, group movement, automatic arrangement, and
 vertical Control orientation remain unimplemented. Physically
 missing/disconnected-monitor recovery and GTK/Wayland placement have not been
-runtime-validated. Validation does not yet
-cover all supported desktop platforms.
+runtime-validated. macOS Independent Windows are functional, but snapping
+behavior still requires refinement. Native Linux runtime validation remains
+outstanding.
