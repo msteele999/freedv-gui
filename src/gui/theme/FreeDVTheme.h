@@ -58,6 +58,10 @@ wxColour GetSignalDisplayColour(double position);
 // for signal plots drawn over dark backgrounds.
 wxColour GetSignalTraceColour(double position);
 
+// Maps a normalized signal value to a gauge-appropriate version of the
+// selected display style.
+wxColour GetSignalGaugeColour(double position);
+
 // Derive roles from the platform's default GUI font, preserving its face and
 // using point sizes rather than fixed pixels. Applying fonts is opt-in.
 wxFont GetFont(TypographyRole role);

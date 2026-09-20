@@ -60,10 +60,10 @@ void LevelGauge::OnPaint(wxPaintEvent&)
         if (fillStyle_ == FillStyle::Gradient)
         {
             wxGraphicsGradientStops stops(
-                FreeDVTheme::GetSignalDisplayColour(0.0),
-                FreeDVTheme::GetSignalDisplayColour(1.0));
+                FreeDVTheme::GetSignalGaugeColour(0.0),
+                FreeDVTheme::GetSignalGaugeColour(1.0));
             stops.Add(wxGraphicsGradientStop(
-                FreeDVTheme::GetSignalDisplayColour(0.5), 0.50));
+                FreeDVTheme::GetSignalGaugeColour(0.5), 0.50));
             context->SetBrush(context->CreateLinearGradientBrush(
                 0, 0, size.x, 0, stops));
         }

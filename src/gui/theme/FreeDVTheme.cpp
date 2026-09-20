@@ -112,6 +112,35 @@ wxColour GetSignalTraceColour(double position)
         lift(colour.Blue()));
 }
 
+wxColour GetSignalGaugeColour(double position)
+{
+    position = std::clamp(position, 0.0, 1.0);
+
+    if (signalDisplayStyle == SignalDisplayStyle::Multicolor)
+    {
+        const wxColour blue(35, 110, 220);
+        const wxColour green(45, 210, 75);
+        const wxColour red(220, 55, 45);
+
+        const wxColour& start = position <= 0.5 ? blue : green;
+        const wxColour& end = position <= 0.5 ? green : red;
+        const double amount =
+            position <= 0.5 ? position * 2.0 : (position - 0.5) * 2.0;
+
+        const auto interpolate = [amount](unsigned char from, unsigned char to)
+        {
+            return static_cast<unsigned char>(from + (to - from) * amount);
+        };
+
+        return wxColour(
+            interpolate(start.Red(), end.Red()),
+            interpolate(start.Green(), end.Green()),
+            interpolate(start.Blue(), end.Blue()));
+    }
+
+    return GetSignalTraceColour(position);
+}
+
 wxFont GetFont(TypographyRole role)
 {
     wxFont font = wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT);
