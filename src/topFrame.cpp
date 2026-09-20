@@ -1370,10 +1370,10 @@ void TopFrame::SetIndependentControlPresentation(bool independent)
     m_sliderMicSpkrLevel->GetContainingSizer()->GetItem(m_sliderMicSpkrLevel)->SetFlag(levelFlags);
     m_sliderSQ->GetContainingSizer()->GetItem(m_sliderSQ)->SetFlag(levelFlags);
 
-    // Retain the registration order for restoring the notebook's sizers.
+    // Sort the temporary copy for the independent layout; controlGroups_ retains notebook order.
     auto groups = controlGroups_;
     if (independent)
-        std::stable_sort(groups.begin(), groups.end(), [](const ControlGroup& lhs, const ControlGroup& rhs) {
+        std::sort(groups.begin(), groups.end(), [](const ControlGroup& lhs, const ControlGroup& rhs) {
             return lhs.independentOrder < rhs.independentOrder;
         });
 
