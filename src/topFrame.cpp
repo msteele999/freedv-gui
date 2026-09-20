@@ -929,8 +929,8 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
     auto* rightOuterSizer = new wxBoxSizer(wxVERTICAL);
     rightOuterSizer->Add(rightSizer, 1, wxEXPAND);
     auto* presentationSizer = new wxBoxSizer(wxHORIZONTAL);
-    presentationSizer->Add(CreateAppearanceSelector(0), 0, wxEXPAND | wxALL, 2);
-    presentationSizer->Add(CreateWorkspaceSelector(0), 0, wxEXPAND | wxALL, 2);
+    presentationSizer->Add(CreateAppearanceSelector(0), 0, static_cast<int>(wxEXPAND) | static_cast<int>(wxALL), 2);
+    presentationSizer->Add(CreateWorkspaceSelector(0), 0, static_cast<int>(wxEXPAND) | static_cast<int>(wxALL), 2);
     rightOuterSizer->Add(presentationSizer, 0, wxALIGN_RIGHT);
     bSizer1->Add(rightOuterSizer, 0, static_cast<int>(wxALL)|static_cast<int>(wxEXPAND), 3);
     
@@ -945,14 +945,14 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
     auto* statistics = new wxBoxSizer(wxVERTICAL);
     auto* control = new wxBoxSizer(wxVERTICAL);
     receive->Add(controlHeading_, 0, wxALL, 5);
-    columns->Add(receive, 5, wxEXPAND | wxALL, 3);
-    columns->Add(radioAudio, 6, wxEXPAND | wxALL, 3);
-    columns->Add(statistics, 5, wxEXPAND | wxALL, 3);
-    columns->Add(control, 5, wxEXPAND | wxALL, 3);
+    columns->Add(receive, 5, static_cast<int>(wxEXPAND) | static_cast<int>(wxALL), 3);
+    columns->Add(radioAudio, 6, static_cast<int>(wxEXPAND) | static_cast<int>(wxALL), 3);
+    columns->Add(statistics, 5, static_cast<int>(wxEXPAND) | static_cast<int>(wxALL), 3);
+    columns->Add(control, 5, static_cast<int>(wxEXPAND) | static_cast<int>(wxALL), 3);
     independentSizer_->Add(columns, 1, wxEXPAND);
 
     auto* received = new wxBoxSizer(wxVERTICAL);
-    independentSizer_->Add(received, 0, wxEXPAND | wxALL, 3);
+    independentSizer_->Add(received, 0, static_cast<int>(wxEXPAND) | static_cast<int>(wxALL), 3);
     auto* operations = new wxBoxSizer(wxHORIZONTAL);
     auto* supporting = new wxBoxSizer(wxHORIZONTAL);
     supporting->Add(operations, 0, wxEXPAND);
@@ -972,12 +972,12 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
         });
     }
     displayVisibilitySizer_->Add(displaySelectors, 0, wxALL, 3);
-    supporting->Add(displayVisibilitySizer_, 1, wxEXPAND | wxALL, 2);
-    supporting->Add(CreateAppearanceSelector(1), 0, wxEXPAND | wxALL, 2);
-    supporting->Add(CreateWorkspaceSelector(1), 0, wxEXPAND | wxALL, 2);
+    supporting->Add(displayVisibilitySizer_, 1, static_cast<int>(wxEXPAND) | static_cast<int>(wxALL), 2);
+    supporting->Add(CreateAppearanceSelector(1), 0, static_cast<int>(wxEXPAND) | static_cast<int>(wxALL), 2);
+    supporting->Add(CreateWorkspaceSelector(1), 0, static_cast<int>(wxEXPAND) | static_cast<int>(wxALL), 2);
     appearanceSelectors_[1].sizer->ShowItems(false);
     workspaceSelectors_[1].sizer->ShowItems(false);
-    independentSizer_->Add(supporting, 0, wxEXPAND | wxALL, 3);
+    independentSizer_->Add(supporting, 0, static_cast<int>(wxEXPAND) | static_cast<int>(wxALL), 3);
     displayVisibilitySizer_->ShowItems(false);
 
     // Keep each group's windows and event connections intact. Only its owning
@@ -1364,7 +1364,7 @@ void TopFrame::SetIndependentControlPresentation(bool independent)
     sbSizer_mode->SetOrientation(independent ? wxHORIZONTAL : wxVERTICAL);
     statsFieldsSizer_->SetVGap(independent ? ::FromDIP(this, 4) : 0);
     m_cboReportFrequency->GetContainingSizer()->GetItem(m_cboReportFrequency)->SetFlag(
-        independent ? wxALL | wxEXPAND : wxALL);
+        independent ? static_cast<int>(wxALL) | static_cast<int>(wxEXPAND) : wxALL);
     const int levelFlags = independent ? static_cast<int>(wxEXPAND) : static_cast<int>(wxALIGN_CENTER_HORIZONTAL);
     m_gaugeSNR->GetContainingSizer()->GetItem(m_gaugeSNR)->SetFlag(
         wxALL | levelFlags);
@@ -1384,7 +1384,7 @@ void TopFrame::SetIndependentControlPresentation(bool independent)
         auto* destination = independent ? group.independentParent : group.notebookParent;
         source->Detach(group.sizer);
         if (independent)
-            destination->Add(group.sizer, group.sizer == statsSizer_ ? 1 : 0, wxEXPAND | wxALL, 2);
+            destination->Add(group.sizer, group.sizer == statsSizer_ ? 1 : 0, static_cast<int>(wxEXPAND) | static_cast<int>(wxALL), 2);
         else
             destination->Add(group.sizer, group.proportion, group.flags, group.border);
     }
