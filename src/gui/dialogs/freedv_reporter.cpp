@@ -301,6 +301,10 @@ FreeDVReporterDialog::FreeDVReporterDialog(wxWindow* parent, wxWindowID id, cons
     }
     m_listSpots->AppendTextColumn(wxT(" "), RIGHTMOST_COL, wxDATAVIEW_CELL_INERT, 1, wxALIGN_CENTER, wxDATAVIEW_COL_RESIZABLE);
 
+    wxItemAttr headerAttr;
+    headerAttr.SetFont(FreeDVTheme::GetFont(FreeDVTheme::TypographyRole::Emphasized));
+    m_listSpots->SetHeaderAttr(headerAttr);
+
     // Apply column filter indicators if filters were loaded from config
     // (called after all columns are created so getColumnForModelColId_ works)
     updateColumnFilterIndicators_();
