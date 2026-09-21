@@ -6,10 +6,11 @@ Improve the FreeDV desktop UI/UX while preserving modem, audio, radio-control,
 reporting, and other operational behavior as closely as practical. This is an
 engineering and design record, not a replacement for README.md or USER_MANUAL.md.
 
-Workspace architecture and behavior precede broad visual restyling. Future visual
-goals include dark mode, improved typography and font sizing, spacing, visual
-hierarchy, control/group presentation, buttons and interactive controls, and a
-coherent visual system shared with FreeDV Reporter.
+The work started with workspace behavior and window management before moving on
+to appearance. The visual work is now frozen. The current implementation includes
+Light and Dark appearance, typography, signal-display styling, updated primary
+controls, improved spacing where it was useful, and a small amount of matching
+treatment in FreeDV Reporter.
 
 ## UI modernization changes at a glance
 
@@ -20,7 +21,8 @@ coherent visual system shared with FreeDV Reporter.
   transmit and Voice Keyer operation.
 - Added native window snapping for the Independent workspace while retaining
   normal platform window movement and resizing.
-- Added W2MWS build attribution for the modernization fork.
+- Added W2MWS build attribution to the modernization fork. This is fork-specific
+  and is not intended to be included in an upstream contribution.
 - Added native Light and Dark appearance selection with persisted startup
   preference and a session-only command-line Dark override.
 - Replaced the SNR and Level indicators with platform-neutral gauges while
@@ -41,6 +43,15 @@ coherent visual system shared with FreeDV Reporter.
 - Added compatibility guards and helpers required by the supported wxWidgets
   versions, including wxWidgets 3.0 DPI scaling and wxWidgets 3.2 appearance
   handling, without introducing platform-specific UI implementations.
+- Gave the five primary Control buttons a little more visual weight while keeping
+  their existing native rendering and operational state colors.
+- Added Local and UTC clocks to the main controls. The same Time group moves with
+  the existing controls between Notebook and Independent layouts.
+- Added a little more inset around the Stats fields so the text no longer sits
+  against the edge of the group.
+- Emphasized the FreeDV Reporter column headings using the public wxWidgets
+  DataView header-attribute API. Reporter rows and their existing state colors
+  are unchanged.
 - Preserved modem, DSP, audio, radio-control, Reporter, configuration, and
   operational event behavior while concentrating modernization changes in the
   presentation and workspace layers.
@@ -245,13 +256,16 @@ Phase 4 persistence has passed focused compilation, source-level checks, and the
 Windows runtime checks listed above. Recovery after physically disconnecting a
 monitor and GTK/Wayland placement remain unvalidated.
 
-## Active work
+## Visual modernization - frozen
 
-### Phase 6 - Visual modernization
+The visual modernization pass is complete and is now frozen. Further appearance
+changes should only be made if testing turns up a specific problem. The remaining
+work is validation, documentation, and preparation of the changes for possible
+upstream contribution.
 
-Visual modernization is in progress on top of the completed workspace
-architecture. Native wxWidgets appearance selection now provides coherent Light
-and Dark presentation for application windows and native controls. The selected
+The visual work was built on top of the completed workspace architecture. Native
+wxWidgets appearance selection now provides coherent Light and Dark presentation
+for application windows and native controls. The selected
 appearance is persisted through the existing FreeDV configuration store, with
 Appearance selectors available in both Notebook and Independent Control
 presentations. The `--dark-mode` command-line option remains available as a
@@ -305,21 +319,42 @@ primary title, while operational group headings use the Emphasized role. Body
 controls retain native platform typography rather than applying a blanket custom
 font treatment.
 
+The five primary Control buttons -- Start/Stop Modem, Analog/Digital, Tune,
+Voice Keyer, and XMIT -- use the Emphasized typography role and a 36 DIP minimum
+height. They continue to use native button rendering and the existing operational
+colors, including transmit, Tune, and Voice Keyer state indications.
+
+A Time group now shows Local and UTC time in 24-hour HH:MM:SS format and updates
+once per second. It appears below FDV Reporting in Notebook and below Radio
+Frequency in Independent Control. This is the same control group moved between
+the two layouts, not separate implementations.
+
+The Stats group keeps its existing fields and behavior. In particular, some
+values are expected to show `unk` while using RADE because those statistics are
+not supplied in that mode. The visual change is deliberately small: the fields
+have additional inset from the Stats group border.
+
 Waveform plots now add a 2-pixel high-visibility outline derived from the same
 magnitude-dependent Signal Display Style color as the underlying signal. Signal
 plot areas also use a thin theme-accent frame across Waterfall, Spectrum,
 Frm Radio, Frm Mic, Frm Decoder, and SNR. The treatment is intentionally more
 prominent in Dark appearance and subtler in Light appearance.
 
-Remaining Phase 6 work includes spacing and group treatment, button/control
-appearance, further visual hierarchy where useful, and Reporter integration.
-Preserve semantic operational state colors and existing application behavior
-throughout this work.
+FreeDV Reporter keeps its existing dense table layout, row colors, sorting,
+filtering, and controls. Its column headings now use the Emphasized typography
+role through `wxDataViewCtrl::SetHeaderAttr()`. If a platform does not support
+custom DataView header attributes, wxWidgets can simply retain the native header
+appearance.
+
+Broader spacing changes were considered but deliberately avoided. The existing
+density works well, particularly in Independent Control, and increasing padding
+throughout the application would make the controls larger without adding much
+clarity.
 
 The existing theme foundation remains the central source for visual tokens and
-platform-neutral styling. Prefer standard wxWidgets behavior where practical,
-with narrowly scoped platform-specific treatment only when required for equivalent
-appearance or behavior.
+platform-neutral styling. Standard wxWidgets behavior and public APIs are
+preferred where practical, with narrowly scoped platform-specific treatment only
+when required for equivalent appearance or behavior.
 
 ## Icebox
 
@@ -335,13 +370,22 @@ without changing the independent-window model established through Phase 5A.
 
 ## Remaining validation
 
+The visual design itself is frozen, but there are still a few validation items
+before calling the branch ready for upstream review.
+
 Remaining checks include physically missing/disconnected-monitor recovery,
 configuration reload/reset, and minimum usable sizes. Linux CI has validated
 source compatibility with the older supported wxWidgets configuration, and macOS
 CI builds have completed successfully. A macOS build has also been installed and
 run successfully with Dark appearance and Independent Windows. macOS
-window-snapping behavior requires additional platform-specific validation and
-polish, and native Linux runtime validation remains required.
+window-snapping behavior still needs another look, and native Linux runtime
+validation remains outstanding.
+
+The latest primary-control, clock, Stats-spacing, and Reporter-header changes
+have been built and checked on Windows. A final CI run on the frozen branch is
+still needed before preparing the upstream contribution. Any unrelated RADE
+runtime-test failures should be compared with current upstream behavior rather
+than treated automatically as UI regressions.
 
 ## Current known limitations
 
