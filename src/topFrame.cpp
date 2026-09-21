@@ -1306,7 +1306,7 @@ void TopFrame::StylePrimaryControlButton(wxToggleButton* button)
     button->SetFont(FreeDVTheme::GetFont(FreeDVTheme::TypographyRole::Emphasized));
 
     wxSize minimumSize = button->GetMinSize();
-    minimumSize.SetHeight(FromDIP(36));
+    minimumSize.SetHeight(::FromDIP(this, 36));
     button->SetMinSize(minimumSize);
 }
 
