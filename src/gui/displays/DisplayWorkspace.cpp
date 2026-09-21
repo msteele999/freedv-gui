@@ -9,7 +9,9 @@
 DisplayWorkspace::DisplayWorkspace(wxAuiNotebook& notebook)
     : notebook_(notebook)
 {
-    snapManager_.AddWindow(*wxDynamicCast(wxGetTopLevelParent(&notebook_), wxTopLevelWindow));
+    auto* topLevel = wxDynamicCast(wxGetTopLevelParent(&notebook_), wxTopLevelWindow);
+    if (topLevel != nullptr)
+        snapManager_.AddWindow(*topLevel);
 }
 
 void DisplayWorkspace::SetSnappingEnabled(bool enabled)
