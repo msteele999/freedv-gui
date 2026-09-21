@@ -425,11 +425,11 @@ void PlotScalar::draw(wxGraphicsContext* ctx, bool repaintDataOnly)
 
                     for (bool upper : {true, false})
                     {
-                        const int previousY = upper ? previous->y1 : previous->y2;
-                        const int currentY = upper ? current->y1 : current->y2;
+                        const int previousPos = upper ? previous->y1 : previous->y2;
+                        const int currentPos = upper ? current->y1 : current->y2;
                         const double magnitude =
                             std::min(1.0,
-                                std::abs(((previousY + currentY) / 2.0) - center) /
+                                std::abs(((previousPos + currentPos) / 2.0) - center) /
                                 center);
 
                         const wxColour colour =
@@ -447,8 +447,8 @@ void PlotScalar::draw(wxGraphicsContext* ctx, bool repaintDataOnly)
                                 lift(colour.Blue())),
                             2));
                         plotCtx->StrokeLine(
-                            index - 1, previousY,
-                            index, currentY);
+                            index - 1, previousPos,
+                            index, currentPos);
                     }
                 }
             }
