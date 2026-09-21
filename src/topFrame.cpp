@@ -684,7 +684,7 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
     m_textCodec2Var = new wxStaticText(statsBox, wxID_ANY, wxT("Var: 0"), wxDefaultPosition, wxDefaultSize, wxALIGN_LEFT);
     statsFieldsSizer_->Add(m_textCodec2Var, 0, static_cast<int>(wxALL) | wxALIGN_LEFT, 1);
 
-    sbSizer_ber->Add(statsFieldsSizer_, 0, wxEXPAND);
+    sbSizer_ber->Add(statsFieldsSizer_, 0, wxLEFT | wxRIGHT | wxBOTTOM, ::FromDIP(this, 5));
 
     leftSizer->Add(sbSizer_ber,0, static_cast<int>(wxALL)|static_cast<int>(wxEXPAND)|wxFIXED_MINSIZE, 2);
 
