@@ -29,6 +29,7 @@
 #include <wx/wrapsizer.h>
 #include <wx/aui/tabmdi.h>
 #include <wx/numformatter.h>
+#include <wx/datetime.h>
 
 #include "topFrame.h"
 #include "gui/theme/FreeDVTheme.h"
@@ -1012,15 +1013,38 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
     shareGroup(sbSizer3_33, leftSizer, receive, 2);
     shareGroup(sbSizerAudioRecordPlay, leftSizer, operations, 0);
     shareGroup(sbSizerLogging, leftSizer, operations, 1);
+    auto* timeSizer = new wxStaticBoxSizer(wxVERTICAL, m_panel, _("Time"));
+    timeSizer->GetStaticBox()->SetFont(FreeDVTheme::GetFont(FreeDVTheme::TypographyRole::Emphasized));
+
+    auto* timeFields = new wxFlexGridSizer(2, ::FromDIP(this, 4), ::FromDIP(this, 12));
+    timeFields->Add(new wxStaticText(timeSizer->GetStaticBox(), wxID_ANY, _("Local")), 0, wxALIGN_CENTER_VERTICAL);
+    localTimeText_ = new wxStaticText(timeSizer->GetStaticBox(), wxID_ANY, wxEmptyString);
+    localTimeText_->SetFont(FreeDVTheme::GetFont(FreeDVTheme::TypographyRole::Emphasized));
+    timeFields->Add(localTimeText_, 0, wxALIGN_CENTER_VERTICAL);
+
+    timeFields->Add(new wxStaticText(timeSizer->GetStaticBox(), wxID_ANY, _("UTC")), 0, wxALIGN_CENTER_VERTICAL);
+    utcTimeText_ = new wxStaticText(timeSizer->GetStaticBox(), wxID_ANY, wxEmptyString);
+    utcTimeText_->SetFont(FreeDVTheme::GetFont(FreeDVTheme::TypographyRole::Emphasized));
+    timeFields->Add(utcTimeText_, 0, wxALIGN_CENTER_VERTICAL);
+
+    timeSizer->Add(timeFields, 0, wxALL, 5);
+    leftSizer->Add(timeSizer, 0, static_cast<int>(wxALL) | static_cast<int>(wxEXPAND), 2);
+
     shareGroup(sbSizerReporterBox, leftSizer, operations, 2);
+    shareGroup(timeSizer, leftSizer, radioAudio, 3);
     shareGroup(sbSizer_ber, leftSizer, statistics, 0);
-    shareGroup(sbSizer3, rightSizer, radioAudio, 4);
     shareGroup(txLevelSizer, rightSizer, radioAudio, 0);
     shareGroup(micSpeakerLevelSizer, rightSizer, radioAudio, 1);
     shareGroup(reportFrequencySizer, rightSizer, radioAudio, 2);
-    shareGroup(sbSizer_mode, rightSizer, radioAudio, 3);
+    shareGroup(sbSizer_mode, rightSizer, radioAudio, 4);
+    shareGroup(sbSizer3, rightSizer, radioAudio, 5);
     shareGroup(sbSizer5, rightSizer, control, 0);
     shareGroup(lowerSizer, centerSizer, received, 0);
+
+    UpdateTimeDisplay();
+    timeDisplayTimer_.SetOwner(this, ID_TIMER_TIME_DISPLAY);
+    Bind(wxEVT_TIMER, [this](wxTimerEvent&) { UpdateTimeDisplay(); }, ID_TIMER_TIME_DISPLAY);
+    timeDisplayTimer_.Start(1000, wxTIMER_CONTINUOUS);
 
     m_panel->SetSizerAndFit(bSizer1);
     m_panel->Bind(wxEVT_UPDATE_UI, [this](wxUpdateUIEvent& event) {
@@ -1447,6 +1471,15 @@ void TopFrame::SetIndependentControlPresentation(bool independent)
     m_panel->Layout();
     Thaw();
     m_panel->Refresh();
+}
+
+void TopFrame::UpdateTimeDisplay()
+{
+    const wxDateTime local = wxDateTime::Now();
+    const wxDateTime utc = local.ToUTC();
+
+    localTimeText_->SetLabel(local.Format("%H:%M:%S"));
+    utcTimeText_->SetLabel(utc.Format("%H:%M:%S"));
 }
 
 void TopFrame::UpdateControlMinimumSize()

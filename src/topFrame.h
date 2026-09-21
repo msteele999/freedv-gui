@@ -57,6 +57,7 @@
 #include <wx/notebook.h>
 #include <wx/listctrl.h>
 #include <wx/collpane.h>
+#include <wx/timer.h>
 #include <wx/combo.h>
 #include <vector>
 #include <array>
@@ -80,6 +81,7 @@
 #define ID_ABOUT 1008
 
 #define ID_MODE_COLLAPSE 1100
+#define ID_TIMER_TIME_DISPLAY 1101
 
 class wxListViewComboPopup;
 
@@ -173,6 +175,11 @@ class TopFrame : public wxFrame
         virtual void OnAppearanceRequest(bool) {}
 
     private:
+        wxTimer timeDisplayTimer_;
+        wxStaticText* localTimeText_ = nullptr;
+        wxStaticText* utcTimeText_ = nullptr;
+
+        void UpdateTimeDisplay();
         void UpdateControlMinimumSize();
         void StylePrimaryControlButton(wxToggleButton* button);
         wxStaticBoxSizer* CreateWorkspaceSelector(std::size_t index);
