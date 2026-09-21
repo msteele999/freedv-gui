@@ -342,9 +342,9 @@ prominent in Dark appearance and subtler in Light appearance.
 
 FreeDV Reporter keeps its existing dense table layout, row colors, sorting,
 filtering, and controls. Its column headings now use the Emphasized typography
-role through `wxDataViewCtrl::SetHeaderAttr()`. If a platform does not support
-custom DataView header attributes, wxWidgets can simply retain the native header
-appearance.
+role through `wxDataViewCtrl::SetHeaderAttr()` when building with wxWidgets 3.1
+or newer. Builds using wxWidgets 3.0 skip this cosmetic enhancement and retain
+the native Reporter header appearance.
 
 Broader spacing changes were considered but deliberately avoided. The existing
 density works well, particularly in Independent Control, and increasing padding
