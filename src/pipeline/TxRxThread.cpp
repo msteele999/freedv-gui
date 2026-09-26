@@ -61,6 +61,7 @@ using namespace std::chrono_literals;
 #include "RecordStep.h"
 #include "ToneInterfererStep.h"
 #include "ComputeRfSpectrumStep.h"
+#include "DecodedSpeechStep.h"
 #include "MuteStep.h"
 #include "LinkStep.h"
 #include "BeepStep.h"
@@ -426,6 +427,18 @@ void TxRxThread::initializePipeline_()
             +[]() FREEDV_NONBLOCKING { return &g_sig_pwr_av; }
         );
         rfDemodulationPipeline->appendPipelineStep(rfDemodulationStep);
+
+        // Decoded speech tap for speech-to-text processing. Keep transcription
+        // work off the real-time RX audio path; its bounded queue may drop
+        // transcription samples rather than block normal received audio.
+        constexpr int DECODED_SPEECH_SAMPLE_RATE = 16000;
+        auto decodedSpeechStep = new DecodedSpeechStep(DECODED_SPEECH_SAMPLE_RATE);
+        auto decodedSpeechPipeline = new AudioPipeline(outputSampleRate_, DECODED_SPEECH_SAMPLE_RATE);
+        auto decodedSpeechResampler = new ResampleStep(outputSampleRate_, DECODED_SPEECH_SAMPLE_RATE);
+        decodedSpeechPipeline->appendPipelineStep(decodedSpeechResampler);
+        decodedSpeechPipeline->appendPipelineStep(decodedSpeechStep);
+        auto decodedSpeechTap = new TapStep(outputSampleRate_, decodedSpeechPipeline);
+        rfDemodulationPipeline->appendPipelineStep(decodedSpeechTap);
 
         // Resample for plot step (speech out)
         auto resampleForPlotOutStep = new ResampleForPlotStep(&g_plotSpeechOutFifo);
