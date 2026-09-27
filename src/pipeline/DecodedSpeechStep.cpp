@@ -126,6 +126,11 @@ void DecodedSpeechStep::workerThreadEntry_()
 
     std::vector<short> workBuffer(workChunkSamples);
 
+    constexpr int TRANSCRIPTION_SECONDS = 5;
+    const int transcriptionSamples = inputSampleRate_ * TRANSCRIPTION_SECONDS;
+    std::vector<short> transcriptionBuffer;
+    transcriptionBuffer.reserve(transcriptionSamples);
+
     while (!workerEnding_.load(std::memory_order_acquire))
     {
         while (inputFifo_.numUsed() >= workChunkSamples)
@@ -139,7 +144,57 @@ void DecodedSpeechStep::workerThreadEntry_()
                 static_cast<uint64_t>(workChunkSamples),
                 std::memory_order_relaxed);
 
-            // Speech recognition will consume workBuffer here.
+            transcriptionBuffer.insert(
+                transcriptionBuffer.end(),
+                workBuffer.begin(),
+                workBuffer.end());
+
+            if (whisperContext != nullptr &&
+                static_cast<int>(transcriptionBuffer.size()) >= transcriptionSamples)
+            {
+                std::vector<float> pcmf32(transcriptionBuffer.size());
+
+                for (size_t i = 0; i < transcriptionBuffer.size(); ++i)
+                {
+                    pcmf32[i] =
+                        static_cast<float>(transcriptionBuffer[i]) / 32768.0f;
+                }
+
+                whisper_full_params params =
+                    whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
+
+                params.language = "en";
+                params.translate = false;
+                params.no_context = true;
+                params.no_timestamps = true;
+                params.print_progress = false;
+                params.print_realtime = false;
+                params.print_timestamps = false;
+
+                if (whisper_full(
+                        whisperContext,
+                        params,
+                        pcmf32.data(),
+                        static_cast<int>(pcmf32.size())) == 0)
+                {
+                    std::string text;
+                    const int segmentCount =
+                        whisper_full_n_segments(whisperContext);
+
+                    for (int i = 0; i < segmentCount; ++i)
+                    {
+                        text += whisper_full_get_segment_text(
+                            whisperContext, i);
+                    }
+
+                    if (!text.empty())
+                    {
+                        log_info("Decoded speech:%s", text.c_str());
+                    }
+                }
+
+                transcriptionBuffer.clear();
+            }
         }
 
         workerSem_.wait();
