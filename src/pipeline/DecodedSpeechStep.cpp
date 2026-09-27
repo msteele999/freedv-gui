@@ -16,9 +16,10 @@
 
 #include "whisper.h"
 
-DecodedSpeechStep::DecodedSpeechStep(int inputSampleRate, std::string modelPath)
+DecodedSpeechStep::DecodedSpeechStep(int inputSampleRate, std::string modelPath, std::string vadModelPath)
     : inputSampleRate_(inputSampleRate)
     , modelPath_(std::move(modelPath))
+    , vadModelPath_(std::move(vadModelPath))
     , inputFifo_(inputSampleRate * FIFO_SECONDS + 1)
     , workerEnding_(false)
     , samplesReceived_(0)
@@ -120,6 +121,28 @@ void DecodedSpeechStep::workerThreadEntry_()
             modelPath_.c_str());
     }
 
+    whisper_vad_context_params vadContextParams =
+        whisper_vad_default_context_params();
+
+    whisper_vad_context* vadContext =
+        whisper_vad_init_from_file_with_params(
+            vadModelPath_.c_str(),
+            vadContextParams);
+
+    if (vadContext == nullptr)
+    {
+        log_info(
+            "Decoded speech: unable to load VAD model from %s",
+            vadModelPath_.c_str());
+    }
+    else
+    {
+        log_info(
+            "Decoded speech: VAD model loaded from %s",
+            vadModelPath_.c_str());
+
+    }
+
     constexpr int WORK_CHUNK_MS = 100;
     const int workChunkSamples =
         std::max(1, inputSampleRate_ * WORK_CHUNK_MS / 1000);
@@ -198,6 +221,11 @@ void DecodedSpeechStep::workerThreadEntry_()
         }
 
         workerSem_.wait();
+    }
+
+    if (vadContext != nullptr)
+    {
+        whisper_vad_free(vadContext);
     }
 
     if (whisperContext != nullptr)

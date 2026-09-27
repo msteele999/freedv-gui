@@ -21,7 +21,7 @@
 class DecodedSpeechStep : public IPipelineStep
 {
 public:
-    DecodedSpeechStep(int inputSampleRate, std::string modelPath);
+    DecodedSpeechStep(int inputSampleRate, std::string modelPath, std::string vadModelPath);
     virtual ~DecodedSpeechStep();
 
     virtual int getInputSampleRate() const FREEDV_NONBLOCKING override;
@@ -41,6 +41,7 @@ private:
 
     int inputSampleRate_;
     std::string modelPath_;
+    std::string vadModelPath_;
     GenericFIFO<short> inputFifo_;
     Semaphore workerSem_;
     std::thread workerThread_;
