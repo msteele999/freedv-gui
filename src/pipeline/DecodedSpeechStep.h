@@ -12,6 +12,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <string>
 #include <thread>
 
 #include "../util/GenericFIFO.h"
@@ -20,7 +21,7 @@
 class DecodedSpeechStep : public IPipelineStep
 {
 public:
-    explicit DecodedSpeechStep(int inputSampleRate);
+    DecodedSpeechStep(int inputSampleRate, std::string modelPath);
     virtual ~DecodedSpeechStep();
 
     virtual int getInputSampleRate() const FREEDV_NONBLOCKING override;
@@ -39,6 +40,7 @@ private:
     static constexpr int FIFO_SECONDS = 2;
 
     int inputSampleRate_;
+    std::string modelPath_;
     GenericFIFO<short> inputFifo_;
     Semaphore workerSem_;
     std::thread workerThread_;

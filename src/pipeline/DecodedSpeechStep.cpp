@@ -8,12 +8,17 @@
 #include "DecodedSpeechStep.h"
 
 #include <algorithm>
+#include <utility>
 #include <vector>
 
 #include "../os/os_interface.h"
+#include "../util/logging/ulog.h"
 
-DecodedSpeechStep::DecodedSpeechStep(int inputSampleRate)
+#include "whisper.h"
+
+DecodedSpeechStep::DecodedSpeechStep(int inputSampleRate, std::string modelPath)
     : inputSampleRate_(inputSampleRate)
+    , modelPath_(std::move(modelPath))
     , inputFifo_(inputSampleRate * FIFO_SECONDS + 1)
     , workerEnding_(false)
     , samplesReceived_(0)
@@ -96,6 +101,25 @@ void DecodedSpeechStep::workerThreadEntry_()
 {
     SetThreadName("DecodedSpeech");
 
+    whisper_context_params contextParams = whisper_context_default_params();
+    contextParams.use_gpu = false;
+
+    whisper_context* whisperContext =
+        whisper_init_from_file_with_params(modelPath_.c_str(), contextParams);
+
+    if (whisperContext == nullptr)
+    {
+        log_info(
+            "Decoded speech: unable to load Whisper model from %s",
+            modelPath_.c_str());
+    }
+    else
+    {
+        log_info(
+            "Decoded speech: Whisper model loaded from %s",
+            modelPath_.c_str());
+    }
+
     constexpr int WORK_CHUNK_MS = 100;
     const int workChunkSamples =
         std::max(1, inputSampleRate_ * WORK_CHUNK_MS / 1000);
@@ -119,5 +143,10 @@ void DecodedSpeechStep::workerThreadEntry_()
         }
 
         workerSem_.wait();
+    }
+
+    if (whisperContext != nullptr)
+    {
+        whisper_free(whisperContext);
     }
 }
