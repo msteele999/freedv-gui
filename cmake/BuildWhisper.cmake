@@ -24,6 +24,7 @@ unset(_freedv_whisper_arch)
 # with newer Apple SDKs; Accelerate remains available for CPU operations.
 if(APPLE)
     set(GGML_METAL OFF CACHE BOOL "" FORCE)
+    set(GGML_BLAS OFF CACHE BOOL "" FORCE)
     set(WHISPER_COREML OFF CACHE BOOL "" FORCE)
 endif()
 
