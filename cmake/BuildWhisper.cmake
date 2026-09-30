@@ -21,10 +21,11 @@ endif()
 unset(_freedv_whisper_arch)
 
 # FreeDV uses CPU inference. Avoid the pinned Metal backend's incompatibility
-# with newer Apple SDKs; Accelerate remains available for CPU operations.
+# with newer Apple SDKs; disable Accelerate as well for SDK portability.
 if(APPLE)
     set(GGML_METAL OFF CACHE BOOL "" FORCE)
     set(GGML_BLAS OFF CACHE BOOL "" FORCE)
+    set(GGML_ACCELERATE OFF CACHE BOOL "" FORCE)
     set(WHISPER_COREML OFF CACHE BOOL "" FORCE)
 endif()
 
