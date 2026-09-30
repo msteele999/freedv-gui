@@ -7,6 +7,19 @@ set(WHISPER_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(WHISPER_BUILD_SERVER OFF CACHE BOOL "" FORCE)
 set(WHISPER_CURL OFF CACHE BOOL "" FORCE)
 
+# Match upstream's portable ARM baseline, avoiding Clang 21 crashes in repack.cpp
+# with auto-detected native CPU extensions. Use target, not host, architecture.
+set(_freedv_whisper_arch "${CMAKE_SYSTEM_PROCESSOR}")
+if(APPLE AND CMAKE_OSX_ARCHITECTURES)
+    set(_freedv_whisper_arch "${CMAKE_OSX_ARCHITECTURES}")
+endif()
+string(TOLOWER "${_freedv_whisper_arch}" _freedv_whisper_arch)
+if(_freedv_whisper_arch MATCHES "(^|;)(arm|aarch64)")
+    set(GGML_NATIVE OFF CACHE BOOL "" FORCE)
+    set(GGML_CPU_ARM_ARCH "armv8-a" CACHE STRING "" FORCE)
+endif()
+unset(_freedv_whisper_arch)
+
 # FreeDV uses CPU inference. Avoid the pinned Metal backend's incompatibility
 # with newer Apple SDKs; Accelerate remains available for CPU operations.
 if(APPLE)
