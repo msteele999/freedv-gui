@@ -432,7 +432,16 @@ void TxRxThread::initializePipeline_()
         // work off the real-time RX audio path; its bounded queue may drop
         // transcription samples rather than block normal received audio.
         constexpr int DECODED_SPEECH_SAMPLE_RATE = 16000;
-        auto decodedSpeechStep = new DecodedSpeechStep(DECODED_SPEECH_SAMPLE_RATE, "models/ggml-base.en.bin", "models/ggml-silero-v6.2.0.bin");
+        // MainFrame outlives the RX pipeline and its joined transcription worker.
+        // Queue a copy to the GUI; never wait for it from a processing worker.
+        auto* transcriptOwner = static_cast<MainFrame*>(g_parent);
+        auto decodedSpeechStep = new DecodedSpeechStep(
+            DECODED_SPEECH_SAMPLE_RATE, "models/ggml-base.en.bin", "models/ggml-silero-v6.2.0.bin",
+            [transcriptOwner](const std::string& text) {
+                transcriptOwner->CallAfter([transcriptOwner, text]() {
+                    transcriptOwner->appendDecodedSpeech_(text);
+                });
+            });
         auto decodedSpeechPipeline = new AudioPipeline(outputSampleRate_, DECODED_SPEECH_SAMPLE_RATE);
         auto decodedSpeechResampler = new ResampleStep(outputSampleRate_, DECODED_SPEECH_SAMPLE_RATE);
         decodedSpeechPipeline->appendPipelineStep(decodedSpeechResampler);

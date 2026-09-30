@@ -12,8 +12,12 @@
 
 #include <atomic>
 #include <cstdint>
+#include <deque>
+#include <functional>
+#include <mutex>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "../util/GenericFIFO.h"
 #include "../util/Semaphore.h"
@@ -21,7 +25,10 @@
 class DecodedSpeechStep : public IPipelineStep
 {
 public:
-    DecodedSpeechStep(int inputSampleRate, std::string modelPath, std::string vadModelPath);
+    // Called on the transcription worker, never on the audio/VAD path.
+    using TranscriptCallback = std::function<void(const std::string&)>;
+    DecodedSpeechStep(int inputSampleRate, std::string modelPath, std::string vadModelPath,
+                      TranscriptCallback onTranscript = {});
     virtual ~DecodedSpeechStep();
 
     virtual int getInputSampleRate() const FREEDV_NONBLOCKING override;
@@ -42,16 +49,24 @@ private:
     int inputSampleRate_;
     std::string modelPath_;
     std::string vadModelPath_;
+    const TranscriptCallback onTranscript_;
     GenericFIFO<short> inputFifo_;
     Semaphore workerSem_;
     std::thread workerThread_;
     std::atomic<bool> workerEnding_;
+
+    static constexpr size_t MAX_TRANSCRIPTION_QUEUE = 4;
+    std::deque<std::vector<short>> transcriptionQueue_;
+    std::mutex transcriptionMutex_;
+    Semaphore transcriptionSem_;
+    std::thread transcriptionThread_;
 
     std::atomic<uint64_t> samplesReceived_;
     std::atomic<uint64_t> samplesProcessed_;
     std::atomic<uint64_t> samplesDropped_;
 
     void workerThreadEntry_();
+    void transcriptionThreadEntry_();
 };
 
 #endif // AUDIO_PIPELINE__DECODED_SPEECH_STEP_H

@@ -1216,6 +1216,26 @@ MainFrame::MainFrame(wxWindow *parent) : TopFrame(parent, wxID_ANY, _("FreeDV ")
     this->Connect(m_menuItemToolsConfigDelete->GetId(), wxEVT_UPDATE_UI, wxUpdateUIEventHandler(MainFrame::OnDeleteConfigUI));
 
     tools->Append(m_menuItemToolsConfigDelete);
+
+    // Modeless, session-only transcript history. Like the Reporter, closing
+    // this owned window hides it rather than stopping its data source.
+    decodedSpeechViewer_ = new wxFrame(this, wxID_ANY, _("Decoded Speech Transcription"),
+                                      wxDefaultPosition, wxSize(640, 360));
+    decodedSpeechText_ = new wxTextCtrl(decodedSpeechViewer_, wxID_ANY, wxEmptyString,
+        wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY);
+    auto* transcriptSizer = new wxBoxSizer(wxVERTICAL);
+    transcriptSizer->Add(decodedSpeechText_, 1, wxEXPAND);
+    decodedSpeechViewer_->SetSizer(transcriptSizer);
+    decodedSpeechViewer_->Bind(wxEVT_CLOSE_WINDOW, [this](wxCloseEvent& event) {
+        decodedSpeechViewer_->Hide();
+        if (event.CanVeto())
+            event.Veto();
+    });
+    auto* transcriptMenuItem = tools->Append(wxID_ANY, _("Decoded Speech Transcription..."));
+    Bind(wxEVT_MENU, [this](wxCommandEvent&) {
+        decodedSpeechViewer_->Show();
+        decodedSpeechViewer_->Raise();
+    }, transcriptMenuItem->GetId());
     
     // Add Waterfall Plot window
     m_panelWaterfall = new PlotWaterfall(m_auiNbookCtrl, g_avmag_waterfall, false, 0);
@@ -1557,6 +1577,18 @@ void MainFrame::exportConfiguration_(wxConfigBase* config)
     wxGetApp().appConfiguration.transmitLevel = g_txLevel;
     autoSaveCurrentBandLevels_(false);
     wxGetApp().appConfiguration.save(config);
+}
+
+//-------------------------------------------------------------------------
+// appendDecodedSpeech_() -- GUI thread only
+//-------------------------------------------------------------------------
+void MainFrame::appendDecodedSpeech_(const std::string& text)
+{
+    // CallAfter owns the copied text; widgets are touched only on the GUI thread.
+    if (terminating_)
+        return;
+    decodedSpeechText_->AppendText(wxString::FromUTF8(text.c_str()) + "\n");
+    decodedSpeechText_->ShowPosition(decodedSpeechText_->GetLastPosition());
 }
 
 //-------------------------------------------------------------------------

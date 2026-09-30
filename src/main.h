@@ -559,6 +559,10 @@ class MainFrame : public TopFrame
         void        processTxtEvent(char event[]);
         class OptionsDlg *optionsDlg;
 
+        wxFrame* decodedSpeechViewer_ = nullptr;
+        wxTextCtrl* decodedSpeechText_ = nullptr;
+        void appendDecodedSpeech_(const std::string& text);
+
         // level Gauge
         float       m_maxLevel;
 
