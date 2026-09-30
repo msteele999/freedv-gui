@@ -13,3 +13,6 @@ a.out
 *.marks
 *.AppDir
 *.AppImage
+
+# Downloaded Whisper speech-recognition models
+/models/*.bin
