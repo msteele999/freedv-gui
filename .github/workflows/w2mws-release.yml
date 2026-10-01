@@ -1,0 +1,97 @@
+name: W2MWS Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (example: v3.0-dev-W2MWS.1)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release:
+    name: Build W2MWS release from validated CI artifacts
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag and download production artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$RELEASE_TAG" =~ ^v.*-W2MWS\.[0-9]+$ ]]; then
+            echo "Invalid release tag: $RELEASE_TAG"
+            exit 1
+          fi
+
+          git fetch --tags --force
+
+          if ! git rev-parse "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Tag does not exist: $RELEASE_TAG"
+            exit 1
+          fi
+
+          RELEASE_SHA="$(git rev-list -n 1 "$RELEASE_TAG")"
+          echo "Release tag: $RELEASE_TAG"
+          echo "Release commit: $RELEASE_SHA"
+
+          mkdir -p release-assets downloads/windows downloads/linux downloads/macos
+
+          WINDOWS_RUN="$(gh run list --repo "$REPO" --workflow cmake-windows.yml --commit "$RELEASE_SHA" --event push --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+          LINUX_RUN="$(gh run list --repo "$REPO" --workflow cmake-linux.yml --commit "$RELEASE_SHA" --event push --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+          MACOS_RUN="$(gh run list --repo "$REPO" --workflow cmake-macos.yml --commit "$RELEASE_SHA" --event push --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+
+          for ENTRY in \
+            "Windows:$WINDOWS_RUN" \
+            "Linux:$LINUX_RUN" \
+            "macOS:$MACOS_RUN"
+          do
+            PLATFORM="${ENTRY%%:*}"
+            RUN_ID="${ENTRY#*:}"
+
+            if [[ -z "$RUN_ID" || "$RUN_ID" == "null" ]]; then
+              echo "No successful $PLATFORM CI run found for $RELEASE_SHA"
+              exit 1
+            fi
+
+            echo "$PLATFORM successful run: $RUN_ID"
+          done
+
+          gh run download "$WINDOWS_RUN" --repo "$REPO" --pattern 'FreeDV-*-windows-*.exe' --dir downloads/windows
+          gh run download "$LINUX_RUN" --repo "$REPO" --pattern 'FreeDV-*.AppImage' --dir downloads/linux
+          gh run download "$MACOS_RUN" --repo "$REPO" --pattern 'FreeDV-*.dmg' --dir downloads/macos
+
+          find downloads -type f \( -name '*.exe' -o -name '*.AppImage' -o -name '*.dmg' \) -exec cp {} release-assets/ \;
+
+          ASSET_COUNT="$(find release-assets -maxdepth 1 -type f \( -name '*.exe' -o -name '*.AppImage' -o -name '*.dmg' \) | wc -l)"
+
+          if [[ "$ASSET_COUNT" -ne 5 ]]; then
+            echo "Expected 5 production release assets, found $ASSET_COUNT"
+            exit 1
+          fi
+
+          echo "Release assets:"
+          find release-assets -maxdepth 1 -type f -print
+
+          gh release create "$RELEASE_TAG" \
+            --repo "$REPO" \
+            --verify-tag \
+            --draft \
+            --title "FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release ${RELEASE_TAG##*.}" \
+            --notes-from-tag \
+            release-assets/*.exe \
+            release-assets/*.AppImage \
+            release-assets/*.dmg
