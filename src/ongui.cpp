@@ -300,7 +300,7 @@ void MainFrame::OnToolsOptionsUI(wxUpdateUIEvent&)
 //-------------------------------------------------------------------------
 void MainFrame::OnHelpCheckUpdates(wxCommandEvent&)
 {
-    wxLaunchDefaultBrowser("https://github.com/drowe67/freedv-gui/releases");
+    wxLaunchDefaultBrowser("https://github.com/msteele999/freedv-gui/releases");
 }
 
 //-------------------------------------------------------------------------
@@ -337,6 +337,11 @@ void MainFrame::OnHelpAbout(wxCommandEvent& event)
     wxString version = wxString::FromUTF8(GetFreeDVVersion().c_str());
 
     msg.Printf( wxT("FreeDV GUI %s\n\n")
+                wxT("W2MWS Enhanced Client\n")
+                wxT("UI modernization and decoded-speech transcription enhancements\n")
+                wxT("Mark Steele W2MWS\n")
+                wxT("https://github.com/msteele999/freedv-gui\n\n")
+
                 wxT("For Help and Support visit: http://freedv.org\n\n")
 
                 wxT("GNU Public License V2.1\n\n")
