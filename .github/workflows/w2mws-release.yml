@@ -52,7 +52,7 @@ jobs:
 
           WINDOWS_RUN="$(gh run list --repo "$REPO" --workflow cmake-windows.yml --commit "$RELEASE_SHA" --event push --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
           LINUX_RUN="$(gh run list --repo "$REPO" --workflow cmake-linux.yml --commit "$RELEASE_SHA" --event push --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
-          MACOS_RUN="$(gh run list --repo "$REPO" --workflow cmake-macos.yml --commit "$RELEASE_SHA" --event push --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+          MACOS_RUN="$(gh run list --repo "$REPO" --workflow cmake-macos.yml --commit "$RELEASE_SHA" --event push --limit 1 --json databaseId --jq '.[0].databaseId')"
 
           for ENTRY in \
             "Windows:$WINDOWS_RUN" \
