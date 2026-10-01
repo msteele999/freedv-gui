@@ -70,9 +70,24 @@ jobs:
             echo "$PLATFORM successful run: $RUN_ID"
           done
 
-          gh run download "$WINDOWS_RUN" --repo "$REPO" --pattern 'FreeDV-*-windows-*.exe' --dir downloads/windows
-          gh run download "$LINUX_RUN" --repo "$REPO" --pattern 'FreeDV-*.AppImage' --dir downloads/linux
-          gh run download "$MACOS_RUN" --repo "$REPO" --pattern 'FreeDV-*.dmg' --dir downloads/macos
+          download_raw_artifacts() {
+            local RUN_ID="$1"
+            local PATTERN="$2"
+            local DEST_DIR="$3"
+
+            gh api --paginate "repos/$REPO/actions/runs/$RUN_ID/artifacts?per_page=100" \
+              --jq ".artifacts[] | select(.name | test(\"$PATTERN\")) | [.id, .name] | @tsv" |
+            while IFS=$'\\t' read -r ARTIFACT_ID ARTIFACT_NAME; do
+              echo "Downloading $ARTIFACT_NAME"
+              gh api \
+                -H "Accept: application/vnd.github+json" \
+                "repos/$REPO/actions/artifacts/$ARTIFACT_ID/zip" > "$DEST_DIR/$ARTIFACT_NAME"
+            done
+          }
+
+          download_raw_artifacts "$WINDOWS_RUN" '^FreeDV-.*-windows-.*\\.exe$' downloads/windows
+          download_raw_artifacts "$LINUX_RUN" '^FreeDV-.*\\.AppImage$' downloads/linux
+          download_raw_artifacts "$MACOS_RUN" '^FreeDV-.*\\.dmg$' downloads/macos
 
           find downloads -type f \( -name '*.exe' -o -name '*.AppImage' -o -name '*.dmg' \) -exec cp {} release-assets/ \;
 
