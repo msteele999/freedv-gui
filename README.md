@@ -10,6 +10,37 @@ It is based on the upstream FreeDV `v3.0-dev` development branch and retains the
 
 The integrated version combines two major areas of development: a modernized user interface and real-time decoded speech transcription.
 
+## Screenshots
+
+### Independent Windows Workspace
+
+![FreeDV Independent Windows workspace](docs/screenshots/independent-windows.png)
+
+Independent Windows mode with the Control workspace and individual signal displays during live FreeDV operation.
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+<h3>Notebook Workspace</h3>
+
+<img src="docs/screenshots/notebook-workspace.png" alt="FreeDV Notebook workspace" width="100%">
+
+The traditional Notebook workspace remains available.
+
+</td>
+<td width="50%" valign="top">
+
+<h3>FreeDV Reporter</h3>
+
+<img src="docs/screenshots/freedv-reporter-dark.png" alt="FreeDV Reporter in Dark appearance" width="100%">
+
+FreeDV Reporter shown in Dark appearance during live on-air activity.
+
+</td>
+</tr>
+</table>
+
 ### Modernized User Interface
 
 The interface has been updated while retaining the existing FreeDV operating workflow and capabilities.
