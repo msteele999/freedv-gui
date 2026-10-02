@@ -106,7 +106,7 @@ jobs:
             --verify-tag \
             --draft \
             --title "FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release ${RELEASE_TAG##*.}" \
-            --notes-from-tag \
+            --notes "FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release 1" \
             release-assets/*.exe \
             release-assets/*.AppImage \
             release-assets/*.dmg
