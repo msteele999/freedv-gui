@@ -77,7 +77,7 @@ jobs:
 
             gh api --paginate "repos/$REPO/actions/runs/$RUN_ID/artifacts?per_page=100" \
               --jq ".artifacts[] | select(.name | test(\"$PATTERN\")) | [.id, .name] | @tsv" |
-            while IFS=$'\\t' read -r ARTIFACT_ID ARTIFACT_NAME; do
+            while IFS=$'\t' read -r ARTIFACT_ID ARTIFACT_NAME; do
               echo "Downloading $ARTIFACT_NAME"
               gh api \
                 -H "Accept: application/vnd.github+json" \
