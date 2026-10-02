@@ -20,7 +20,8 @@ const char *FREEDV_GIT_HASH = "@GIT_HASH@";
 
 std::string GetFreeDVVersion()
 {
-    return "@FREEDV_VERSION@";
+    // W2MWS Enhanced Client release version: increment W2MWS.1 for future releases.
+    return "@FreeDV_VERSION@-@FREEDV_VERSION_TAG@-W2MWS.1";
 }
 
 std::string GetFreeDVVersionClean()

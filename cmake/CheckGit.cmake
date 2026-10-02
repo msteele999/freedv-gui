@@ -58,14 +58,14 @@ function(CheckGitVersion)
     set(FREEDV_VERSION_CLEAN "${FreeDV_VERSION}")
     file(WRITE ${CMAKE_BINARY_DIR}/freedv-version.txt ${FREEDV_VERSION})
 
-    # Only update the git_version.cpp if the hash has changed. This will
-    # prevent us from rebuilding the project more than we need to.
+    # Only update the cached Git state if the hash has changed.
     if (NOT ${GIT_HASH} STREQUAL ${GIT_HASH_CACHE} OR NOT EXISTS ${post_configure_file})
-        # Set che GIT_HASH_CACHE variable the next build won't have
-        # to regenerate the source file.
         CheckGitWrite(${GIT_HASH})
-        configure_file(${pre_configure_file} ${post_configure_file} @ONLY)
     endif ()
+
+    # Pick up template/release version edits even when the Git hash is unchanged.
+    # configure_file preserves the output timestamp when its contents are unchanged.
+    configure_file(${pre_configure_file} ${post_configure_file} @ONLY)
 
     set(GIT_HASH ${GIT_HASH} PARENT_SCOPE)
 endfunction()
