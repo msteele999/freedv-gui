@@ -35,6 +35,9 @@
 #include <chrono>
 #include <cstring>
 #include <sstream>
+#include <wx/filename.h>
+#include <wx/stdpaths.h>
+#include <wx/utils.h>
 using namespace std::chrono_literals;
 
 #include "freedv_sanitizers.h"
@@ -69,6 +72,36 @@ using namespace std::chrono_literals;
 
 #include "util/logging/ulog.h"
 #include "os/os_interface.h"
+
+namespace
+{
+std::string decodedSpeechModelPath(const wxString& modelName)
+{
+    const auto& paths = wxStandardPaths::Get();
+#if defined(__WXOSX__)
+    wxFileName model(paths.GetResourcesDir() + "/models", modelName);
+#else
+    const wxString executableDir = wxFileName(paths.GetExecutablePath()).GetPath();
+    wxFileName model(executableDir + "/models", modelName);
+#if !defined(__WXMSW__)
+    wxString appDir;
+    if (wxGetEnv("APPDIR", &appDir) && wxFileName::IsDirReadable(appDir) &&
+        wxFileName(appDir, wxEmptyString).IsAbsolute())
+    {
+        model = wxFileName(appDir + "/usr/share/freedv-gui/models", modelName);
+    }
+    else
+    {
+        wxFileName installedModel(executableDir + "/../share/freedv-gui/models", modelName);
+        if (installedModel.FileExists())
+            model = installedModel;
+    }
+#endif
+#endif
+    model.Normalize(wxPATH_NORM_DOTS | wxPATH_NORM_ABSOLUTE);
+    return model.GetFullPath().ToStdString(wxConvUTF8);
+}
+}
 
 // Experimental options for potential future release:
 //
@@ -436,7 +469,8 @@ void TxRxThread::initializePipeline_()
         // Queue a copy to the GUI; never wait for it from a processing worker.
         auto* transcriptOwner = static_cast<MainFrame*>(g_parent);
         auto decodedSpeechStep = new DecodedSpeechStep(
-            DECODED_SPEECH_SAMPLE_RATE, "models/ggml-base.en.bin", "models/ggml-silero-v6.2.0.bin",
+            DECODED_SPEECH_SAMPLE_RATE, decodedSpeechModelPath("ggml-base.en.bin"),
+            decodedSpeechModelPath("ggml-silero-v6.2.0.bin"),
             [transcriptOwner](const std::string& text) {
                 transcriptOwner->CallAfter([transcriptOwner, text]() {
                     transcriptOwner->appendDecodedSpeech_(text);

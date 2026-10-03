@@ -15,7 +15,7 @@ import plistlib
 # .. Useful stuff ..............................................................
 
 application = defines.get("app", "src/FreeDV.app")  # noqa: F821
-appname = os.path.basename(application)
+appname = defines.get("bundle_name", os.path.basename(application))  # noqa: F821
 
 
 def icon_from_app(app_path):
@@ -48,7 +48,7 @@ compression_level = 9
 size = defines.get("size", None)  # noqa: F821
 
 # Files to include
-files = [application]
+files = [(application, appname)]
 
 # Symlinks to create
 symlinks = {"Applications": "/Applications"}

@@ -550,6 +550,9 @@ FunctionEnd
   !insertmacro MUI_PAGE_DIRECTORY
 
   ;Start Menu Folder Page Configuration
+  !if "@CPACK_W2MWS_SHORTCUTS@" == "ON"
+    !define MUI_STARTMENUPAGE_NODISABLE
+  !endif
   !define MUI_STARTMENUPAGE_REGISTRY_ROOT "SHCTX"
   !define MUI_STARTMENUPAGE_REGISTRY_KEY "Software\@CPACK_PACKAGE_VENDOR@\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@"
   !define MUI_STARTMENUPAGE_REGISTRY_VALUENAME "Start Menu Folder"
@@ -709,7 +712,11 @@ Section "-Core installation"
   Push "Contact"
   Push "@CPACK_NSIS_CONTACT@"
   Call ConditionalAddToRegistry
-  !insertmacro MUI_INSTALLOPTIONS_READ $INSTALL_DESKTOP "NSIS.InstallOptions.ini" "Field 5" "State"
+  !if "@CPACK_W2MWS_SHORTCUTS@" == "ON"
+    !insertmacro MUI_INSTALLOPTIONS_READ $INSTALL_DESKTOP "NSIS.InstallOptions.ini" "Field 1" "State"
+  !else
+    !insertmacro MUI_INSTALLOPTIONS_READ $INSTALL_DESKTOP "NSIS.InstallOptions.ini" "Field 5" "State"
+  !endif
   !insertmacro MUI_STARTMENU_WRITE_BEGIN Application
 
   ;Create shortcuts
@@ -718,10 +725,15 @@ Section "-Core installation"
 @CPACK_NSIS_CREATE_ICONS_EXTRA@
   CreateShortCut "$SMPROGRAMS\$STARTMENU_FOLDER\Uninstall.lnk" "$INSTDIR\@CPACK_NSIS_UNINSTALL_NAME@.exe"
 
-  ;Read a value from an InstallOptions INI file
-  !insertmacro MUI_INSTALLOPTIONS_READ $DO_NOT_ADD_TO_PATH "NSIS.InstallOptions.ini" "Field 2" "State"
-  !insertmacro MUI_INSTALLOPTIONS_READ $ADD_TO_PATH_ALL_USERS "NSIS.InstallOptions.ini" "Field 3" "State"
-  !insertmacro MUI_INSTALLOPTIONS_READ $ADD_TO_PATH_CURRENT_USER "NSIS.InstallOptions.ini" "Field 4" "State"
+  ; Only read PATH options when PATH modification is enabled.
+  StrCpy $DO_NOT_ADD_TO_PATH "1"
+  StrCpy $ADD_TO_PATH_ALL_USERS "0"
+  StrCpy $ADD_TO_PATH_CURRENT_USER "0"
+  StrCmp "@CPACK_NSIS_MODIFY_PATH@" "ON" 0 pathOptionsReadDone
+    !insertmacro MUI_INSTALLOPTIONS_READ $DO_NOT_ADD_TO_PATH "NSIS.InstallOptions.ini" "Field 2" "State"
+    !insertmacro MUI_INSTALLOPTIONS_READ $ADD_TO_PATH_ALL_USERS "NSIS.InstallOptions.ini" "Field 3" "State"
+    !insertmacro MUI_INSTALLOPTIONS_READ $ADD_TO_PATH_CURRENT_USER "NSIS.InstallOptions.ini" "Field 4" "State"
+  pathOptionsReadDone:
 
   ; Write special uninstall registry entries
   Push "StartMenu"
@@ -747,9 +759,9 @@ Section "-Core installation"
 SectionEnd
 
 Section "-Add to path"
-  Push $INSTDIR\bin
   StrCmp "@CPACK_NSIS_MODIFY_PATH@" "ON" 0 doNotAddToPath
   StrCmp $DO_NOT_ADD_TO_PATH "1" doNotAddToPath 0
+    Push $INSTDIR\bin
     Call AddToPath
   doNotAddToPath:
 SectionEnd
@@ -907,8 +919,9 @@ Section "Uninstall"
 
   DeleteRegKey /ifempty SHCTX "Software\@CPACK_PACKAGE_VENDOR@\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@"
 
-  Push $INSTDIR\bin
-  StrCmp $DO_NOT_ADD_TO_PATH_ "1" doNotRemoveFromPath 0
+  StrCmp "@CPACK_NSIS_MODIFY_PATH@" "ON" 0 doNotRemoveFromPath
+  StrCmp $DO_NOT_ADD_TO_PATH "1" doNotRemoveFromPath 0
+    Push $INSTDIR\bin
     Call un.RemoveFromPath
   doNotRemoveFromPath:
 SectionEnd
@@ -1002,8 +1015,21 @@ inst:
     StrCmp "$IS_DEFAULT_INSTALLDIR" "1" 0 +2
       StrCpy $INSTDIR "@CPACK_NSIS_INSTALL_ROOT@\@CPACK_PACKAGE_INSTALL_DIRECTORY@"
 
-  StrCmp "@CPACK_NSIS_MODIFY_PATH@" "ON" 0 noOptionsPage
-    !insertmacro MUI_INSTALLOPTIONS_EXTRACT "NSIS.InstallOptions.ini"
-
-  noOptionsPage:
+  ; The options page also serves desktop shortcuts when PATH changes are disabled.
+  !insertmacro MUI_INSTALLOPTIONS_EXTRACT "NSIS.InstallOptions.ini"
+  !if "@CPACK_W2MWS_SHORTCUTS@" == "ON"
+    ; W2MWS exposes only an opt-in desktop shortcut, with no PATH controls.
+    !insertmacro MUI_INSTALLOPTIONS_WRITE "NSIS.InstallOptions.ini" "Settings" "NumFields" "1"
+    !insertmacro MUI_INSTALLOPTIONS_WRITE "NSIS.InstallOptions.ini" "Field 1" "Type" "CheckBox"
+    !insertmacro MUI_INSTALLOPTIONS_WRITE "NSIS.InstallOptions.ini" "Field 1" "Text" "Create a FreeDV W2MWS desktop shortcut"
+    !insertmacro MUI_INSTALLOPTIONS_WRITE "NSIS.InstallOptions.ini" "Field 1" "Left" "0"
+    !insertmacro MUI_INSTALLOPTIONS_WRITE "NSIS.InstallOptions.ini" "Field 1" "Right" "-1"
+    !insertmacro MUI_INSTALLOPTIONS_WRITE "NSIS.InstallOptions.ini" "Field 1" "Top" "0"
+    !insertmacro MUI_INSTALLOPTIONS_WRITE "NSIS.InstallOptions.ini" "Field 1" "Bottom" "12"
+    !insertmacro MUI_INSTALLOPTIONS_WRITE "NSIS.InstallOptions.ini" "Field 1" "State" "0"
+    DeleteINISec "$PLUGINSDIR\NSIS.InstallOptions.ini" "Field 2"
+    DeleteINISec "$PLUGINSDIR\NSIS.InstallOptions.ini" "Field 3"
+    DeleteINISec "$PLUGINSDIR\NSIS.InstallOptions.ini" "Field 4"
+    DeleteINISec "$PLUGINSDIR\NSIS.InstallOptions.ini" "Field 5"
+  !endif
 FunctionEnd

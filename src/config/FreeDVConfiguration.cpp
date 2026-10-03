@@ -37,6 +37,7 @@ FreeDVConfiguration::FreeDVConfiguration()
     , mainWindowHeight("/MainFrame/height", 780)
 
     , appearanceMode("/Appearance/Mode", static_cast<long>(FreeDVTheme::AppearanceMode::System))
+    , decodedSpeechFontSize("/Windows/DecodedSpeech/fontSize", 0)
 
     , independentWorkspace("/Windows/Independent/active", false)
     , independentVisibilitySaved("/Windows/Independent/visibilitySaved", false)
@@ -184,6 +185,8 @@ void FreeDVConfiguration::load(wxConfigBase* config)
                            : FreeDVTheme::AppearanceMode::Light);
     }
 
+    load_(config, decodedSpeechFontSize);
+
     load_(config, independentWorkspace);
     load_(config, independentVisibilitySaved);
     load_(config, independentWindowLeft);
@@ -321,6 +324,7 @@ void FreeDVConfiguration::save(wxConfigBase* config)
     save_(config, mainWindowHeight);
 
     save_(config, appearanceMode);
+    save_(config, decodedSpeechFontSize);
 
     save_(config, independentWorkspace);
     save_(config, independentVisibilitySaved);

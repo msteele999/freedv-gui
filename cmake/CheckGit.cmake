@@ -26,7 +26,7 @@ endfunction()
 function(CheckGitVersion)
     # Get the latest abbreviated commit hash of the working branch
     execute_process(
-        COMMAND git describe --abbrev=4 --always HEAD
+        COMMAND git rev-parse --short=4 HEAD
         WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
         OUTPUT_VARIABLE GIT_HASH
         OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -79,6 +79,7 @@ function(CheckGitSetup)
         -DGIT_HASH_CACHE=${GIT_HASH_CACHE}
         -DFreeDV_VERSION=${FreeDV_VERSION}
         -DFREEDV_VERSION_TAG=${FREEDV_VERSION_TAG}
+        -DW2MWS_RELEASE_NUMBER=${W2MWS_RELEASE_NUMBER}
         -P ${CURRENT_LIST_DIR}/CheckGit.cmake
         BYPRODUCTS ${post_configure_file}
         )

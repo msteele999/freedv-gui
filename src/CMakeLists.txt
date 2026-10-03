@@ -37,23 +37,38 @@ add_subdirectory(sox)
 
 # WIN32 is needed for Windows GUI apps and is ignored for UNIX like systems.
 # In addition, there are some required OSX-specific code files for platform specific handling.
+include(${CMAKE_SOURCE_DIR}/cmake/BuildSpeechModels.cmake)
 if(APPLE)
     set(RES_FILES freedv.icns)
     set_source_files_properties(freedv.icns PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+    list(APPEND RES_FILES ${FREEDV_SPEECH_MODELS})
+    set_source_files_properties(${FREEDV_SPEECH_MODELS} PROPERTIES
+        MACOSX_PACKAGE_LOCATION "Resources/models" HEADER_FILE_ONLY TRUE)
     add_executable(FreeDV MACOSX_BUNDLE ${FREEDV_SOURCES} ${RES_FILES})
+    set(FREEDV_BUNDLE_BUILD_VERSION "${PROJECT_VERSION}")
+    set(FREEDV_BUNDLE_RELEASE_VERSION "${FreeDV_VERSION}")
+    if(W2MWS_PACKAGE)
+        set(FREEDV_BUNDLE_BUILD_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${W2MWS_RELEASE_NUMBER}")
+        set(FREEDV_BUNDLE_RELEASE_VERSION "${FreeDV_VERSION}-${FREEDV_VERSION_TAG}-W2MWS.${W2MWS_RELEASE_NUMBER}")
+    endif()
     set_target_properties(FreeDV PROPERTIES
         BUNDLE True
-        MACOSX_BUNDLE_GUI_IDENTIFIER org.freedv.freedv
-        MACOSX_BUNDLE_BUNDLE_NAME FreeDV
-        MACOSX_BNUDLE_COPYRIGHT "Copyright (c) 2025 FreeDV"
-        MACOSX_BUNDLE_BUNDLE_VERSION "${FreeDV_VERSION}"
-        MACOSX_BUNDLE_BUNDLE_SHORT_VERSION_STRING "${FreeDV_VERSION}"
-        MACOSX_BUNDLE_BUNDLE_LONG_VERSION_STRING "${FreeDV_VERSION}"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "${FREEDV_APPLICATION_IDENTIFIER}"
+        MACOSX_BUNDLE_BUNDLE_NAME "${FREEDV_APPLICATION_NAME}"
+        MACOSX_BUNDLE_COPYRIGHT "Copyright (c) 2025 FreeDV"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${FREEDV_BUNDLE_BUILD_VERSION}"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_LONG_VERSION_STRING "${FREEDV_BUNDLE_RELEASE_VERSION}"
         MACOSX_BUNDLE_ICON_FILE "freedv"
         MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/src/info.plist.in
     )
 else()
     add_executable(freedv WIN32 ${FREEDV_SOURCES} ${RES_FILES})
+    add_custom_command(TARGET freedv POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:freedv>/models"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${FREEDV_SPEECH_MODELS}
+            "$<TARGET_FILE_DIR:freedv>/models"
+        VERBATIM)
 endif(APPLE)
 
 if(APPLE)
@@ -195,6 +210,11 @@ else(APPLE)
 install(TARGETS freedv
     RUNTIME DESTINATION bin
 )
+if(WIN32)
+    install(FILES ${FREEDV_SPEECH_MODELS} DESTINATION bin/models)
+else()
+    install(FILES ${FREEDV_SPEECH_MODELS} DESTINATION share/freedv-gui/models)
+endif()
 endif(APPLE)
 
 # Custom commands to build OSX images.
@@ -243,15 +263,17 @@ if(APPLE)
 
     if (MACOS_CODESIGN_KEYCHAIN_PROFILE)
         add_custom_target(release
-            COMMAND ${CMAKE_SOURCE_DIR}/cmake/macos_build_dmg.sh ${CMAKE_CURRENT_BINARY_DIR}/FreeDV.app
-            COMMAND codesign --timestamp -i org.freedv.freedv --sign ${MACOS_CODESIGN_IDENTITY} FreeDV.dmg
+            COMMAND "${CMAKE_SOURCE_DIR}/cmake/macos_build_dmg.sh" "${CMAKE_CURRENT_BINARY_DIR}/FreeDV.app" "${FREEDV_APPLICATION_NAME}"
+            COMMAND codesign --timestamp -i ${FREEDV_APPLICATION_IDENTIFIER} --sign ${MACOS_CODESIGN_IDENTITY} FreeDV.dmg
             COMMAND xcrun notarytool submit ./FreeDV.dmg --keychain-profile ${MACOS_CODESIGN_KEYCHAIN_PROFILE} --wait 
             COMMAND xcrun stapler staple ./FreeDV.dmg
-            DEPENDS FreeDV)
+            DEPENDS FreeDV
+            VERBATIM)
     else(MACOS_CODESIGN_KEYCHAIN_PROFILE)
         add_custom_target(release
-            COMMAND ${CMAKE_SOURCE_DIR}/cmake/macos_build_dmg.sh ${CMAKE_CURRENT_BINARY_DIR}/FreeDV.app
-            DEPENDS FreeDV)
+            COMMAND "${CMAKE_SOURCE_DIR}/cmake/macos_build_dmg.sh" "${CMAKE_CURRENT_BINARY_DIR}/FreeDV.app" "${FREEDV_APPLICATION_NAME}"
+            DEPENDS FreeDV
+            VERBATIM)
     endif (MACOS_CODESIGN_KEYCHAIN_PROFILE)
 endif(APPLE)
 

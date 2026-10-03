@@ -34,6 +34,7 @@
 #include <wx/cmdline.h>
 #include <wx/stdpaths.h>
 #include <wx/uiaction.h>
+#include <wx/wxcrt.h>
 
 #if wxCHECK_VERSION(3,2,0)
 #include <wx/uilocale.h>
@@ -937,6 +938,7 @@ void MainFrame::loadConfiguration_()
     SetIndependentControlPresentation(false);
     updateDisplayVisibilityControls_();
     wxGetApp().appConfiguration.load(pConfig);
+    applyDecodedSpeechFontSize_();
     
     // restore frame position and size
     int x = wxGetApp().appConfiguration.mainWindowLeft;
@@ -1300,6 +1302,23 @@ MainFrame::MainFrame(wxWindow *parent) : TopFrame(parent, wxID_ANY, _("FreeDV ")
     decodedSpeechText_ = new wxTextCtrl(decodedSpeechViewer_, wxID_ANY, wxEmptyString,
         wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY);
     auto* transcriptSizer = new wxBoxSizer(wxVERTICAL);
+    decodedSpeechNativeFont_ = decodedSpeechText_->GetFont();
+    auto* transcriptFontSizer = new wxBoxSizer(wxHORIZONTAL);
+    decodedSpeechFontSmaller_ = new wxButton(decodedSpeechViewer_, wxID_ANY,
+        wxString::FromUTF8("A\xE2\x88\x92"), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
+    decodedSpeechFontLarger_ = new wxButton(decodedSpeechViewer_, wxID_ANY, _("A+"),
+        wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
+    decodedSpeechFontSmaller_->SetToolTip(_("Decrease transcript font size by 1 pt (minimum 8 pt)"));
+    decodedSpeechFontLarger_->SetToolTip(_("Increase transcript font size by 1 pt (maximum 32 pt)"));
+    decodedSpeechFontSmaller_->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
+        changeDecodedSpeechFontSize_(-1);
+    });
+    decodedSpeechFontLarger_->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
+        changeDecodedSpeechFontSize_(1);
+    });
+    transcriptFontSizer->Add(decodedSpeechFontSmaller_, 0, wxRIGHT, decodedSpeechViewer_->FromDIP(2));
+    transcriptFontSizer->Add(decodedSpeechFontLarger_, 0);
+    transcriptSizer->Add(transcriptFontSizer, 0, wxALIGN_RIGHT | wxALL, decodedSpeechViewer_->FromDIP(2));
     transcriptSizer->Add(decodedSpeechText_, 1, wxEXPAND);
     decodedSpeechViewer_->SetSizer(transcriptSizer);
     decodedSpeechViewer_->Bind(wxEVT_CLOSE_WINDOW, [this](wxCloseEvent& event) {
@@ -1808,6 +1827,90 @@ void MainFrame::updateDisplayVisibilityControls_()
     }
 }
 
+void MainFrame::applyDecodedSpeechFontSize_()
+{
+    const int savedSize = wxGetApp().appConfiguration.decodedSpeechFontSize;
+    auto font = decodedSpeechNativeFont_;
+    if (savedSize != 0)
+    {
+        const int pointSize = std::max(8, std::min(32, savedSize));
+        font.SetPointSize(pointSize);
+        wxGetApp().appConfiguration.decodedSpeechFontSize = pointSize;
+    }
+    decodedSpeechText_->SetFont(font);
+    decodedSpeechFontSmaller_->Enable(font.GetPointSize() > 8);
+    decodedSpeechFontLarger_->Enable(font.GetPointSize() < 32);
+}
+
+void MainFrame::changeDecodedSpeechFontSize_(int delta)
+{
+    const int pointSize = std::max(8, std::min(32,
+        decodedSpeechText_->GetFont().GetPointSize() + delta));
+    wxGetApp().appConfiguration.decodedSpeechFontSize = pointSize;
+    applyDecodedSpeechFontSize_();
+
+    // Persist only this preference; leave unrelated configuration untouched.
+    if (auto* config = wxConfigBase::Get(false))
+    {
+        config->Write("/Windows/DecodedSpeech/fontSize", static_cast<long>(pointSize));
+        config->Flush();
+    }
+}
+
+namespace
+{
+wxString sanitizeDecodedSpeechForDisplay(const std::string& text)
+{
+    // Keep this explicit list narrow: strong profanity and common variants only.
+    // Whole-word matching requires listing inflections separately.
+    static const char* const profaneWords[] = {
+        "fuck", "fucks", "fucked", "fucking", "fucker", "fuckers",
+        "motherfucker", "motherfuckers", "motherfucking",
+        "shit", "shits", "shitted", "shitting", "shitty",
+        "bullshit", "bullshits", "bullshitted", "bullshitting",
+        "asshole", "assholes", "arsehole", "arseholes",
+        "bastard", "bastards", "bitch", "bitches", "bitched", "bitching",
+        "cunt", "cunts", "cocksucker", "cocksuckers", "cocksucking",
+        "dickhead", "dickheads"
+    };
+
+    // Sanitize only a GUI-owned copy; never change or log the recognition result.
+    wxString displayText = wxString::FromUTF8(text.c_str());
+    const auto isWordCharacter = [](const wxUniChar& character) {
+        return wxIsalnum(character) || character == '_';
+    };
+    size_t position = 0;
+    while (position < displayText.length())
+    {
+        if (!isWordCharacter(displayText[position]))
+        {
+            ++position;
+            continue;
+        }
+
+        const size_t start = position;
+        while (position < displayText.length() &&
+               isWordCharacter(displayText[position]))
+        {
+            ++position;
+        }
+
+        // Digits/underscores belong to words too, protecting callsigns and names.
+        const wxString word = displayText.Mid(start, position - start).Lower();
+        for (const auto* profaneWord : profaneWords)
+        {
+            if (word == profaneWord)
+            {
+                for (size_t index = start; index < position; ++index)
+                    displayText[index] = '*';
+                break;
+            }
+        }
+    }
+    return displayText;
+}
+}
+
 //-------------------------------------------------------------------------
 // appendDecodedSpeech_() -- GUI thread only
 //-------------------------------------------------------------------------
@@ -1816,7 +1919,18 @@ void MainFrame::appendDecodedSpeech_(const std::string& text)
     // CallAfter owns the copied text; widgets are touched only on the GUI thread.
     if (terminating_)
         return;
-    decodedSpeechText_->AppendText(wxString::FromUTF8(text.c_str()) + "\n");
+    if (!text.empty())
+    {
+        auto bucketTime = wxDateTime::Now(); // Local wall-clock time at append.
+        bucketTime.SetMinute((bucketTime.GetMinute() / 5) * 5);
+        const auto bucket = bucketTime.Format("%m/%d/%Y %H:%M");
+        if (bucket != lastDecodedSpeechBucket_)
+        {
+            decodedSpeechText_->AppendText("---------- " + bucket + " ----------\n");
+            lastDecodedSpeechBucket_ = bucket;
+        }
+    }
+    decodedSpeechText_->AppendText(sanitizeDecodedSpeechForDisplay(text) + "\n");
     decodedSpeechText_->ShowPosition(decodedSpeechText_->GetLastPosition());
 }
 

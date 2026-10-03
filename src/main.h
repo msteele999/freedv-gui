@@ -565,6 +565,12 @@ class MainFrame : public TopFrame
 
         wxFrame* decodedSpeechViewer_ = nullptr;
         wxTextCtrl* decodedSpeechText_ = nullptr;
+        wxFont decodedSpeechNativeFont_;
+        wxButton* decodedSpeechFontSmaller_ = nullptr;
+        wxButton* decodedSpeechFontLarger_ = nullptr;
+        void applyDecodedSpeechFontSize_();
+        void changeDecodedSpeechFontSize_(int delta);
+        wxString lastDecodedSpeechBucket_; // GUI-thread state, retained with transcript history.
         void appendDecodedSpeech_(const std::string& text);
 
         // level Gauge

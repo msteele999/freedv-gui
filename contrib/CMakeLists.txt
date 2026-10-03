@@ -17,6 +17,9 @@ if(UNIX AND NOT APPLE)
 
     set(DESKTOP_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/share/applications
         CACHE PATH "Location to install desktop files.")
-    install(FILES freedv.desktop
-        DESTINATION ${DESKTOP_INSTALL_DIR})
+    if(W2MWS_PACKAGE)
+        install(FILES FreeDV-W2MWS.desktop DESTINATION ${DESKTOP_INSTALL_DIR})
+    else()
+        install(FILES freedv.desktop DESTINATION ${DESKTOP_INSTALL_DIR})
+    endif()
 endif(UNIX AND NOT APPLE)

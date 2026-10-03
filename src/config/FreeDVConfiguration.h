@@ -52,6 +52,7 @@ public:
     ConfigurationDataElement<long> mainWindowHeight;
 
     ConfigurationDataElement<long> appearanceMode;
+    ConfigurationDataElement<int> decodedSpeechFontSize;
 
     ConfigurationDataElement<bool> independentWorkspace;
     ConfigurationDataElement<bool> independentVisibilitySaved;
