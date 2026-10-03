@@ -99,7 +99,7 @@ std::string decodedSpeechModelPath(const wxString& modelName)
 #endif
 #endif
     model.Normalize(wxPATH_NORM_DOTS | wxPATH_NORM_ABSOLUTE);
-    return model.GetFullPath().ToStdString(wxConvUTF8);
+    return model.GetFullPath().ToStdString();
 }
 }
 

@@ -93,7 +93,7 @@ RECORD_PID=$!
 
 # Start FreeDV in test mode to record TX
 TX_ARGS="-txfile $(pwd)/tx_in.wav -txfeaturefile $(pwd)/txfeatures.f32 "
-("$FREEDV_BINARY" -f $(pwd)/$FREEDV_CONF_FILE -ut tx -utmode RADEV1 $TX_ARGS 2>&1 | tee tmp.log) &
+("$FREEDV_BINARY" ${FREEDV_EXTRA_ARG:+"$FREEDV_EXTRA_ARG"} -f $(pwd)/$FREEDV_CONF_FILE -ut tx -utmode RADEV1 $TX_ARGS 2>&1 | tee tmp.log) &
 
 FDV_PID=$!
 
@@ -114,7 +114,7 @@ kill $RECORD_PID
 #cp $(pwd)/gmon.out $(pwd)/gmon.out.tx
 
 if [ $FREEDV_EXIT_CODE -eq 0 ]; then
-    ("$FREEDV_BINARY" -f $(pwd)/$FREEDV_CONF_FILE -ut rx -utmode RADEV1 -rxfile $(pwd)/test.wav -rxfeaturefile $(pwd)/rxfeatures.f32 2>&1 | tee tmp.log) &
+    ("$FREEDV_BINARY" ${FREEDV_EXTRA_ARG:+"$FREEDV_EXTRA_ARG"} -f $(pwd)/$FREEDV_CONF_FILE -ut rx -utmode RADEV1 -rxfile $(pwd)/test.wav -rxfeaturefile $(pwd)/rxfeatures.f32 2>&1 | tee tmp.log) &
     FDV_PID=$!
 
     #if [ "$OPERATING_SYSTEM" != "Linux" ]; then
