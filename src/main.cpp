@@ -1316,9 +1316,9 @@ MainFrame::MainFrame(wxWindow *parent) : TopFrame(parent, wxID_ANY, _("FreeDV ")
     decodedSpeechFontLarger_->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
         changeDecodedSpeechFontSize_(1);
     });
-    transcriptFontSizer->Add(decodedSpeechFontSmaller_, 0, wxRIGHT, decodedSpeechViewer_->FromDIP(2));
+    transcriptFontSizer->Add(decodedSpeechFontSmaller_, 0, wxRIGHT, 2);
     transcriptFontSizer->Add(decodedSpeechFontLarger_, 0);
-    transcriptSizer->Add(transcriptFontSizer, 0, wxALIGN_RIGHT | wxALL, decodedSpeechViewer_->FromDIP(2));
+    transcriptSizer->Add(transcriptFontSizer, wxSizerFlags(0).Right().Border(wxALL, 2));
     transcriptSizer->Add(decodedSpeechText_, 1, wxEXPAND);
     decodedSpeechViewer_->SetSizer(transcriptSizer);
     decodedSpeechViewer_->Bind(wxEVT_CLOSE_WINDOW, [this](wxCloseEvent& event) {
