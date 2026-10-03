@@ -127,6 +127,7 @@ enum {
 #define EXCHANGE_DATA_OUT   1
 
 extern int                 g_nSoundCards;
+extern wxString            testName;
 
 // Last-used configuration file helpers.
 // The path is stored in a platform-appropriate state store

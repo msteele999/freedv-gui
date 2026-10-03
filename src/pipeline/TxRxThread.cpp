@@ -461,27 +461,31 @@ void TxRxThread::initializePipeline_()
         );
         rfDemodulationPipeline->appendPipelineStep(rfDemodulationStep);
 
-        // Decoded speech tap for speech-to-text processing. Keep transcription
-        // work off the real-time RX audio path; its bounded queue may drop
-        // transcription samples rather than block normal received audio.
-        constexpr int DECODED_SPEECH_SAMPLE_RATE = 16000;
-        // MainFrame outlives the RX pipeline and its joined transcription worker.
-        // Queue a copy to the GUI; never wait for it from a processing worker.
-        auto* transcriptOwner = static_cast<MainFrame*>(g_parent);
-        auto decodedSpeechStep = new DecodedSpeechStep(
-            DECODED_SPEECH_SAMPLE_RATE, decodedSpeechModelPath("ggml-base.en.bin"),
-            decodedSpeechModelPath("ggml-silero-v6.2.0.bin"),
-            [transcriptOwner](const std::string& text) {
-                transcriptOwner->CallAfter([transcriptOwner, text]() {
-                    transcriptOwner->appendDecodedSpeech_(text);
+        // Existing command-line unit tests do not exercise decoded speech.
+        if (testName.empty())
+        {
+            // Decoded speech tap for speech-to-text processing. Keep transcription
+            // work off the real-time RX audio path; its bounded queue may drop
+            // transcription samples rather than block normal received audio.
+            constexpr int DECODED_SPEECH_SAMPLE_RATE = 16000;
+            // MainFrame outlives the RX pipeline and its joined transcription worker.
+            // Queue a copy to the GUI; never wait for it from a processing worker.
+            auto* transcriptOwner = static_cast<MainFrame*>(g_parent);
+            auto decodedSpeechStep = new DecodedSpeechStep(
+                DECODED_SPEECH_SAMPLE_RATE, decodedSpeechModelPath("ggml-base.en.bin"),
+                decodedSpeechModelPath("ggml-silero-v6.2.0.bin"),
+                [transcriptOwner](const std::string& text) {
+                    transcriptOwner->CallAfter([transcriptOwner, text]() {
+                        transcriptOwner->appendDecodedSpeech_(text);
+                    });
                 });
-            });
-        auto decodedSpeechPipeline = new AudioPipeline(outputSampleRate_, DECODED_SPEECH_SAMPLE_RATE);
-        auto decodedSpeechResampler = new ResampleStep(outputSampleRate_, DECODED_SPEECH_SAMPLE_RATE);
-        decodedSpeechPipeline->appendPipelineStep(decodedSpeechResampler);
-        decodedSpeechPipeline->appendPipelineStep(decodedSpeechStep);
-        auto decodedSpeechTap = new TapStep(outputSampleRate_, decodedSpeechPipeline);
-        rfDemodulationPipeline->appendPipelineStep(decodedSpeechTap);
+            auto decodedSpeechPipeline = new AudioPipeline(outputSampleRate_, DECODED_SPEECH_SAMPLE_RATE);
+            auto decodedSpeechResampler = new ResampleStep(outputSampleRate_, DECODED_SPEECH_SAMPLE_RATE);
+            decodedSpeechPipeline->appendPipelineStep(decodedSpeechResampler);
+            decodedSpeechPipeline->appendPipelineStep(decodedSpeechStep);
+            auto decodedSpeechTap = new TapStep(outputSampleRate_, decodedSpeechPipeline);
+            rfDemodulationPipeline->appendPipelineStep(decodedSpeechTap);
+        }
 
         // Resample for plot step (speech out)
         auto resampleForPlotOutStep = new ResampleForPlotStep(&g_plotSpeechOutFifo);
