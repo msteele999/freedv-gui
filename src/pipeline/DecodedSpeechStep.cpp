@@ -348,6 +348,12 @@ void DecodedSpeechStep::transcriptionThreadEntry_()
         params.language = "en";
         params.translate = false;
         params.no_context = true;
+        params.initial_prompt =
+            "Amateur radio digital voice: CQ, QSO, QTH, QRM, QRN, QSB, QRP, QRO, "
+            "SNR, FreeDV, RADE, USB, LSB, signal report, five by nine, 73, Roger, copy, over. "
+            "Alpha, Bravo, Charlie, Delta, Echo, Foxtrot, Golf, Hotel, India, Juliett, "
+            "Kilo, Lima, Mike, November, Oscar, Papa, Quebec, Romeo, Sierra, Tango, "
+            "Uniform, Victor, Whiskey, X-ray, Yankee, Zulu.";
         params.no_timestamps = true;
         params.print_progress = false;
         params.print_realtime = false;
