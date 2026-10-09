@@ -1367,7 +1367,7 @@ MainFrame::MainFrame(wxWindow *parent) : TopFrame(parent, wxID_ANY, wxT("FreeDV 
 
     // Modeless, session-only transcript history. Like the Reporter, closing
     // this owned window hides it rather than stopping its data source.
-    decodedSpeechViewer_ = new wxFrame(this, wxID_ANY, _("Decoded Speech Transcription"),
+    decodedSpeechViewer_ = new wxFrame(this, wxID_ANY, _("Decoded Speech Transcription [Experimental]"),
                                       wxDefaultPosition, wxSize(640, 360));
     decodedSpeechText_ = new wxTextCtrl(decodedSpeechViewer_, wxID_ANY, wxEmptyString,
         wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY);
@@ -1396,7 +1396,7 @@ MainFrame::MainFrame(wxWindow *parent) : TopFrame(parent, wxID_ANY, wxT("FreeDV 
         if (event.CanVeto())
             event.Veto();
     });
-    auto* transcriptMenuItem = tools->Append(wxID_ANY, _("Decoded Speech Transcription..."));
+    auto* transcriptMenuItem = tools->Append(wxID_ANY, _("Decoded Speech Transcription [Experimental]"));
     Bind(wxEVT_MENU, [this](wxCommandEvent&) {
         decodedSpeechViewer_->Show();
         decodedSpeechViewer_->Raise();

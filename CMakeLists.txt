@@ -16,7 +16,7 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum OS X deployment ver
 
 set(PROJECT_NAME FreeDV)
 set(PROJECT_VERSION 3.0.0)
-set(W2MWS_RELEASE_NUMBER 5)
+set(W2MWS_RELEASE_NUMBER 6)
 option(W2MWS_PACKAGE "Use the stable W2MWS application/package identity" ON)
 if(W2MWS_PACKAGE)
     set(FREEDV_APPLICATION_NAME "FreeDV W2MWS")
