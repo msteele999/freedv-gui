@@ -46,6 +46,12 @@ cp "$(dirname "$APPEXEC")/models/ggml-base.en.bin" \
    "$(dirname "$APPEXEC")/models/ggml-silero-v6.2.0.bin" \
    "$APPDIR/usr/share/freedv-gui/models/"
 
+# Copy over translations, if any were built.
+if [ -d "$BUILDDIR/build_linux/share/locale" ]; then
+    mkdir -p "$APPDIR/usr/share/locale"
+    cp -a "$BUILDDIR/build_linux/share/locale/." "$APPDIR/usr/share/locale/"
+fi
+
 # Manually copy over /etc/ssl to APPDIR. Needed for OpenSSL to behave properly on non-Ubuntu
 # distros.
 mkdir -p "$APPDIR/etc/ssl/certs"

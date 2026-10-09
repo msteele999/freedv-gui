@@ -33,6 +33,8 @@
 #include <memory>
 #include <vector>
 
+#include "defines.h"
+
 #include "plot_scalar.h"
 
 #include "gui/theme/FreeDVTheme.h"
@@ -172,9 +174,7 @@ PlotScalar::PlotScalar(wxWindow* parent,
                        TraceStyle traceStyle)
     : PlotPanel(parent, plotName)
 {
-    // XXX - FreeDV only supports English but makes a best effort to at least use regional formatting
-    // for e.g. numbers. Thus, we only need to override layout direction.
-    SetLayoutDirection(wxLayout_LeftToRight);
+    WXWIDGETS_SET_LAYOUT_DIRECTION;
     
     plotArea_ = nullptr;
     plotLines_ = nullptr;

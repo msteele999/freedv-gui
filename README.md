@@ -109,6 +109,8 @@ Those instructions cover Linux, Windows cross-compilation, macOS, audio driver s
 
 Because this fork includes additional dependencies for decoded-speech transcription, build requirements may evolve as the feature is developed.
 
+Upstream localization also requires gettext to compile translation catalogs. Install `gettext` with the build dependencies on Linux and macOS (using apt, dnf, MacPorts, or Homebrew), and include it in Windows cross-compilation environments. macOS application bundles package translations alongside the speech models.
+
 ## Releases
 
 Tagged releases from this repository represent tested snapshots of this enhanced fork.
