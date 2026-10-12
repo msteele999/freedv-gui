@@ -34,6 +34,7 @@
 #include "../controls/MsgListPopup.h"
 #include "../theme/FreeDVTheme.h"
 #include "../util/FrequencyOps.h"
+#include "../util/GridSquare.h"
 #include "../util/WindowPositionRestore.h"
 
 #if wxCHECK_VERSION(3,2,0)
@@ -204,7 +205,6 @@ FreeDVReporterDialog::FreeDVReporterDialog(wxWindow* parent, wxWindowID id, cons
     , tipWindow_(nullptr)
 #endif // !wxCHECK_VERSION(3,3,2)
     , UNKNOWN_STR("")
-    , ALL_LETTERS_RGX("^[A-Z]{2}$")
     , MS_REMOVAL_RGX("\\.[^+-]+")
     , TIMEZONE_RGX("([+-])([0-9]+):([0-9]+)$")
     , TZ_OFFSET_STR("-")
@@ -665,6 +665,22 @@ FreeDVReporterDialog::FreeDVReporterDialog(wxWindow* parent, wxWindowID id, cons
     m_trackFreqBand->Connect(wxEVT_RADIOBUTTON, wxCommandEventHandler(FreeDVReporterDialog::OnFilterTrackingEnable), NULL, this);
     m_trackExactFreq->Connect(wxEVT_RADIOBUTTON, wxCommandEventHandler(FreeDVReporterDialog::OnFilterTrackingEnable), NULL, this);
     
+    // Window names, used by GUI test scripts to find controls (see test/gui).
+    SetName("reporter");
+    m_listSpots->SetName("reporter.listSpots");
+    m_buttonOK->SetName("reporter.btnClose");
+    m_buttonSendQSY->SetName("reporter.btnSendQSY");
+    m_buttonDisplayWebpage->SetName("reporter.btnWebsite");
+    m_bandFilter->SetName("reporter.cbBandFilter");
+    m_trackFrequency->SetName("reporter.ckTrackFrequency");
+    m_trackFreqBand->SetName("reporter.rbTrackFreqBand");
+    m_trackExactFreq->SetName("reporter.rbTrackExactFreq");
+    m_filterStatus->SetName("reporter.stFilterStatus");
+    m_statusMessage->SetName("reporter.cbStatusMessage");
+    getMsgPopup()->SetName("reporter.lbSavedMessages");
+    m_buttonSend->SetName("reporter.btnSend");
+    m_buttonClear->SetName("reporter.btnClear");
+
     // Update status message and MRU list
     m_statusMessage->SetValue(wxGetApp().appConfiguration.reportingConfiguration.freedvReporterStatusText);
     for (auto& msg : wxGetApp().appConfiguration.reportingConfiguration.freedvReporterRecentStatusTexts.get())
@@ -884,8 +900,12 @@ void FreeDVReporterDialog::OnShowColumn(wxCommandEvent& event)
     auto newColValue =
         wxGetApp().appConfiguration.reportingConfiguration.freedvReporterColumnVisibility->at(columnId);
 
-    wxMenuItem* menuItem = static_cast<wxMenuItem*>(event.GetEventObject());
-    menuItem->Check(newColValue);
+    // Note: the event's object is the menu, not the item that was chosen.
+    wxMenuItem* menuItem = showMenu_->FindItem(event.GetId());
+    if (menuItem != nullptr)
+    {
+        menuItem->Check(newColValue);
+    }
 
     // Set column visibility in wxDataViewCtl.
     auto col = getColumnForModelColId_(columnId);
@@ -934,21 +954,22 @@ void FreeDVReporterDialog::OnIdleFilter(wxCommandEvent& event)
             }
             else
             {
-                // No changes needed.
-                auto numMinutes = wxGetApp().appConfiguration.reportingConfiguration.freedvReporterMaxIdleMinutes;
+                // No changes needed, other than putting the check marks back to
+                // reflect what's in effect (selecting "Custom..." changed them).
+                bool filterEnabled = wxGetApp().appConfiguration.reportingConfiguration.freedvReporterEnableMaxIdleFilter;
+                auto currentMinutes = wxGetApp().appConfiguration.reportingConfiguration.freedvReporterMaxIdleMinutes;
                 auto menuItems = idleLongerThanMenu_->GetMenuItems();
                 bool found = false;
                 for (auto& item : menuItems)
                 {
-                    if (item->GetId() == (wxID_HIGHEST + 200 + numMinutes))
-                    {
-                        item->Check(true);
-                    }
-                    else
-                    {
-                        item->Check(false);
-                    }
+                    // "Disabled" is the only item without an ID of our own choosing.
+                    bool isCurrent = filterEnabled ?
+                        (item->GetId() == (wxID_HIGHEST + 200 + currentMinutes)) :
+                        (item->GetId() < (wxID_HIGHEST + 200));
+                    found |= isCurrent;
+                    item->Check(isCurrent);
                 }
+
                 if (!found)
                 {
                     auto item = idleLongerThanMenu_->FindItem(event.GetId());
@@ -1018,6 +1039,10 @@ void FreeDVReporterDialog::DeselectItem()
         wxGetApp().lastSelectedLoggingRow = MainApp::UNSELECTED;
         m_listSpots->Unselect(item);
     }
+
+    // Deselecting from here isn't reported as a selection change, so the
+    // button that depends on there being a selection has to be told.
+    m_buttonSendQSY->Enable(false);
 }
 
 void FreeDVReporterDialog::OnSystemColorChanged(wxSysColourChangedEvent& event)
@@ -1125,7 +1150,7 @@ void FreeDVReporterDialog::OnSendQSY(wxCommandEvent&)
         wxString fullMessage = wxString::Format(_("QSY request sent to %s"), model->getCallsign(selected));
         wxMessageBox(fullMessage, _("FreeDV Reporter"), wxOK | wxICON_INFORMATION, this);
 
-        m_listSpots->Unselect(selected);
+        DeselectItem();
     }
 }
 
@@ -1985,7 +2010,7 @@ void FreeDVReporterDialog::OnColumnHeaderRightClick(wxDataViewEvent& event)
         m->refreshAllRows();
     }, clearItem->GetId());
 
-    m_listSpots->PopupMenu(&menu);
+    ShowPopupMenu(m_listSpots, &menu);
     event.Skip();
 }
 
@@ -2038,11 +2063,11 @@ void FreeDVReporterDialog::OnItemRightClick(wxDataViewEvent&)
         // on some KDE installations where the popup menu immediately closes after
         // right-clicking. This in effect causes the popup to open to the left of
         // the mouse pointer.
-        m_listSpots->PopupMenu(spotsPopupMenu_, wxPoint(mouseX - 170, mouseY));
+        ShowPopupMenu(m_listSpots, spotsPopupMenu_, wxPoint(mouseX - 170, mouseY));
     }
     else if (tempCallsign_ != wxT(""))
     {
-        m_listSpots->PopupMenu(callsignPopupMenu_, wxPoint(mouseX, mouseY));
+        ShowPopupMenu(m_listSpots, callsignPopupMenu_, wxPoint(mouseX, mouseY));
     }
 }
 
@@ -2197,7 +2222,7 @@ void FreeDVReporterDialog::OnStatusTextSendContextMenu(wxContextMenuEvent&)
                    && (int)popup->GetCount() < STATUS_MESSAGE_MRU_MAX_SIZE;
     setPopupMenu_->Enable(setSaveMenuItem_->GetId(), canSave);
     setPopupMenu_->Enable(saveMenuItem_->GetId(), canSave);
-    m_buttonSend->PopupMenu(setPopupMenu_);
+    ShowPopupMenu(m_buttonSend, setPopupMenu_);
 }
 
 void FreeDVReporterDialog::OnStatusTextSendAndSaveMessage(wxCommandEvent& event)
@@ -2243,7 +2268,7 @@ void FreeDVReporterDialog::OnStatusTextClear(wxCommandEvent&)
 
 void FreeDVReporterDialog::OnStatusTextClearContextMenu(wxContextMenuEvent&)
 {
-    m_buttonClear->PopupMenu(clearPopupMenu_);
+    ShowPopupMenu(m_buttonClear, clearPopupMenu_);
 }
 
 void FreeDVReporterDialog::OnStatusTextClearSelected(wxCommandEvent&)
@@ -2283,7 +2308,7 @@ void FreeDVReporterDialog::ShowMsgItemContextMenu(int itemIdx)
     contextMenuSelectedIndex_ = itemIdx;
     msgItemPopupMenu_->Enable(addMsgMenuItem_->GetId(),
         getMsgPopup()->GetCount() < STATUS_MESSAGE_MRU_MAX_SIZE);
-    m_statusMessage->PopupMenu(msgItemPopupMenu_);
+    ShowPopupMenu(m_statusMessage, msgItemPopupMenu_);
 }
 
 void FreeDVReporterDialog::OnStatusMessageContextMenuEdit(wxCommandEvent&)
@@ -2549,106 +2574,6 @@ wxString FreeDVReporterDialog::FreeDVReporterDataModel::makeValidTime_(std::stri
     }
 }
 
-double FreeDVReporterDialog::FreeDVReporterDataModel::calculateDistance_(wxString const& gridSquare1, wxString const& gridSquare2)
-{
-    double lat1 = 0;
-    double lon1 = 0;
-    double lat2 = 0;
-    double lon2 = 0;
-    
-    // Grab latitudes and longitudes for the two locations.
-    calculateLatLonFromGridSquare_(gridSquare1, lat1, lon1);
-    calculateLatLonFromGridSquare_(gridSquare2, lat2, lon2);
-    
-    // Use Haversine formula to calculate distance. See
-    // https://stackoverflow.com/questions/27928/calculate-distance-between-two-latitude-longitude-points-haversine-formula.
-    const double EARTH_RADIUS = 6371;
-    double dLat = DegreesToRadians_(lat2-lat1);
-    double dLon = DegreesToRadians_(lon2-lon1); 
-    double a = 
-        sin(dLat/2) * sin(dLat/2) +
-        cos(DegreesToRadians_(lat1)) * cos(DegreesToRadians_(lat2)) * 
-        sin(dLon/2) * sin(dLon/2);
-    double c = 2 * atan2(sqrt(a), sqrt(1-a)); 
-    return EARTH_RADIUS * c;
-}
-
-void FreeDVReporterDialog::FreeDVReporterDataModel::calculateLatLonFromGridSquare_(wxString gridSquare, double& lat, double& lon)
-{
-    char charA = 'A';
-    char char0 = '0';
-    
-    // Uppercase grid square for easier processing
-    gridSquare.MakeUpper();
-    
-    // Start from antimeridian South Pole (e.g. over the Pacific, not over the UK)
-    lon = -180.0;
-    lat = -90.0;
-    
-    // Process first two characters
-    lon += ((char)gridSquare.GetChar(0) - charA) * 20;
-    lat += ((char)gridSquare.GetChar(1) - charA) * 10;
-    
-    // Then next two
-    lon += ((char)gridSquare.GetChar(2) - char0) * 2;
-    lat += ((char)gridSquare.GetChar(3) - char0) * 1;
-    
-    // If grid square is 6 or more letters, THEN use the next two.
-    // Otherwise, optional.
-    wxString optionalSegment = gridSquare.Mid(4, 2);
-    const wxRegEx allLetters(parent_->ALL_LETTERS_RGX);
-    if (gridSquare.Length() >= 6 && allLetters.Matches(optionalSegment))
-    {
-        lon += ((char)gridSquare.GetChar(4) - charA) * 5.0 / 60;
-        lat += ((char)gridSquare.GetChar(5) - charA) * 2.5 / 60;
-    
-        // Center in middle of grid square
-        lon += 5.0 / 60 / 2;
-        lat += 2.5 / 60 / 2;
-    }
-    else
-    {
-        lon += 2 / 2;
-        lat += 1.0 / 2;
-    }
-}
-
-double FreeDVReporterDialog::FreeDVReporterDataModel::calculateBearingInDegrees_(wxString const& gridSquare1, wxString const& gridSquare2)
-{
-    double lat1 = 0;
-    double lon1 = 0;
-    double lat2 = 0;
-    double lon2 = 0;
-    
-    // Grab latitudes and longitudes for the two locations.
-    calculateLatLonFromGridSquare_(gridSquare1, lat1, lon1);
-    calculateLatLonFromGridSquare_(gridSquare2, lat2, lon2);
-
-    // Convert latitudes and longitudes into radians
-    lat1 = DegreesToRadians_(lat1);
-    lat2 = DegreesToRadians_(lat2);
-    lon1 = DegreesToRadians_(lon1);
-    lon2 = DegreesToRadians_(lon2);
-
-    double diffLongitude = lon2 - lon1;
-    double x = cos(lat2) * sin(diffLongitude);
-    double y = (cos(lat1) * sin(lat2)) - (sin(lat1) * cos(lat2) * cos(diffLongitude));
-    double radians = atan2(x, y);
-
-    return RadiansToDegrees_(radians);
-}
-
-double FreeDVReporterDialog::FreeDVReporterDataModel::DegreesToRadians_(double degrees)
-{
-    return degrees * (M_PI / 180.0);
-}
-
-double FreeDVReporterDialog::FreeDVReporterDataModel::RadiansToDegrees_(double radians)
-{
-    auto result = (radians > 0 ? radians : (2*M_PI + radians)) * 360 / (2*M_PI);
-    return (result == 360) ? 0 : result;
-}
-
 void FreeDVReporterDialog::FreeDVReporterDataModel::execQueuedAction_()
 {
     // This ensures that we handle server events in the order they're received.
@@ -2674,54 +2599,7 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::execQueuedAction_()
 
 FreeDVReporterDialog::FilterFrequency FreeDVReporterDialog::getFilterForFrequency_(uint64_t freq)
 {
-    auto bandForFreq = FilterFrequency::BAND_OTHER;
-    
-    if (freq >= 1800000 && freq <= 2000000)
-    {
-        bandForFreq = FilterFrequency::BAND_160M;
-    }
-    else if (freq >= 3500000 && freq <= 4000000)
-    {
-        bandForFreq = FilterFrequency::BAND_80M;
-    }
-    else if (freq >= 5250000 && freq <= 5450000)
-    {
-        bandForFreq = FilterFrequency::BAND_60M;
-    }
-    else if (freq >= 7000000 && freq <= 7300000)
-    {
-        bandForFreq = FilterFrequency::BAND_40M;
-    }
-    else if (freq >= 10100000 && freq <= 10150000)
-    {
-        bandForFreq = FilterFrequency::BAND_30M;
-    }
-    else if (freq >= 14000000 && freq <= 14350000)
-    {
-        bandForFreq = FilterFrequency::BAND_20M;
-    }
-    else if (freq >= 18068000 && freq <= 18168000)
-    {
-        bandForFreq = FilterFrequency::BAND_17M;
-    }
-    else if (freq >= 21000000 && freq <= 21450000)
-    {
-        bandForFreq = FilterFrequency::BAND_15M;
-    }
-    else if (freq >= 24890000 && freq <= 24990000)
-    {
-        bandForFreq = FilterFrequency::BAND_12M;
-    }
-    else if (freq >= 28000000 && freq <= 29700000)
-    {
-        bandForFreq = FilterFrequency::BAND_10M;
-    }
-    else if (freq >= 50000000)
-    {
-        bandForFreq = FilterFrequency::BAND_VHF_UHF;
-    }
-    
-    return bandForFreq;
+    return GetFilterForFrequency(freq);
 }
 
 bool FreeDVReporterDialog::FreeDVReporterDataModel::filtersEnabled() const
@@ -2910,18 +2788,6 @@ bool FreeDVReporterDialog::FreeDVReporterDataModel::isFiltered_(ReporterData* da
     }
 
     return isHidden;
-}
-
-wxString FreeDVReporterDialog::FreeDVReporterDataModel::GetCardinalDirection_(int degrees)
-{
-    int cardinalDirectionNumber( static_cast<int>( ( ( degrees / 360.0 ) * 16 ) + 0.5 )  % 16 );
-    // TRANSLATORS: Compass directions (N = north, NNE = north-northeast, etc.).
-    const char* const cardinalDirectionTexts[] = { 
-        wxTRANSLATE("N"), wxTRANSLATE("NNE"), wxTRANSLATE("NE"), wxTRANSLATE("ENE"), 
-        wxTRANSLATE("E"), wxTRANSLATE("ESE"), wxTRANSLATE("SE"), wxTRANSLATE("SSE"), 
-        wxTRANSLATE("S"), wxTRANSLATE("SSW"), wxTRANSLATE("SW"), wxTRANSLATE("WSW"), 
-        wxTRANSLATE("W"), wxTRANSLATE("WNW"), wxTRANSLATE("NW"), wxTRANSLATE("NNW") };
-    return wxGetTranslation(cardinalDirectionTexts[cardinalDirectionNumber]);
 }
 
 FreeDVReporterDialog::FreeDVReporterDataModel::FreeDVReporterDataModel(FreeDVReporterDialog* parent)
@@ -3447,7 +3313,7 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::refreshAllRows()
             wxString newHeading;
             if (wxGetApp().appConfiguration.reportingConfiguration.reportingDirectionAsCardinal)
             {
-                newHeading = GetCardinalDirection_(kvp.second->headingVal);
+                newHeading = GridSquare::CardinalDirection(kvp.second->headingVal);
             }
             else
             {
@@ -3602,11 +3468,12 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::onUserConnectFn_(std::string
             temp->gridSquare += gridSquareWxString.Mid(4, 2).Lower();
         }
 
-        wxRegEx gridSquareRegex(wxT("^[A-Za-z]{2}[0-9]{2}"));
-        bool validCharactersInGridSquare = gridSquareRegex.Matches(temp->gridSquare);
+        // Both ends need a usable grid square. (The user's own is whatever
+        // was typed into the options and so may be incomplete.)
+        bool validCharactersInGridSquare = GridSquare::IsValid(temp->gridSquare);
+        bool validOwnGridSquare = GridSquare::IsValid(wxGetApp().appConfiguration.reportingConfiguration.reportingGridSquare);
 
-        if (wxGetApp().appConfiguration.reportingConfiguration.reportingGridSquare == "" ||
-            !validCharactersInGridSquare)
+        if (!validOwnGridSquare || !validCharactersInGridSquare)
         {
             // Invalid grid square means we can't calculate a distance.
             temp->distance = parent_->UNKNOWN_STR;
@@ -3616,12 +3483,12 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::onUserConnectFn_(std::string
         }
         else
         {
-            temp->distanceVal = calculateDistance_(wxGetApp().appConfiguration.reportingConfiguration.reportingGridSquare, gridSquareWxString);
+            temp->distanceVal = GridSquare::DistanceInKm(wxGetApp().appConfiguration.reportingConfiguration.reportingGridSquare, gridSquareWxString);
 
             if (!wxGetApp().appConfiguration.reportingConfiguration.useMetricDistances)
             {
                 // Convert to miles for those who prefer it
-                // (calculateDistance_() returns distance in km).
+                // (GridSquare::DistanceInKm() returns distance in km).
                 temp->distanceVal *= 0.621371;
             }
 
@@ -3634,10 +3501,10 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::onUserConnectFn_(std::string
             }
             else
             {
-                temp->headingVal = calculateBearingInDegrees_(wxGetApp().appConfiguration.reportingConfiguration.reportingGridSquare, gridSquareWxString);
+                temp->headingVal = GridSquare::BearingInDegrees(wxGetApp().appConfiguration.reportingConfiguration.reportingGridSquare, gridSquareWxString);
                 if (wxGetApp().appConfiguration.reportingConfiguration.reportingDirectionAsCardinal)
                 {
-                    temp->heading = GetCardinalDirection_(temp->headingVal);
+                    temp->heading = GridSquare::CardinalDirection(temp->headingVal);
                 }
                 else
                 {

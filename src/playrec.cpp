@@ -138,13 +138,12 @@ void MainFrame::OnPlayFileFromRadio(wxCommandEvent& event)
         // add the loop check box
         openFileDialog.SetExtraControlCreator(&createMyExtraPlayFilePanel);
 
-        if(openFileDialog.ShowModal() == wxID_CANCEL)
+        if(ShowPathDialog(openFileDialog, soundFile) == wxID_CANCEL)
         {
             return;     // the user changed their mind...
         }
 
         wxString fileName, extension;
-        soundFile = openFileDialog.GetPath();
         wxString tmpString = wxGetApp().appConfiguration.playFileFromRadioPath;
         wxFileName::SplitPath(soundFile, &tmpString, &fileName, &extension);
         sfInfo.format = 0;
@@ -159,14 +158,25 @@ void MainFrame::OnPlayFileFromRadio(wxCommandEvent& event)
                 sfInfo.samplerate = freedvInterface.getRxModemSampleRate();
             }
         }
-        g_sfPlayFileFromRadio.store(sf_open(soundFile.c_str(), SFM_READ, &sfInfo), std::memory_order_release);
-        g_sfFs.store(sfInfo.samplerate, std::memory_order_release);
-        if(g_sfPlayFileFromRadio.load(std::memory_order_acquire) == NULL)
+        SNDFILE* tmpPlayFile = sf_open(soundFile.c_str(), SFM_READ, &sfInfo);
+        if(tmpPlayFile == NULL)
         {
             wxString strErr = sf_strerror(NULL);
             wxMessageBox(strErr, _("Couldn't open sound file"), wxOK);
             return;
         }
+
+        // Files with more than one channel would otherwise be played back at
+        // the wrong speed, as playback assumes one sample per frame.
+        if (sfInfo.channels != 1)
+        {
+            wxMessageBox(wxT("The selected file must only contain a single channel. Please use an audio editor to convert the file to a mono file."), wxT("Too Many Channels"), wxOK);
+            sf_close(tmpPlayFile);
+            return;
+        }
+
+        g_sfPlayFileFromRadio.store(tmpPlayFile, std::memory_order_release);
+        g_sfFs.store(sfInfo.samplerate, std::memory_order_release);
         
         // Save path for future use
         wxGetApp().appConfiguration.playFileFromRadioPath = tmpString;
@@ -174,7 +184,10 @@ void MainFrame::OnPlayFileFromRadio(wxCommandEvent& event)
         wxWindow * const ctrl = openFileDialog.GetExtraControl();
 
         // Huh?! I just copied wxWidgets-2.9.4/samples/dialogs ....
-        g_loopPlayFileFromRadio.store(static_cast<MyExtraPlayFilePanel*>(ctrl)->getLoopPlayFileToMicIn(), std::memory_order_relaxed);
+        // (There's no extra control if the dialog was never displayed, i.e.
+        // while a GUI test script is choosing the file.)
+        g_loopPlayFileFromRadio.store(
+            ctrl != nullptr && static_cast<MyExtraPlayFilePanel*>(ctrl)->getLoopPlayFileToMicIn(), std::memory_order_relaxed);
 
         wxString statusText = "";
         if(extension == wxT("raw")) {

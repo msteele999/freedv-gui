@@ -59,17 +59,6 @@ WSJTXNetworkLogger::PacketBuilder& WSJTXNetworkLogger::PacketBuilder::serialize_
 }
 
 template<>
-WSJTXNetworkLogger::PacketBuilder& WSJTXNetworkLogger::PacketBuilder::serialize_<double>(const double& obj)
-{
-    char* ptr = reallocPacket_(sizeof(double));
-    assert(ptr != nullptr);
-    
-    memcpy(ptr, &obj, sizeof(double));
-
-    return *this;
-}
-
-template<>
 WSJTXNetworkLogger::PacketBuilder& WSJTXNetworkLogger::PacketBuilder::serialize_<char>(const char& obj)
 {
     char* ptr = reallocPacket_(sizeof(char));
@@ -130,6 +119,18 @@ WSJTXNetworkLogger::PacketBuilder& WSJTXNetworkLogger::PacketBuilder::serialize_
 }
 
 template<>
+WSJTXNetworkLogger::PacketBuilder& WSJTXNetworkLogger::PacketBuilder::serialize_<double>(const double& obj)
+{
+    // Doubles are sent as 64 bit IEEE values in network byte order,
+    // same as the integer types.
+    static_assert(sizeof(double) == sizeof(uint64_t), "double must be 64 bits");
+    uint64_t tmp;
+    memcpy(&tmp, &obj, sizeof(double));
+
+    return serialize_(tmp);
+}
+
+template<>
 WSJTXNetworkLogger::PacketBuilder& WSJTXNetworkLogger::PacketBuilder::serialize_<int32_t>(const int32_t& obj)
 {
     char* ptr = reallocPacket_(sizeof(int32_t));
@@ -181,23 +182,43 @@ WSJTXNetworkLogger::PacketBuilder& WSJTXNetworkLogger::PacketBuilder::serialize_
 template<>
 WSJTXNetworkLogger::PacketBuilder& WSJTXNetworkLogger::PacketBuilder::serialize_<WSJTXNetworkLogger::jdate_clock::time_point>(const WSJTXNetworkLogger::jdate_clock::time_point& obj)
 {
-    // Not using C++20, so we need to manually define this.
-    using day_duration = std::chrono::duration<int64_t, std::ratio<86400>>;
-    
-    auto currentTimeAsJulian = obj.time_since_epoch();
-    auto julianDays = std::chrono::floor<day_duration>(currentTimeAsJulian);
-    auto julianFracDay = currentTimeAsJulian - julianDays;
-    auto msSinceMidnight = std::chrono::duration_cast<std::chrono::milliseconds>(julianFracDay).count();
+    int64_t julianDay = 0;
+    uint32_t msSinceMidnight = 0;
+    splitJulianDate_(obj, julianDay, msSinceMidnight);
         
-    *this   << (int64_t)julianDays.count()
-            << (uint32_t)msSinceMidnight
+    *this   << julianDay
+            << msSinceMidnight
             << (unsigned char)1     // UTC
                 ;
     return *this;
 }
 
-WSJTXNetworkLogger::WSJTXNetworkLogger(std::string hostname, int port)
-    : heartbeatTimer_(HEARTBEAT_INTERVAL_MS, [&](ThreadedTimer&) {
+void WSJTXNetworkLogger::splitJulianDate_(jdate_clock::time_point const& julianDate, int64_t& julianDay, uint32_t& msSinceMidnight)
+{
+    // Not using C++20, so we need to manually define this.
+    using day_duration = std::chrono::duration<int64_t, std::ratio<86400>>;
+    const int64_t MS_PER_DAY = 86400000;
+
+    auto sinceEpoch = julianDate.time_since_epoch();
+    auto julianDays = std::chrono::floor<day_duration>(sinceEpoch);
+    auto julianFracDay = sinceEpoch - julianDays;
+
+    // Dates are held as a (floating point) number of days, which can't
+    // represent most times of day exactly. Round to the nearest millisecond
+    // rather than truncating, or a time on the second gets sent as the
+    // millisecond before it (and so appears as the previous second).
+    julianDay = julianDays.count();
+    int64_t ms = std::chrono::round<std::chrono::milliseconds>(julianFracDay).count();
+    if (ms >= MS_PER_DAY)
+    {
+        ms -= MS_PER_DAY;
+        julianDay++;
+    }
+    msSinceMidnight = (uint32_t)ms;
+}
+
+WSJTXNetworkLogger::WSJTXNetworkLogger(std::string hostname, int port, int heartbeatIntervalMs)
+    : heartbeatTimer_(heartbeatIntervalMs, [&](ThreadedTimer&) {
         sendHeartbeat_();
     }, true)
     , reportHostname_(std::move(hostname))
@@ -246,13 +267,9 @@ void WSJTXNetworkLogger::logContact(std::chrono::time_point<std::chrono::system_
                   ;
     send(reportHostname_.c_str(), reportPort_, statusBuilder.getPacket(), statusBuilder.getPacketSize()).wait();
     
-    // Not using C++20, so we need to manually define this.
-    using day_duration = std::chrono::duration<int64_t, std::ratio<86400>>;
-    
-    auto julianEpoch = currentTimeAsJulian.time_since_epoch();
-    auto julianDays = std::chrono::floor<day_duration>(julianEpoch);
-    auto julianFracDay = julianEpoch - julianDays;
-    auto msSinceMidnight = std::chrono::duration_cast<std::chrono::milliseconds>(julianFracDay).count();
+    int64_t julianDay = 0;
+    uint32_t msSinceMidnight = 0;
+    splitJulianDate_(currentTimeAsJulian, julianDay, msSinceMidnight);
     
     // Send decode message for SNR
     if (snr > UNKNOWN_SNR)
@@ -261,7 +278,7 @@ void WSJTXNetworkLogger::logContact(std::chrono::time_point<std::chrono::system_
         decodeBuilder << (uint32_t)2
                       << UNIQUE_ID
                       << false
-                      << (uint32_t)msSinceMidnight // time
+                      << msSinceMidnight // time
                       << (int32_t)snr
                       << (double)0.0 // delta time
                       << (uint32_t)0 // delta freq

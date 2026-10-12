@@ -33,6 +33,9 @@
 class WSJTXNetworkLogger : protected UdpHandler, public ILogger
 {
 public:
+    // How often loggers are told that we're still here.
+    static constexpr int HEARTBEAT_INTERVAL_MS = 15000;
+
     class PacketBuilder
     {
     public:
@@ -54,7 +57,7 @@ public:
         char* reallocPacket_(int addSize);
     };
     
-    WSJTXNetworkLogger(std::string hostname, int port);
+    WSJTXNetworkLogger(std::string hostname, int port, int heartbeatIntervalMs = HEARTBEAT_INTERVAL_MS);
     virtual ~WSJTXNetworkLogger();
     
     virtual void logContact(std::chrono::time_point<std::chrono::system_clock> logTime, std::string dxCall, std::string dxGrid, std::string myCall, std::string myGrid, uint64_t freqHz, std::string reportRx, std::string reportTx, std::string name, std::string comments, int snr) override;
@@ -63,7 +66,6 @@ protected:
     virtual void onReceive_(const char*, int, char*, int) override { /* not used */ }
     
 private:
-    static constexpr int HEARTBEAT_INTERVAL_MS = 15000;
     static const std::string UNIQUE_ID;
     static const std::string LOG_MODE;
     static const std::string LOG_SUBMODE;
@@ -121,6 +123,9 @@ private:
     int reportPort_;
     
     void sendHeartbeat_();
+
+    // Splits a date into what's sent for it: the day and the time of day.
+    static void splitJulianDate_(jdate_clock::time_point const& julianDate, int64_t& julianDay, uint32_t& msSinceMidnight);
 };
 
 template<typename T> 

@@ -20,6 +20,7 @@
 //
 //==========================================================================
 
+#include <csignal>
 #include <algorithm>
 #include <inttypes.h>
 #include <time.h>
@@ -49,6 +50,9 @@
 #include "main.h"
 #include "os/os_interface.h"
 #include "freedv_interface.h"
+#if defined(ENABLE_TEST_AGENT)
+#include "test_agent.h"
+#endif // defined(ENABLE_TEST_AGENT)
 #include "audio/AudioEngineFactory.h"
 #include "pipeline/TxRxThread.h"
 #include "reporting/pskreporter.h"
@@ -278,6 +282,9 @@ std::string utTxFeatureFile;
 std::string utRxFeatureFile;
 long utTxTimeSeconds;
 long utTxAttempts;
+
+// GUI test management
+long guiTestPort = 0;
 
 // WxWidgets - initialize the application
 
@@ -578,6 +585,9 @@ void MainApp::OnInitCmdLine(wxCmdLineParser& parser)
     parser.AddOption("txfeaturefile", wxEmptyString, "Capture TX features from FARGAN encoder into the provided file.");
     parser.AddOption("txtime", "60", "In UT mode, the amount of time to transmit (default 60 seconds)", wxCMD_LINE_VAL_NUMBER);
     parser.AddOption("txattempts", "1", "In UT mode, the number of times to transmit (default 1)", wxCMD_LINE_VAL_NUMBER);
+#if defined(ENABLE_TEST_AGENT)
+    parser.AddOption("testport", wxEmptyString, "Take commands from the GUI test script listening on the given local port.", wxCMD_LINE_VAL_NUMBER);
+#endif // defined(ENABLE_TEST_AGENT)
 }
 
 bool MainApp::OnCmdLineParsed(wxCmdLineParser& parser)
@@ -802,6 +812,13 @@ bool MainApp::OnCmdLineParsed(wxCmdLineParser& parser)
         }
     }
     
+#if defined(ENABLE_TEST_AGENT)
+    if (parser.Found("testport", &guiTestPort))
+    {
+        log_info("Taking commands from GUI test script on port %d", (int)guiTestPort);
+    }
+#endif // defined(ENABLE_TEST_AGENT)
+
     wxString utRxFeatureFileTmp; 
     if (parser.Found("rxfeaturefile", &utRxFeatureFileTmp))
     {
@@ -874,6 +891,15 @@ static void SuppressButtonPressFlicker_()
 //-------------------------------------------------------------------------
 bool MainApp::OnInit()
 {
+#if !defined(_WIN32)
+    // Writing to a socket whose peer has closed raises SIGPIPE, which by
+    // default kills the process. That can happen whenever a server (e.g. FreeDV
+    // Reporter) closes a connection just as we send to it, including inside
+    // TLS library writes we can't flag individually. Ignore it so the write
+    // fails with EPIPE and the connection code handles it as a disconnect.
+    signal(SIGPIPE, SIG_IGN);
+#endif // !defined(_WIN32)
+
 #if wxCHECK_VERSION(3,3,0) && defined(__WXMSW__)
    // Opt into dark mode on Windows.
    // Note: This has an effect on macOS despite documentation indicating that it doesn't,
@@ -968,6 +994,13 @@ bool MainApp::OnInit()
         std::thread utThread(std::bind(&MainApp::UnitTest_, this));
         utThread.detach();
     }
+
+#if defined(ENABLE_TEST_AGENT)
+    if (guiTestPort > 0)
+    {
+        testAgent_ = std::make_shared<TestAgent>((int)guiTestPort);
+    }
+#endif // defined(ENABLE_TEST_AGENT)
     
     return true;
 }
@@ -977,6 +1010,7 @@ bool MainApp::OnInit()
 //-------------------------------------------------------------------------
 int MainApp::OnExit()
 {
+    testAgent_ = nullptr;
     return 0;
 }
 
@@ -2080,6 +2114,20 @@ MainFrame::~MainFrame()
     fclose(ftest);
     #endif
 
+    // If the modem was stopped just before closing, the rig may still be
+    // disconnecting on the threads started by performFreeDVOff_(), and will
+    // call back into this object when it's done. Give that a bounded chance
+    // to finish first, as OnTogBtnOnOff() does when closing while running.
+    auto rigDisconnectDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    if (rigPttDisconnectFuture_.valid())
+    {
+        rigPttDisconnectFuture_.wait_until(rigDisconnectDeadline);
+    }
+    if (rigFreqDisconnectFuture_.valid())
+    {
+        rigFreqDisconnectFuture_.wait_until(rigDisconnectDeadline);
+    }
+
     wxGetApp().rigPttController = nullptr;
     wxGetApp().rigFrequencyController = nullptr;
     wxGetApp().m_pttInSerialPort = nullptr;
@@ -2326,16 +2374,7 @@ void MainFrame::OnTimer(wxTimerEvent &evt)
 
              if (m_filterDialog->haveVolumesBeenChanged())
              {
-                auto sliderVal = 0.0;
-                sliderVal = wxGetApp().appConfiguration.filterConfiguration.spkOutChannel.volInDB;
-
-                if ((sliderVal * 10) != m_sliderMicSpkrLevel->GetValue())
-                {
-                    m_sliderMicSpkrLevel->SetValue(sliderVal * 10);
-                    m_sliderMicSpkrLevel->Refresh();
-                    wxString fmt = wxString::Format(MIC_SPKR_LEVEL_FORMAT_STR, wxNumberFormatter::ToString((double)sliderVal, 1), DECIBEL_STR);
-                    m_txtMicSpkrLevelNum->SetLabel(fmt);
-                }
+                syncSpeakerLevelWithConfiguration();
             }
          }
 
@@ -2849,7 +2888,7 @@ void MainFrame::performFreeDVOn_()
         // sample rate will be determined when the .wav file is loaded.
         g_sfTxFs.store(FS, std::memory_order_release);
     
-        freedvInterface.start(wxGetApp().appConfiguration.fifoSizeMs, wxGetApp().appConfiguration.reportingConfiguration.reportingEnabled);
+        freedvInterface.start(wxGetApp().appConfiguration.fifoSizeMs, wxGetApp().appConfiguration.reportingConfiguration.reportingEnabled, wxGetApp().appConfiguration.debugVerbose);
 
         // Text field/callsign callbacks.
         if (wxGetApp().appConfiguration.reportingConfiguration.reportingEnabled)
@@ -3395,6 +3434,39 @@ void MainFrame::destroy_fifos(void)
 }
 
 //-------------------------------------------------------------------------
+// MakeTxRxUiHooks()
+// Wires TxRxThread's callbacks into the UI/app. TxRxThread invokes these
+// from its real-time thread; CallAfter() defers the UI work to the main
+// thread, and the tone getters read MainApp's atomics directly.
+//-------------------------------------------------------------------------
+static TxRxThreadUiHooks MakeTxRxUiHooks()
+{
+    TxRxThreadUiHooks hooks;
+    hooks.playFileToMicInFinished = []() { g_parent->CallAfter(&MainFrame::StopPlayFileToMicIn); };
+    hooks.recFileFromRadioFinished = []() { g_parent->CallAfter(&MainFrame::StopRecFileFromRadio); };
+    hooks.playFileFromRadioFinished = []() { g_parent->CallAfter(&MainFrame::StopPlaybackFileFromRadio); };
+    hooks.toneFreqHz = +[]() FREEDV_NONBLOCKING -> float {
+        FREEDV_BEGIN_VERIFIED_SAFE
+        auto value = (float)wxGetApp().m_tone_freq_hz.load(std::memory_order_acquire);
+        FREEDV_END_VERIFIED_SAFE
+        return value;
+    };
+    hooks.toneAmplitude = +[]() FREEDV_NONBLOCKING -> float {
+        FREEDV_BEGIN_VERIFIED_SAFE
+        auto value = (float)wxGetApp().m_tone_amplitude.load(std::memory_order_acquire);
+        FREEDV_END_VERIFIED_SAFE
+        return value;
+    };
+    hooks.toneEnabled = +[]() FREEDV_NONBLOCKING -> bool {
+        FREEDV_BEGIN_VERIFIED_SAFE
+        auto value = wxGetApp().m_tone.load(std::memory_order_acquire);
+        FREEDV_END_VERIFIED_SAFE
+        return value;
+    };
+    return hooks;
+}
+
+//-------------------------------------------------------------------------
 // startRxStream()
 //-------------------------------------------------------------------------
 void MainFrame::startRxStream()
@@ -3850,7 +3922,7 @@ void MainFrame::startRxStream()
         // start tx/rx processing thread
         if (txInSoundDevice && txOutSoundDevice)
         {
-            m_txThread = std::make_shared<TxRxThread>(true, txInSoundDevice->getSampleRate(), txOutSoundDevice->getSampleRate(), wxGetApp().linkStep, txInSoundDevice);
+            m_txThread = std::make_shared<TxRxThread>(true, txInSoundDevice->getSampleRate(), txOutSoundDevice->getSampleRate(), wxGetApp().linkStep, txInSoundDevice, MakeTxRxUiHooks());
             
             if (!txInSoundDevice->isRunning())
             {
@@ -3877,7 +3949,7 @@ void MainFrame::startRxStream()
             m_txThread->start();
         }
 
-        m_rxThread = std::make_shared<TxRxThread>(false, rxInSoundDevice->getSampleRate(), rxOutSoundDevice->getSampleRate(), wxGetApp().linkStep, rxInSoundDevice);
+        m_rxThread = std::make_shared<TxRxThread>(false, rxInSoundDevice->getSampleRate(), rxOutSoundDevice->getSampleRate(), wxGetApp().linkStep, rxInSoundDevice, MakeTxRxUiHooks());
 
         rxInSoundDevice->start();
         if (!rxInSoundDevice->isRunning())
@@ -4192,7 +4264,7 @@ void MainFrame::onQsyRequestUIThread_(QsyRequestArgs* args)
         messageDialog.SetYesNoLabels(_("Change Frequency"), _("Cancel"));
     }
 
-    auto answer = messageDialog.ShowModal();
+    auto answer = ShowMessageDialog(messageDialog);
     if (answer == wxID_YES)
     {
         // This will implicitly cause Hamlib to change the frequency and mode.

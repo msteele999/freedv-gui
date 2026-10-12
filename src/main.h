@@ -95,6 +95,8 @@
 #include "pipeline/LinkStep.h"
 #include "freedv_sanitizers.h"
 #include "gui/util/wxMessageBoxWrapper.h"
+#include "gui/util/PopupMenuWrapper.h"
+#include "gui/util/PathDialogWrapper.h"
 #include "voicekeyer_cache.h"
 
 #define _USE_TIMER              1
@@ -169,6 +171,7 @@ void      clearLastUsedConfigPath();
 class MainFrame;
 class FilterDlg;
 class FreeDVReporterDialog;
+class TestAgent;
 
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=
 // Class MainApp
@@ -255,6 +258,9 @@ class MainApp : public wxApp
         int m_reportCounter;
     protected:
     private:
+        // Lets a GUI test script drive FreeDV (see test_agent.h).
+        std::shared_ptr<TestAgent> testAgent_;
+
         void UnitTest_();
 };
 
@@ -295,6 +301,10 @@ class MainFrame : public TopFrame
         bool HasActiveDisplay() const { return displayWorkspace_.HasActiveDisplay(); }
 
         FilterDlg*              m_filterDialog;
+
+        // Updates the speaker level control to match the configuration.
+        void syncSpeakerLevelWithConfiguration();
+
         FreeDVReporterDialog*   m_reporterDialog;
         PlotSpectrum*           m_panelSpectrum;
         PlotWaterfall*          m_panelWaterfall;
@@ -586,7 +596,6 @@ class MainFrame : public TopFrame
         bool        m_newMicInFilter;
         bool        m_newSpkOutFilter;
 
-        void*       designAnEQFilter(const char filterType[], float freqHz, float gaindB, float Q = 0.0, int sampleRate = 8000);
         void        designEQFilters(paCallBackData *cb, int rxSampleRate, int txSampleRate);
         void        deleteEQFilters(paCallBackData *cb);
 

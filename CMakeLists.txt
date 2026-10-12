@@ -814,6 +814,26 @@ elseif(UNIX AND NOT APPLE)
 
 endif(WIN32)
 
+if(UNITTEST AND WIN32)
+    # The unit tests can't be run where they're cross-compiled, so provide a
+    # way of gathering them and the DLLs they need for running elsewhere:
+    # "make collect_unit_tests" fills the unit_tests folder of the build.
+    get_property(_unit_test_targets GLOBAL PROPERTY FREEDV_UNIT_TEST_TARGETS)
+    set(_unit_test_files)
+    foreach(_target ${_unit_test_targets})
+        list(APPEND _unit_test_files "$<TARGET_FILE:${_target}>")
+    endforeach()
+
+    set(FREEDV_UNIT_TEST_LIST_FILE ${CMAKE_BINARY_DIR}/unit_tests.txt)
+    set(FREEDV_UNIT_TEST_OUTPUT_DIR ${CMAKE_BINARY_DIR}/unit_tests)
+    file(GENERATE OUTPUT ${FREEDV_UNIT_TEST_LIST_FILE} CONTENT "$<JOIN:${_unit_test_files},\n>\n")
+
+    configure_file(cmake/CollectUnitTests.cmake.in cmake/CollectUnitTests.cmake @ONLY)
+    add_custom_target(collect_unit_tests
+        COMMAND ${CMAKE_COMMAND} -P ${CMAKE_BINARY_DIR}/cmake/CollectUnitTests.cmake
+        DEPENDS unit_tests)
+endif(UNITTEST AND WIN32)
+
 if(UNITTEST)
 # The below tests are currently Linux/macOS-only. A PowerShell version of fullduplex_* 
 # for Windows is implemented in tests/TestFreeDVFullDuplex.ps1.
@@ -852,5 +872,67 @@ add_test(NAME rade_reporting_mpp COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test/test_r
 if(NOT SANITIZERS_ENABLED)
 set_tests_properties(rade_reporting_mpp PROPERTIES PASS_REGULAR_EXPRESSION "Reporting callsign ZZ0ZZZ @ SNR")
 endif(NOT SANITIZERS_ENABLED)
+
+# GUI tests: Python scripts that drive FreeDV's user interface (see test/gui).
+# These are labeled so that they can be run (ctest -L gui) or skipped
+# (ctest -LE gui) as a group. Currently Linux-only as they rely on
+# PulseAudio/PipeWire for their audio devices.
+if(LINUX)
+foreach(scenario first_run second_run receive_only cancel auto_select radio_control hamlib_start reporting import)
+    add_test(NAME gui_setup_wizard_${scenario}
+             COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/test/gui/test_setup_wizard.py ${scenario})
+    set_tests_properties(gui_setup_wizard_${scenario} PROPERTIES LABELS gui)
+endforeach(scenario)
+
+# These also need a window manager to be running and, other than live_view
+# (which is skipped if the public FreeDV Reporter server can't be reached), the
+# Python packages listed in test/gui/freedvtest/reporter.py.
+foreach(scenario live_view stations sorting band_filter column_filters idle_filter columns status_message qsy window connection_burst)
+    add_test(NAME gui_reporter_${scenario}
+             COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/test/gui/test_reporter.py ${scenario})
+    set_tests_properties(gui_reporter_${scenario} PROPERTIES LABELS gui SKIP_RETURN_CODE 77)
+endforeach(scenario)
+
+foreach(scenario buttons audio audio_tests radio ptt_test rig_control frequency_list reporting voice_keyer display modem_and_debugging auto_start while_running)
+    add_test(NAME gui_settings_${scenario}
+             COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/test/gui/test_settings.py ${scenario})
+    set_tests_properties(gui_settings_${scenario} PROPERTIES LABELS gui)
+endforeach(scenario)
+
+# These measure what FreeDV plays and records, so they're kept from running
+# alongside anything else.
+foreach(scenario transmit ptt_key tx_level receive analog play_file voice_keyer voice_keyer_files recording recording_options time_out_timer menus)
+    add_test(NAME gui_main_window_${scenario}
+             COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/test/gui/test_main_window.py ${scenario})
+    set_tests_properties(gui_main_window_${scenario} PROPERTIES LABELS gui RUN_SERIAL TRUE)
+endforeach(scenario)
+
+# The reporter scenario needs what the FreeDV Reporter tests do.
+foreach(scenario manual frequency_in_khz callsign_list reporter)
+    add_test(NAME gui_log_qso_${scenario}
+             COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/test/gui/test_log_qso.py ${scenario})
+    set_tests_properties(gui_log_qso_${scenario} PROPERTIES LABELS gui)
+endforeach(scenario)
+
+foreach(scenario controls volume equalizer noise_suppression)
+    add_test(NAME gui_filter_${scenario}
+             COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/test/gui/test_filter.py ${scenario})
+    set_tests_properties(gui_filter_${scenario} PROPERTIES LABELS gui RUN_SERIAL TRUE)
+endforeach(scenario)
+
+# These need a C compiler when run, for what stands in for a serial port's
+# control lines (see test/gui/freedvtest/serial.py).
+foreach(scenario rts polarity ptt_input errors settings_ptt_test)
+    add_test(NAME gui_serial_ptt_${scenario}
+             COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/test/gui/test_serial_ptt.py ${scenario})
+    set_tests_properties(gui_serial_ptt_${scenario} PROPERTIES LABELS gui)
+endforeach(scenario)
+
+foreach(scenario missing_device low_sample_rate no_devices receive_only device_moved)
+    add_test(NAME gui_audio_errors_${scenario}
+             COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/test/gui/test_audio_errors.py ${scenario})
+    set_tests_properties(gui_audio_errors_${scenario} PROPERTIES LABELS gui RUN_SERIAL TRUE)
+endforeach(scenario)
+endif(LINUX)
 
 endif(UNITTEST)

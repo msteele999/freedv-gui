@@ -701,7 +701,7 @@ void MainFrame::OnDeleteConfig(wxCommandEvent&)
         this, _("Would you like to restore configuration to defaults?"), _("Restore Defaults"),
         wxYES_NO | wxICON_QUESTION | wxCENTRE);
 
-    auto answer = messageDialog.ShowModal();
+    auto answer = ShowMessageDialog(messageDialog);
     if (answer == wxID_YES)
     {
         if(pConfig->DeleteAll())
@@ -920,7 +920,7 @@ void MainFrame::OnTxLevelContextMenu( wxContextMenuEvent& )
         applyTxLevel();
     }, restoreItem->GetId());
 
-    PopupMenu(&menu);
+    ShowPopupMenu(this, &menu);
 }
 
 void MainFrame::OnTuneAttenContextMenu( wxContextMenuEvent& )
@@ -966,7 +966,7 @@ void MainFrame::OnTuneAttenContextMenu( wxContextMenuEvent& )
         }, restoreItem->GetId());
     }
 
-    PopupMenu(&menu);
+    ShowPopupMenu(this, &menu);
 }
 
 //-------------------------------------------------------------------------
@@ -980,6 +980,19 @@ void MainFrame::OnChangeMicSpkrLevel( wxScrollEvent& )
     
     wxString fmtString = wxString::Format(MIC_SPKR_LEVEL_FORMAT_STR, wxNumberFormatter::ToString((double)sliderLevel, 1), DECIBEL_STR);
     m_txtMicSpkrLevelNum->SetLabel(fmtString);
+}
+
+void MainFrame::syncSpeakerLevelWithConfiguration()
+{
+    double sliderVal = wxGetApp().appConfiguration.filterConfiguration.spkOutChannel.volInDB;
+
+    if ((sliderVal * 10) != m_sliderMicSpkrLevel->GetValue())
+    {
+        m_sliderMicSpkrLevel->SetValue(sliderVal * 10);
+        m_sliderMicSpkrLevel->Refresh();
+        wxString fmt = wxString::Format(MIC_SPKR_LEVEL_FORMAT_STR, wxNumberFormatter::ToString(sliderVal, 1), DECIBEL_STR);
+        m_txtMicSpkrLevelNum->SetLabel(fmt);
+    }
 }
 
 void MainFrame::setsnrBeta(bool snrSlow)
@@ -1109,7 +1122,7 @@ void MainFrame::OnSetMonitorTxAudioVol( wxCommandEvent& )
 //-------------------------------------------------------------------------
 void MainFrame::OnTogBtnPTTRightClick( wxContextMenuEvent& )
 {
-    m_btnTogPTT->PopupMenu(pttPopupMenu_, LeftOffsetContextMenuPosition(m_btnTogPTT));
+    ShowPopupMenu(m_btnTogPTT, pttPopupMenu_, LeftOffsetContextMenuPosition(m_btnTogPTT));
 }
 
 //-------------------------------------------------------------------------
@@ -1858,6 +1871,7 @@ void MainFrame::OnLogQSO(wxCommandEvent&)
     // Show log contact dialog 
     auto logDialog = new LogEntryDialog(this);
     logDialog->ShowDialog(dxCall.ToUTF8(), dxGrid.ToUTF8(), logTimeObj, (int64_t)dxFreqHz, (int)snr);
+    logDialog->Destroy();
 }
 
 // Force manual resync, just in case demod gets stuck on false sync
@@ -2181,10 +2195,10 @@ void MainFrame::OnToolsExportConfig(wxCommandEvent& event)
         wxFD_SAVE | wxFD_OVERWRITE_PROMPT
     );
 
-    if (saveFileDialog.ShowModal() == wxID_CANCEL)
+    wxString path;
+    if (ShowPathDialog(saveFileDialog, path) == wxID_CANCEL)
         return;
 
-    wxString path = saveFileDialog.GetPath();
     wxFileConfig* exportConfig = new wxFileConfig(wxT("FreeDV"), wxT("CODEC2-Project"), path, path, wxCONFIG_USE_LOCAL_FILE);
     exportConfiguration_(exportConfig);
     exportConfig->Flush();
@@ -2204,10 +2218,10 @@ void MainFrame::OnToolsImportConfig(wxCommandEvent& event)
         wxFD_OPEN | wxFD_FILE_MUST_EXIST
     );
 
-    if (openFileDialog.ShowModal() == wxID_CANCEL)
+    wxString path;
+    if (ShowPathDialog(openFileDialog, path) == wxID_CANCEL)
         return;
 
-    wxString path = openFileDialog.GetPath();
 
     if (!wxFileExists(path))
     {
@@ -2256,14 +2270,23 @@ void MainFrame::OnToolsLoadDefaultConfig(wxCommandEvent& event)
         _("Load Default Configuration"),
         wxYES_NO | wxICON_QUESTION | wxCENTRE);
 
-    if (messageDialog.ShowModal() != wxID_YES)
+    if (ShowMessageDialog(messageDialog) != wxID_YES)
         return;
 
     // Create a platform-appropriate default config:
     // On Windows this uses the registry (wxRegConfig); on macOS/Linux it
     // uses the default file location (wxFileConfig).  This becomes the
     // active pConfig going forward — no need to restore the old one.
+    // wxConfigBase::Create() just hands back the configuration already in
+    // use if there is one, so let go of that first.
+    wxConfigBase::Set(nullptr);
+#if wxCHECK_VERSION(3,3,0) && defined(__linux__)
+    // As at startup, wxWidgets needs telling to use a subdirectory here.
+    wxString defaultLocation = wxFileConfig::GetLocalFile("freedv", wxCONFIG_USE_XDG | wxCONFIG_USE_SUBDIR).GetFullPath();
+    wxConfigBase* defaultConfig = new wxFileConfig(wxT("FreeDV"), wxT("CODEC2-Project"), defaultLocation, defaultLocation, wxCONFIG_USE_LOCAL_FILE | wxCONFIG_USE_SUBDIR | wxCONFIG_USE_XDG);
+#else
     wxConfigBase* defaultConfig = wxConfigBase::Create();
+#endif // wxCHECK_VERSION(3,3,0) && defined(__linux__)
     
     setConfiguration_(defaultConfig);
 
