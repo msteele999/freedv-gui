@@ -567,6 +567,8 @@ class MainFrame : public TopFrame
         class OptionsDlg *optionsDlg;
 
         wxFrame* decodedSpeechViewer_ = nullptr;
+        wxRect decodedSpeechNormalGeometry_;
+        void captureDecodedSpeechGeometry_();
         wxTextCtrl* decodedSpeechText_ = nullptr;
         wxFont decodedSpeechNativeFont_;
         wxButton* decodedSpeechFontSmaller_ = nullptr;

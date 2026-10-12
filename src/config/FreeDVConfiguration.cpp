@@ -38,6 +38,10 @@ FreeDVConfiguration::FreeDVConfiguration()
 
     , appearanceMode("/Appearance/Mode", static_cast<long>(FreeDVTheme::AppearanceMode::System))
     , decodedSpeechFontSize("/Windows/DecodedSpeech/fontSize", 0)
+    , decodedSpeechWindowLeft("/Windows/DecodedSpeech/left", 20)
+    , decodedSpeechWindowTop("/Windows/DecodedSpeech/top", 20)
+    , decodedSpeechWindowWidth("/Windows/DecodedSpeech/width", 640)
+    , decodedSpeechWindowHeight("/Windows/DecodedSpeech/height", 360)
 
     , independentWorkspace("/Windows/Independent/active", false)
     , independentVisibilitySaved("/Windows/Independent/visibilitySaved", false)
@@ -186,6 +190,10 @@ void FreeDVConfiguration::load(wxConfigBase* config)
     }
 
     load_(config, decodedSpeechFontSize);
+    load_(config, decodedSpeechWindowLeft);
+    load_(config, decodedSpeechWindowTop);
+    load_(config, decodedSpeechWindowWidth);
+    load_(config, decodedSpeechWindowHeight);
 
     load_(config, independentWorkspace);
     load_(config, independentVisibilitySaved);
@@ -325,6 +333,10 @@ void FreeDVConfiguration::save(wxConfigBase* config)
 
     save_(config, appearanceMode);
     save_(config, decodedSpeechFontSize);
+    save_(config, decodedSpeechWindowLeft);
+    save_(config, decodedSpeechWindowTop);
+    save_(config, decodedSpeechWindowWidth);
+    save_(config, decodedSpeechWindowHeight);
 
     save_(config, independentWorkspace);
     save_(config, independentVisibilitySaved);

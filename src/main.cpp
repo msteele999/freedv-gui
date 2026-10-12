@@ -996,6 +996,14 @@ void MainFrame::loadConfiguration_()
     updateDisplayVisibilityControls_();
     wxGetApp().appConfiguration.load(pConfig);
     applyDecodedSpeechFontSize_();
+
+    if (decodedSpeechViewer_->IsIconized() || decodedSpeechViewer_->IsMaximized())
+        decodedSpeechViewer_->Restore();
+    auto& decodedSpeechConfig = wxGetApp().appConfiguration;
+    decodedSpeechNormalGeometry_ = RestoreWindowGeometry(decodedSpeechViewer_,
+        wxRect(decodedSpeechConfig.decodedSpeechWindowLeft, decodedSpeechConfig.decodedSpeechWindowTop,
+               decodedSpeechConfig.decodedSpeechWindowWidth, decodedSpeechConfig.decodedSpeechWindowHeight),
+        decodedSpeechViewer_->GetMinSize());
     
     // restore frame position and size
     int x = wxGetApp().appConfiguration.mainWindowLeft;
@@ -1391,7 +1399,17 @@ MainFrame::MainFrame(wxWindow *parent) : TopFrame(parent, wxID_ANY, wxT("FreeDV 
     transcriptSizer->Add(transcriptFontSizer, wxSizerFlags(0).Right().Border(wxALL, 2));
     transcriptSizer->Add(decodedSpeechText_, 1, wxEXPAND);
     decodedSpeechViewer_->SetSizer(transcriptSizer);
+    decodedSpeechViewer_->Bind(wxEVT_MOVE, [this](wxMoveEvent& event) {
+        captureDecodedSpeechGeometry_();
+        event.Skip();
+    });
+    decodedSpeechViewer_->Bind(wxEVT_SIZE, [this](wxSizeEvent& event) {
+        captureDecodedSpeechGeometry_();
+        event.Skip();
+    });
+    displayWorkspace_.RegisterSnapWindow(*decodedSpeechViewer_);
     decodedSpeechViewer_->Bind(wxEVT_CLOSE_WINDOW, [this](wxCloseEvent& event) {
+        captureDecodedSpeechGeometry_();
         decodedSpeechViewer_->Hide();
         if (event.CanVeto())
             event.Veto();
@@ -1741,9 +1759,31 @@ void MainFrame::setConfiguration_(wxConfigBase* config)
     loadConfiguration_();
 }
 
+void MainFrame::captureDecodedSpeechGeometry_()
+{
+    // Hidden frames and native minimize/maximize transitions must not replace
+    // the last usable ordinary rectangle.
+    if (decodedSpeechViewer_ == nullptr || decodedSpeechViewer_->IsBeingDeleted() ||
+        !decodedSpeechViewer_->IsShown() || decodedSpeechViewer_->IsIconized() ||
+        decodedSpeechViewer_->IsMaximized())
+        return;
+    const wxRect rect = decodedSpeechViewer_->GetRect();
+    if (!rect.IsEmpty())
+        decodedSpeechNormalGeometry_ = rect;
+}
+
 void MainFrame::exportConfiguration_(wxConfigBase* config)
 {
     captureWorkspace_();
+    captureDecodedSpeechGeometry_();
+    if (!decodedSpeechNormalGeometry_.IsEmpty())
+    {
+        auto& configuration = wxGetApp().appConfiguration;
+        configuration.decodedSpeechWindowLeft = decodedSpeechNormalGeometry_.x;
+        configuration.decodedSpeechWindowTop = decodedSpeechNormalGeometry_.y;
+        configuration.decodedSpeechWindowWidth = decodedSpeechNormalGeometry_.width;
+        configuration.decodedSpeechWindowHeight = decodedSpeechNormalGeometry_.height;
+    }
 
     if (tabLayoutPersistenceEnabledAtStartup_)
     {
