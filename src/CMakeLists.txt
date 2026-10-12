@@ -21,6 +21,7 @@ set(FREEDV_SOURCES
 # Lets GUI test scripts (test/gui) drive FreeDV. Not for release builds.
 if(UNITTEST)
     list(APPEND FREEDV_SOURCES test_agent.cpp)
+    set_source_files_properties(test_agent.cpp PROPERTIES COMPILE_OPTIONS "-Wno-deprecated-declarations")
 endif(UNITTEST)
 
 set(FREEDV_LINK_LIBS_OSX
