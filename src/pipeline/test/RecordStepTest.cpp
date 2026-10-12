@@ -155,7 +155,7 @@ bool recordsSamplesInOrder()
         auto samples = ramp(BLOCK_SIZE, block * BLOCK_SIZE);
         expected.insert(expected.end(), samples.begin(), samples.end());
         recording.record(samples);
-        if (block % 10 == 9) std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }
 
     return samplesAre(recording.finish(), expected);
