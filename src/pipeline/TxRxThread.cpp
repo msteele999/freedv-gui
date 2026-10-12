@@ -979,11 +979,6 @@ void TxRxThread::txProcessing_(IRealtimeHelper* helper) FREEDV_NONBLOCKING
 
             auto outputSamples = pipeline_->execute(inputPtr, nsam_in_48, &nout);
             
-            if (g_dump_fifo_state) {
-                FREEDV_BEGIN_VERIFIED_SAFE
-                log_info("  nout: %d", nout);
-                FREEDV_END_VERIFIED_SAFE
-            }
             
             if (outputSamples != nullptr)
             {
