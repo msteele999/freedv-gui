@@ -459,23 +459,19 @@ void TxRxThread::initializePipeline_()
         );
         rfDemodulationPipeline->appendPipelineStep(rfDemodulationStep);
 
-        // Existing command-line unit tests do not exercise decoded speech.
-        if (testName.empty())
+        // Decoded speech is optional for callers without a transcription UI.
+        if (uiHooks_.decodedSpeechReceived)
         {
             // Decoded speech tap for speech-to-text processing. Keep transcription
             // work off the real-time RX audio path; its bounded queue may drop
             // transcription samples rather than block normal received audio.
             constexpr int DECODED_SPEECH_SAMPLE_RATE = 16000;
-            // MainFrame outlives the RX pipeline and its joined transcription worker.
-            // Queue a copy to the GUI; never wait for it from a processing worker.
-            auto* transcriptOwner = static_cast<MainFrame*>(g_parent);
+            const auto decodedSpeechReceived = uiHooks_.decodedSpeechReceived;
             auto decodedSpeechStep = new DecodedSpeechStep(
                 DECODED_SPEECH_SAMPLE_RATE, decodedSpeechModelPath("ggml-base.en.bin"),
                 decodedSpeechModelPath("ggml-silero-v6.2.0.bin"),
-                [transcriptOwner](const std::string& text) {
-                    transcriptOwner->CallAfter([transcriptOwner, text]() {
-                        transcriptOwner->appendDecodedSpeech_(text);
-                    });
+                [decodedSpeechReceived](const std::string& text) {
+                    decodedSpeechReceived(text);
                 });
             auto decodedSpeechPipeline = new AudioPipeline(outputSampleRate_, DECODED_SPEECH_SAMPLE_RATE);
             auto decodedSpeechResampler = new ResampleStep(outputSampleRate_, DECODED_SPEECH_SAMPLE_RATE);

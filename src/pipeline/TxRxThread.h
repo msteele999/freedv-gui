@@ -37,6 +37,7 @@
 
 #include <assert.h>
 #include <functional>
+#include <string>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -63,7 +64,8 @@ class BeepStep;
 // Callbacks that replace TxRxThread reaching directly into the wx UI
 // (g_parent/MainFrame) and MainApp's tone-interferer settings. The app wires
 // these to MainFrame::CallAfter() and MainApp members; unit tests wire them
-// to counters. All are called from the real-time processing thread.
+// to counters. Completion hooks and tone getters run on the real-time
+// processing thread; decoded speech runs on the transcription worker.
 struct TxRxThreadUiHooks
 {
     std::function<void()> playFileToMicInFinished;
@@ -76,6 +78,9 @@ struct TxRxThreadUiHooks
     realtime_fp<float()> toneFreqHz;
     realtime_fp<float()> toneAmplitude;
     realtime_fp<bool()> toneEnabled;
+
+    // Optional: an empty callback disables the decoded-speech pipeline.
+    std::function<void(const std::string&)> decodedSpeechReceived;
 };
 
 class TxRxThread

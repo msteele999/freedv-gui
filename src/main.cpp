@@ -3436,15 +3436,23 @@ void MainFrame::destroy_fifos(void)
 //-------------------------------------------------------------------------
 // MakeTxRxUiHooks()
 // Wires TxRxThread's callbacks into the UI/app. TxRxThread invokes these
-// from its real-time thread; CallAfter() defers the UI work to the main
+// from processing workers; CallAfter() defers the UI work to the main
 // thread, and the tone getters read MainApp's atomics directly.
 //-------------------------------------------------------------------------
-static TxRxThreadUiHooks MakeTxRxUiHooks()
+static TxRxThreadUiHooks MakeTxRxUiHooks(
+    void (MainFrame::*appendDecodedSpeech)(const std::string&))
 {
     TxRxThreadUiHooks hooks;
     hooks.playFileToMicInFinished = []() { g_parent->CallAfter(&MainFrame::StopPlayFileToMicIn); };
     hooks.recFileFromRadioFinished = []() { g_parent->CallAfter(&MainFrame::StopRecFileFromRadio); };
     hooks.playFileFromRadioFinished = []() { g_parent->CallAfter(&MainFrame::StopPlaybackFileFromRadio); };
+    // MainFrame outlives the RX pipeline and its joined transcription worker.
+    auto* transcriptOwner = static_cast<MainFrame*>(g_parent);
+    hooks.decodedSpeechReceived = [transcriptOwner, appendDecodedSpeech](const std::string& text) {
+        transcriptOwner->CallAfter([transcriptOwner, appendDecodedSpeech, text]() {
+            (transcriptOwner->*appendDecodedSpeech)(text);
+        });
+    };
     hooks.toneFreqHz = +[]() FREEDV_NONBLOCKING -> float {
         FREEDV_BEGIN_VERIFIED_SAFE
         auto value = (float)wxGetApp().m_tone_freq_hz.load(std::memory_order_acquire);
@@ -3922,7 +3930,7 @@ void MainFrame::startRxStream()
         // start tx/rx processing thread
         if (txInSoundDevice && txOutSoundDevice)
         {
-            m_txThread = std::make_shared<TxRxThread>(true, txInSoundDevice->getSampleRate(), txOutSoundDevice->getSampleRate(), wxGetApp().linkStep, txInSoundDevice, MakeTxRxUiHooks());
+            m_txThread = std::make_shared<TxRxThread>(true, txInSoundDevice->getSampleRate(), txOutSoundDevice->getSampleRate(), wxGetApp().linkStep, txInSoundDevice, MakeTxRxUiHooks(&MainFrame::appendDecodedSpeech_));
             
             if (!txInSoundDevice->isRunning())
             {
@@ -3949,7 +3957,7 @@ void MainFrame::startRxStream()
             m_txThread->start();
         }
 
-        m_rxThread = std::make_shared<TxRxThread>(false, rxInSoundDevice->getSampleRate(), rxOutSoundDevice->getSampleRate(), wxGetApp().linkStep, rxInSoundDevice, MakeTxRxUiHooks());
+        m_rxThread = std::make_shared<TxRxThread>(false, rxInSoundDevice->getSampleRate(), rxOutSoundDevice->getSampleRate(), wxGetApp().linkStep, rxInSoundDevice, MakeTxRxUiHooks(&MainFrame::appendDecodedSpeech_));
 
         rxInSoundDevice->start();
         if (!rxInSoundDevice->isRunning())
