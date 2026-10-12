@@ -38,6 +38,10 @@ FetchContent_Declare(
     GIT_TAG d09f61a708f3487afa956ff578e60eae5e7a233c
     GIT_SHALLOW FALSE
     GIT_PROGRESS TRUE
+    PATCH_COMMAND
+        ${CMAKE_COMMAND}
+        -DGGML_SOURCE=<SOURCE_DIR>/ggml/src/ggml.c
+        -P ${CMAKE_CURRENT_LIST_DIR}/PatchWhisperGGML.cmake
 )
 
 FetchContent_MakeAvailable(whisper)

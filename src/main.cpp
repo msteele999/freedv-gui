@@ -3448,11 +3448,14 @@ static TxRxThreadUiHooks MakeTxRxUiHooks(
     hooks.playFileFromRadioFinished = []() { g_parent->CallAfter(&MainFrame::StopPlaybackFileFromRadio); };
     // MainFrame outlives the RX pipeline and its joined transcription worker.
     auto* transcriptOwner = static_cast<MainFrame*>(g_parent);
-    hooks.decodedSpeechReceived = [transcriptOwner, appendDecodedSpeech](const std::string& text) {
-        transcriptOwner->CallAfter([transcriptOwner, appendDecodedSpeech, text]() {
-            (transcriptOwner->*appendDecodedSpeech)(text);
-        });
-    };
+    if (testName.IsEmpty())
+    {
+        hooks.decodedSpeechReceived = [transcriptOwner, appendDecodedSpeech](const std::string& text) {
+            transcriptOwner->CallAfter([transcriptOwner, appendDecodedSpeech, text]() {
+                (transcriptOwner->*appendDecodedSpeech)(text);
+            });
+        };
+    }
     hooks.toneFreqHz = +[]() FREEDV_NONBLOCKING -> float {
         FREEDV_BEGIN_VERIFIED_SAFE
         auto value = (float)wxGetApp().m_tone_freq_hz.load(std::memory_order_acquire);
