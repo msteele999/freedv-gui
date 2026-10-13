@@ -1,0 +1,99 @@
+name: Prune old workflow runs
+
+on:
+  schedule:
+    - cron: '37 4 * * 0'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Preview deletions without deleting runs'
+        type: boolean
+        default: true
+        required: true
+      keep:
+        description: 'Number of recent completed runs to retain per workflow'
+        type: number
+        default: 10
+        required: true
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: prune-workflow-runs
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prune completed workflow runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+          INPUT_KEEP: ${{ inputs.keep }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Keep scheduled runs in preview mode until validated.
+          if [[ "$EVENT_NAME" == "schedule" ]]; then
+            DRY_RUN=true
+            KEEP=10
+          else
+            DRY_RUN="${INPUT_DRY_RUN:-true}"
+            KEEP="${INPUT_KEEP:-10}"
+          fi
+
+          if ! [[ "$KEEP" =~ ^[0-9]+$ ]] || (( KEEP < 1 )); then
+            echo "KEEP must be a positive integer"
+            exit 1
+          fi
+
+          echo "Dry run: $DRY_RUN"
+          echo "Keep per workflow: $KEEP"
+
+          gh api --paginate \
+            "repos/$GH_REPO/actions/runs?per_page=100" \
+            --jq '.workflow_runs[] |
+              [.id, .workflow_id, .status, .conclusion, .created_at] |
+              @tsv' > /tmp/workflow-runs.tsv
+
+          # Process each workflow separately.
+          cut -f2 /tmp/workflow-runs.tsv | sort -u |
+          while read -r WORKFLOW_ID; do
+
+            mapfile -t RUNS < <(
+              awk -F '\t' -v id="$WORKFLOW_ID" \
+                '$2 == id && $3 == "completed" {print}' \
+                /tmp/workflow-runs.tsv |
+              sort -t $'\t' -k5,5r
+            )
+
+            # Protect the latest successful run, even if outside
+            # the newest KEEP completed runs.
+            LATEST_SUCCESS="$(
+              printf '%s\n' "${RUNS[@]}" |
+              awk -F '\t' '$4 == "success" {print $1; exit}'
+            )"
+
+            for ((i=KEEP; i<${#RUNS[@]}; i++)); do
+              RUN_ID="${RUNS[$i]%%$'\t'*}"
+
+              if [[ "$RUN_ID" == "$LATEST_SUCCESS" ]]; then
+                echo "PROTECT latest success: $RUN_ID"
+                continue
+              fi
+
+              if [[ "$DRY_RUN" == "true" ]]; then
+                echo "WOULD DELETE workflow=$WORKFLOW_ID run=$RUN_ID"
+              else
+                echo "DELETE workflow=$WORKFLOW_ID run=$RUN_ID"
+                gh api -X DELETE \
+                  "repos/$GH_REPO/actions/runs/$RUN_ID"
+              fi
+            done
+          done
