@@ -618,6 +618,18 @@ bool MainApp::OnCmdLineParsed(wxCmdLineParser& parser)
         wxFileName fn(configPath);        
         customConfigFileName = fn.GetFullName();
         defaultConfigFilePath = fn.GetPath();
+
+#if wxCHECK_VERSION(3,3,0) && defined(__linux__)
+        // For Load Default Configuration (see below for why it's this).
+        defaultConfigFile = wxFileConfig::GetLocalFile("freedv", wxCONFIG_USE_XDG | wxCONFIG_USE_SUBDIR).GetFullPath();
+#else
+        // Likewise: open the default configuration now, while wxWidgets
+        // would find the same one as it does when FreeDV is started
+        // without being given a configuration to use.
+        wxConfigBase::Set(nullptr);
+        defaultConfig = wxConfigBase::Create();
+        wxConfigBase::Set(pConfig);
+#endif // wxCHECK_VERSION(3,3,0) && defined(__linux__)
     }
     else
     {
@@ -670,10 +682,14 @@ bool MainApp::OnCmdLineParsed(wxCmdLineParser& parser)
 
             wxConfigBase::Set(pConfig);
             defaultConfigFilePath = tempNewFile.GetPath();
+            defaultConfigFile = newFileLocation;
         }
 #else
         defaultConfigFilePath = tempOldFile.GetPath();
 #endif // wxCHECK_VERSION(3,3,0) && defined(__linux__)
+
+        // Whichever it is, this is the default configuration.
+        defaultConfig = wxConfigBase::Get();
 
         // If a config file was previously loaded via "Use Configuration...",
         // restore it now so the user's last session is preserved.
@@ -3930,6 +3946,13 @@ void MainFrame::startRxStream()
         // Create link to allow monitoring TX/VK audio
         wxGetApp().linkStep = std::make_shared<LinkStep>(rxOutSoundDevice->getSampleRate());
         
+        // Nothing's left over from an earlier start that got no further
+        // than this (below, when a device couldn't be opened): its
+        // processing threads were never started, and mustn't be mistaken
+        // for this start's, e.g. on changing to receiving only.
+        m_txThread = nullptr;
+        m_rxThread = nullptr;
+
         // start tx/rx processing thread
         if (txInSoundDevice && txOutSoundDevice)
         {
@@ -3956,8 +3979,6 @@ void MainFrame::startRxStream()
                 m_RxRunning = false;
                 return;
             }
-
-            m_txThread->start();
         }
 
         m_rxThread = std::make_shared<TxRxThread>(false, rxInSoundDevice->getSampleRate(), rxOutSoundDevice->getSampleRate(), wxGetApp().linkStep, rxInSoundDevice, MakeTxRxUiHooks(&MainFrame::appendDecodedSpeech_));
@@ -3989,6 +4010,15 @@ void MainFrame::startRxStream()
             txOutSoundDevice.reset();
             m_RxRunning = false;
             return;
+        }
+
+        // Both processing threads are only started now, once every device
+        // is open: a thread that was started but never signalled to start
+        // (what the failures above would leave behind) can't be stopped,
+        // and FreeDV then hangs when it exits.
+        if (m_txThread != nullptr)
+        {
+            m_txThread->start();
         }
 
         m_rxThread->start();

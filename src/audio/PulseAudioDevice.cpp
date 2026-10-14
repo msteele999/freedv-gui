@@ -47,7 +47,7 @@ using namespace std::chrono_literals;
 #if 0
 thread_local bool PulseAudioDevice::MustStopWork_ = false;
 #endif // 0
- 
+
 PulseAudioDevice::PulseAudioDevice(wxString const& devName, IAudioEngine::AudioDirection direction, int sampleRate, int numChannels)
     : context_(nullptr)
     , mainloop_(nullptr)
@@ -90,7 +90,7 @@ void PulseAudioDevice::start()
         }
         return;
     }
-    
+
     pa_threaded_mainloop_lock(mainloop_);
     stream_ = pa_stream_new(context_, description.c_str(), &sample_specification, nullptr);
     if (stream_ == nullptr)
@@ -106,7 +106,7 @@ void PulseAudioDevice::start()
         context_ = nullptr;
         return;
     }
-    
+
     pa_stream_set_underflow_callback(stream_, &PulseAudioDevice::StreamUnderflowCallback_, this);
     pa_stream_set_overflow_callback(stream_, &PulseAudioDevice::StreamOverflowCallback_, this);
     pa_stream_set_moved_callback(stream_, &PulseAudioDevice::StreamMovedCallback_, this);
@@ -116,39 +116,39 @@ void PulseAudioDevice::start()
 #endif // 0
 
     // recommended settings, i.e. server uses sensible values
-    pa_buffer_attr buffer_attr; 
+    pa_buffer_attr buffer_attr;
     buffer_attr.tlength = pa_usec_to_bytes(PULSE_TARGET_LATENCY_US, &sample_specification);
     buffer_attr.maxlength = (uint32_t)-1;
     buffer_attr.prebuf = 0; // Ensure that we can recover during an underrun
     buffer_attr.minreq = buffer_attr.tlength;
     buffer_attr.fragsize = buffer_attr.tlength;
-    
+
     // Stream flags
-    auto flags = 
+    auto flags =
          PA_STREAM_INTERPOLATE_TIMING |
-         PA_STREAM_AUTO_TIMING_UPDATE | 
+         PA_STREAM_AUTO_TIMING_UPDATE |
          PA_STREAM_ADJUST_LATENCY;
-    
+
     int result = 0;
     if (direction_ == IAudioEngine::AUDIO_ENGINE_OUT)
     {
         log_info("Connecting to playback device %s", (const char*)devName_.ToUTF8());
-        
+
         pa_stream_set_write_callback(stream_, &PulseAudioDevice::StreamWriteCallback_, this);
         result = pa_stream_connect_playback(
-            stream_, devName_.c_str(), &buffer_attr, 
+            stream_, devName_.c_str(), &buffer_attr,
             (pa_stream_flags_t)flags, NULL, NULL);
         if (result == 0) pa_stream_trigger(stream_, nullptr, nullptr);
     }
     else
     {
         log_info("Connecting to record device %s", (const char*)devName_.ToUTF8());
-        
+
         pa_stream_set_read_callback(stream_, &PulseAudioDevice::StreamReadCallback_, this);
         result = pa_stream_connect_record(
             stream_, devName_.c_str(), &buffer_attr, (pa_stream_flags_t)flags);
     }
-    
+
     if (result != 0)
     {
         if (onAudioErrorFunction)
@@ -180,9 +180,13 @@ void PulseAudioDevice::stopImpl_()
     {
         pa_threaded_mainloop_lock(mainloop_);
 
-        // Disconnect stream and wait for response from mainloop.
-        pa_stream_disconnect(stream_);
-        pa_threaded_mainloop_wait(mainloop_);
+        // Disconnect stream and wait for response from mainloop. A stream
+        // that's already failed (e.g. because the sound server went away)
+        // has nothing left to disconnect, so there'd be no response.
+        if (PA_STREAM_IS_GOOD(pa_stream_get_state(stream_)) && pa_stream_disconnect(stream_) == 0)
+        {
+            pa_threaded_mainloop_wait(mainloop_);
+        }
 
         // Deallocate stream.
         pa_stream_unref(stream_);
@@ -220,7 +224,7 @@ void PulseAudioDevice::setHelperRealTime()
 {
     // XXX: We can't currently enable RT scheduling on Linux
     // due to unreliable behavior surrounding how long it takes to
-    // go through a single RX or TX cycle. This unreliability is 
+    // go through a single RX or TX cycle. This unreliability is
     // likely due to the use of Python for some parts of RADE. Since
     // timing is so unreliable and due to the fact that Linux actually
     // kills processes that it deems as using "too much" CPU while in
@@ -270,7 +274,7 @@ void PulseAudioDevice::setHelperRealTime()
 
     // Set up signal handling for SIGXCPU
     struct sigaction action;
-    action.sa_flags = SA_SIGINFO;     
+    action.sa_flags = SA_SIGINFO;
     action.sa_sigaction = HandleXCPU_;
     sigaction(SIGXCPU, &action, NULL);
 
@@ -340,7 +344,7 @@ void PulseAudioDevice::setHelperRealTime()
 #endif // (_POSIX_C_SOURCE >= 200112L) && !_GNU_SOURCE
         }
     }
-    
+
     if (bus != nullptr)
     {
         dbus_connection_unref(bus);
@@ -394,7 +398,7 @@ void PulseAudioDevice::stopRealTimeWork(bool fastMode)
 
     auto endTime = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - startTime_).count() - nsec;
-    extraTimeNs_ = std::max((long)0, duration); // cap extra time to >= 0.
+    extraTimeNs_ = std::max((int64_t)0, (int64_t)duration); // cap extra time to >= 0.
 
     if (rv == -1 && errno != ETIMEDOUT)
     {
@@ -420,7 +424,7 @@ bool PulseAudioDevice::mustStopWork() FREEDV_NONBLOCKING
     return MustStopWork_;
 }
 #endif // 0
- 
+
 void PulseAudioDevice::StreamReadCallback_(pa_stream *s, size_t length, void *userdata)
 {
     const void* data = nullptr;
@@ -429,7 +433,7 @@ void PulseAudioDevice::StreamReadCallback_(pa_stream *s, size_t length, void *us
     do
     {
         pa_stream_peek(s, &data, &length);
-        if (!data || length == 0) 
+        if (!data || length == 0)
         {
             return;
         }
@@ -446,7 +450,7 @@ void PulseAudioDevice::StreamReadCallback_(pa_stream *s, size_t length, void *us
 void PulseAudioDevice::StreamWriteCallback_(pa_stream *s, size_t length, void *userdata)
 {
     PulseAudioDevice* thisObj = static_cast<PulseAudioDevice*>(userdata);
-    
+
     while ((length = pa_stream_writable_size(s)) > 0 && (length != (uint32_t)-1))
     {
         size_t writeLength = length;
@@ -467,7 +471,7 @@ void PulseAudioDevice::StreamWriteCallback_(pa_stream *s, size_t length, void *u
         if (thisObj->onAudioDataFunction)
         {
             thisObj->onAudioDataFunction(*thisObj, data, numSamples / thisObj->getNumChannels(), thisObj->onAudioDataState);
-        } 
+        }
 
         if (pa_stream_write(s, &data[0], writeLength, NULL, 0LL, PA_SEEK_RELATIVE) != 0)
         {
@@ -481,19 +485,37 @@ void PulseAudioDevice::StreamStateCallback_(pa_stream *p, void *userdata)
 {
     PulseAudioDevice* thisObj = static_cast<PulseAudioDevice*>(userdata);
 
-    // This method is only used for termination to ensure that it's synchronous and 
+    // This method is used for termination to ensure that it's synchronous and
     // does not accidentally refer to already freed memory.
-    if (pa_stream_get_state(p) == PA_STREAM_TERMINATED)
+    auto state = pa_stream_get_state(p);
+    if (state == PA_STREAM_TERMINATED)
     {
         pa_threaded_mainloop_signal(thisObj->mainloop_, 0);
-    }    
+    }
+    else if (state == PA_STREAM_FAILED)
+    {
+        // The stream's gone without being asked to, e.g. because the sound
+        // server has. Nothing more will come of it, so say so, and don't
+        // leave anything waiting for it to terminate.
+        pa_threaded_mainloop_signal(thisObj->mainloop_, 0);
+
+        auto context = pa_stream_get_context(p);
+        std::string reason = (context != nullptr) ? pa_strerror(pa_context_errno(context)) : "unknown error";
+        log_warn("Stream for %s failed: %s", (const char*)thisObj->devName_.ToUTF8(), reason.c_str());
+        if (thisObj->onAudioErrorFunction)
+        {
+            thisObj->onAudioErrorFunction(
+                *thisObj, std::string("Lost connection to ") + (const char*)thisObj->devName_.ToUTF8() + " (" + reason + ")",
+                thisObj->onAudioErrorState);
+        }
+    }
 }
 
 void PulseAudioDevice::StreamUnderflowCallback_(pa_stream *, void *userdata)
 {
     PulseAudioDevice* thisObj = static_cast<PulseAudioDevice*>(userdata);
-    
-    if (thisObj->onAudioUnderflowFunction) 
+
+    if (thisObj->onAudioUnderflowFunction)
     {
         thisObj->onAudioUnderflowFunction(*thisObj, thisObj->onAudioUnderflowState);
     }
@@ -502,8 +524,8 @@ void PulseAudioDevice::StreamUnderflowCallback_(pa_stream *, void *userdata)
 void PulseAudioDevice::StreamOverflowCallback_(pa_stream *, void *userdata)
 {
     PulseAudioDevice* thisObj = static_cast<PulseAudioDevice*>(userdata);
-    
-    if (thisObj->onAudioOverflowFunction) 
+
+    if (thisObj->onAudioOverflowFunction)
     {
         thisObj->onAudioOverflowFunction(*thisObj, thisObj->onAudioOverflowState);
     }
@@ -515,10 +537,10 @@ void PulseAudioDevice::StreamMovedCallback_(pa_stream *p, void *userdata)
     PulseAudioDevice* thisObj = static_cast<PulseAudioDevice*>(userdata);
 
     log_info("Stream named %s has been moved to %s", (const char*)thisObj->devName_.ToUTF8(), newDevName);
-    
+
     thisObj->devName_ = newDevName;
-    
-    if (thisObj->onAudioDeviceChangedFunction) 
+
+    if (thisObj->onAudioDeviceChangedFunction)
     {
         thisObj->onAudioDeviceChangedFunction(*thisObj, (const char*)thisObj->devName_.ToUTF8(), thisObj->onAudioDeviceChangedState);
     }

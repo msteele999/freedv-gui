@@ -16,7 +16,7 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum OS X deployment ver
 
 set(PROJECT_NAME FreeDV)
 set(PROJECT_VERSION 3.0.0)
-set(W2MWS_RELEASE_NUMBER 7)
+set(W2MWS_RELEASE_NUMBER 8)
 option(W2MWS_PACKAGE "Use the stable W2MWS application/package identity" ON)
 if(W2MWS_PACKAGE)
     set(FREEDV_APPLICATION_NAME "FreeDV W2MWS")
@@ -348,6 +348,8 @@ endif()
 if(BOOTSTRAP_WXWIDGETS)
     message(STATUS "Adding wxWidgets build target...")
     include(cmake/BuildWxWidgets.cmake)
+    include(cmake/ReleaseBuildOfDependency.cmake)
+    freedv_release_build_of_dependency("${wxwidgets_SOURCE_DIR}")
 else()
     if(APPLE)
         if(WX_VERSION VERSION_EQUAL ${WX_31_VERSION_MIN}
@@ -433,6 +435,15 @@ message(STATUS "Threads library flags: ${CMAKE_THREAD_LIBS_INIT}")
 # Build freedv-backend
 # 
 include(cmake/BuildFreeDVBackend.cmake)
+
+# freedv-backend builds LibreSSL itself where there's no OpenSSL to use (or
+# when told to with USE_STATIC_LIBRESSL).
+include(FetchContent)
+FetchContent_GetProperties(LibreSSL)
+if(libressl_POPULATED)
+    include(cmake/ReleaseBuildOfDependency.cmake)
+    freedv_release_build_of_dependency("${libressl_SOURCE_DIR}")
+endif()
 
 #
 # Build whisper.cpp for decoded-speech transcription
