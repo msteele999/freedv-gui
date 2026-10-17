@@ -55,6 +55,7 @@
 #endif // defined(ENABLE_TEST_AGENT)
 #include "audio/AudioEngineFactory.h"
 #include "pipeline/TxRxThread.h"
+#include "pipeline/TxOutputStart.h"
 #include "reporting/pskreporter.h"
 #include "reporting/FreeDVReporter.h"
 #include "reporting/CsvReporter.h"
@@ -230,6 +231,10 @@ std::mutex g_mutexProtectingPlayFiles;
 
 // End of TX state control
 std::atomic<bool> endingTx;
+
+// Whether the radio's sound card has begun to be given the current
+// transmission: see TxOutputStart.h.
+std::atomic<bool> g_txOutputStarted;
 
 // Running state
 std::atomic<bool> isModemRunning;
@@ -1060,6 +1065,28 @@ void MainFrame::loadConfiguration_()
     int y = wxGetApp().appConfiguration.mainWindowTop;
     int w = wxGetApp().appConfiguration.mainWindowWidth;
     int h = wxGetApp().appConfiguration.mainWindowHeight;
+    // sanitise frame position as a first pass at Win32 registry bug
+
+    if (x < 0 || x > 2048) x = 20;
+    if (y < 0 || y > 2048) y = 20;
+    // (Nor anything too small to be of use: macOS, unlike Linux's window
+    // managers, makes the window as small as it's asked to.) The default,
+    // for when none has been saved, and that limit are scaled to suit the
+    // display: on Windows, sizes are in the screen's own pixels, and 800 of
+    // those at 200% are only as wide as 400 elsewhere, leaving no room for
+    // the plots beside everything else. (wxWidgets 3.0, which only Linux
+    // builds use, has no FromDIP(), and needs none there.)
+#if wxCHECK_VERSION(3,1,0)
+    wxSize defaultSize = FromDIP(wxSize(800, 780));
+    wxSize smallestSize = FromDIP(wxSize(300, 200));
+#else
+    wxSize defaultSize(800, 780);
+    wxSize smallestSize(300, 200);
+#endif // wxCHECK_VERSION(3,1,0)
+    if (w < smallestSize.GetWidth() || w > 2048) w = defaultSize.GetWidth();
+    if (h < smallestSize.GetHeight() || h > 2048) h = defaultSize.GetHeight();
+
+
     
     if (!wxGetApp().appConfiguration.independentWorkspace)
     {
@@ -1375,6 +1402,7 @@ MainFrame::MainFrame(wxWindow *parent) : TopFrame(parent, wxID_ANY, wxT("FreeDV 
     std::fill_n(g_avmag_spectrum, MODEM_STATS_NSPEC, MIN_MAG_DB);
 
     terminating_ = false;
+    closingReporterDialog_ = false;
     realigned_ = false;
     syncState_ = false;
     tabLayoutPersistenceEnabledAtStartup_ = false;
@@ -2777,6 +2805,19 @@ void MainFrame::topFrame_OnClose( wxCloseEvent& event )
         return;
     }
 
+    if (closingReporterDialog_)
+    {
+        // Another request to close (say, a second click on the close button)
+        // while the one before it waits below for the Reporter dialog's last
+        // messages. Going on would destroy the dialog, and this window, out
+        // from under that one, which finishes closing by itself.
+        if (event.CanVeto())
+        {
+            event.Veto();
+        }
+        return;
+    }
+
     if (m_reporterDialog != nullptr)
     {
         // Grab and save the final position explicitly rather than relying
@@ -2791,7 +2832,9 @@ void MainFrame::topFrame_OnClose( wxCloseEvent& event )
         m_reporterDialog->stopTrackingPosition();
 
         m_reporterDialog->setReporter(nullptr);
+        closingReporterDialog_ = true;
         wxGetApp().SafeYield(nullptr, false); // make sure we handle any remaining Reporter messages before dispose
+        closingReporterDialog_ = false;
         m_reporterDialog->Close();
         m_reporterDialog->Destroy();
         m_reporterDialog = nullptr;
@@ -4362,12 +4405,31 @@ void MainFrame::OnTxOutAudioData_(IAudioDevice& dev, void* data, size_t size, vo
 
     auto toRead = std::min((size_t)cbData->outfifo1->numUsed(), size);
     auto isTuning = cbData->isTuning.load(std::memory_order_acquire);
-    if (toRead < size && !isTuning)
+
+    // A transmission isn't given to the sound card until enough of it is
+    // ready that the sound card won't run out part of the way through.
+    auto output = TxOutput::Ready;
+    if (!isTuning)
+    {
+        output = txOutputFor(
+            cbData->outfifo1->numUsed(), cbData->outfifo1->capacity(), (int)size, dev.getSampleRate(),
+            endingTx.load(std::memory_order_acquire), g_txOutputStarted);
+    }
+
+    if (output != TxOutput::Waiting && toRead < size && !isTuning)
     {
         g_outfifo1_empty.fetch_add(1, std::memory_order_relaxed);
     }
     else
     {
+        if (output == TxOutput::Waiting)
+        {
+            // Silence meanwhile, with the VOX tone (if it's on) so that a
+            // radio keyed by it is transmitting by the time the signal
+            // arrives.
+            toRead = 0;
+        }
+
         if (toRead >= size && cbData->outfifo1->read(tmpOutput, size) != 0)
         {
             // Raced with a concurrent reset(); nothing was actually copied
