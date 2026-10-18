@@ -4,6 +4,10 @@ FetchContent_Declare(
     freedv_backend
     GIT_REPOSITORY https://github.com/tmiw/freedv-backend
     GIT_TAG e9d58299926fe438cba5ec5cb5a6870028c718ac
+    PATCH_COMMAND
+        ${CMAKE_COMMAND}
+        -DBACKEND_SOURCE=<SOURCE_DIR>/src/util/TcpConnectionHandler.cpp
+        -P ${CMAKE_CURRENT_LIST_DIR}/PatchBackendOpenSSL.cmake
 )
 
 FetchContent_MakeAvailable(freedv_backend)

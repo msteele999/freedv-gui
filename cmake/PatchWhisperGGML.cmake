@@ -47,3 +47,31 @@ elseif(NOT new_start_pos EQUAL -1 AND NOT new_end_pos EQUAL -1
 else()
     message(FATAL_ERROR "Unexpected ggml_graph_nbytes implementation")
 endif()
+
+
+# Work around GGML tensor allocation underestimation observed on Windows.
+# Allocate 1 MiB of headroom without changing tensor offsets or sizes.
+if(NOT EXISTS "${GGML_ALLOC_SOURCE}")
+    message(FATAL_ERROR "GGML allocator source not found: ${GGML_ALLOC_SOURCE}")
+endif()
+
+file(READ "${GGML_ALLOC_SOURCE}" alloc_content)
+
+set(alloc_original
+    "ggml_backend_buft_alloc_buffer(buft, size)")
+set(alloc_patched
+    "ggml_backend_buft_alloc_buffer(buft, size + 1024 * 1024)")
+
+string(FIND "${alloc_content}" "${alloc_original}" alloc_old_pos)
+string(FIND "${alloc_content}" "${alloc_patched}" alloc_new_pos)
+
+if(NOT alloc_old_pos EQUAL -1 AND alloc_new_pos EQUAL -1)
+    string(REPLACE "${alloc_original}" "${alloc_patched}"
+        alloc_content "${alloc_content}")
+    file(WRITE "${GGML_ALLOC_SOURCE}" "${alloc_content}")
+    message(STATUS "Applied GGML 1 MiB allocation headroom patch")
+elseif(NOT alloc_new_pos EQUAL -1 AND alloc_old_pos EQUAL -1)
+    message(STATUS "GGML allocation headroom patch already applied")
+else()
+    message(FATAL_ERROR "Unexpected GGML allocator implementation")
+endif()

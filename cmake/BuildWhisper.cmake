@@ -41,6 +41,7 @@ FetchContent_Declare(
     PATCH_COMMAND
         ${CMAKE_COMMAND}
         -DGGML_SOURCE=<SOURCE_DIR>/ggml/src/ggml.c
+        -DGGML_ALLOC_SOURCE=<SOURCE_DIR>/ggml/src/ggml-alloc.c
         -P ${CMAKE_CURRENT_LIST_DIR}/PatchWhisperGGML.cmake
 )
 
