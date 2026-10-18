@@ -47,6 +47,36 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(whisper)
 
+# Validate reused dependency sources even when PATCH_COMMAND is skipped.
+function(freedv_validate_whisper_nbytes)
+    set(source "${whisper_SOURCE_DIR}/ggml/src/ggml.c")
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${source}")
+    file(READ "${source}" content)
+
+    string(FIND "${content}"
+        "size_t ggml_nbytes(const struct ggml_tensor * tensor) {" start)
+    if(start EQUAL -1)
+        message(FATAL_ERROR "Whisper ggml_nbytes function not found: ${source}")
+    endif()
+
+    string(SUBSTRING "${content}" ${start} -1 remainder)
+    string(FIND "${remainder}" "\n}" end)
+    if(end EQUAL -1)
+        message(FATAL_ERROR "Whisper ggml_nbytes function end not found: ${source}")
+    endif()
+
+    math(EXPR length "${end} + 2")
+    string(SUBSTRING "${remainder}" 0 ${length} body)
+    if(NOT body MATCHES "return nbytes;[\r\n]+}$")
+        message(FATAL_ERROR
+            "Unexpected Whisper ggml_nbytes implementation in ${source}: "
+            "expected final 'return nbytes;'. "
+            "The 1024-byte subtraction belongs only in ggml_graph_nbytes().")
+    endif()
+endfunction()
+
+freedv_validate_whisper_nbytes()
+
 # Isolate only the fetched dependency, including its nested GGML targets.
 # FreeDV's standalone run-clang-tidy uses compile_commands.json, so disabling
 # C/CXX_CLANG_TIDY alone is insufficient. Whisper enables database export in
