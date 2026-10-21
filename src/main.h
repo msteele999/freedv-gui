@@ -75,8 +75,8 @@
 #include "gui/dialogs/tot_warning.h"
 #include "gui/controls/plot.h"
 #include "gui/controls/plot_scalar.h"
-#include "gui/controls/plot_scatter.h"
 #include "gui/controls/plot_waterfall.h"
+#include "comp.h"
 #include "gui/controls/plot_spectrum.h"
 #include "sndfile.h"
 #include "sox_biquad.h"
@@ -97,6 +97,7 @@
 #include "gui/util/wxMessageBoxWrapper.h"
 #include "gui/util/PopupMenuWrapper.h"
 #include "gui/util/PathDialogWrapper.h"
+#include "gui/util/BrowserWrapper.h"
 #include "voicekeyer_cache.h"
 
 #define _USE_TIMER              1
@@ -322,7 +323,10 @@ class MainFrame : public TopFrame
         PlotScalar*             m_panelDemodIn;
         PlotScalar*             m_panelSNR;
 
-        bool                    m_RxRunning;
+        // Set by startRxStream()/stopRxStream(), mostly on the thread that
+        // starts and stops FreeDV (see OnTogBtnOnOff()), and read all over
+        // the UI thread, so atomic.
+        std::atomic<bool>       m_RxRunning;
         bool                    txChangeoverOccurring_;
         
         bool                    OpenHamlibRig();
@@ -389,7 +393,6 @@ class MainFrame : public TopFrame
 
     void togglePTT(void);
 
-    bool                    m_schedule_restore;
 
     // Voice Keyer state machine
 
@@ -410,9 +413,7 @@ class MainFrame : public TopFrame
         // protected event handlers
         virtual void topFrame_OnSize( wxSizeEvent& event ) override;
         virtual void topFrame_OnClose( wxCloseEvent& event ) override;
-        virtual void OnCloseFrame(wxCloseEvent& event);
         virtual void OnActivateWindow(wxActivateEvent& event) override;
-        void OnExitClick(wxCommandEvent& event);
 
         void startTxStream();
         void startRxStream();
@@ -473,7 +474,6 @@ class MainFrame : public TopFrame
         void OnBerReset( wxCommandEvent& event ) override;
 
         //System Events
-        void OnPaint(wxPaintEvent& event);
         void OnSize( wxSizeEvent& event );
         void OnUpdateUI( wxUpdateUIEvent& event );
         void OnDeleteConfig(wxCommandEvent&);
@@ -574,7 +574,6 @@ class MainFrame : public TopFrame
         unsigned int         m_timeSinceSyncLoss;
         bool        m_useMemory;
         wxTextCtrl* m_tc;
-        int         m_zoom;
         float       m_snrBeta;
 
         // Callsign/text messaging
@@ -749,6 +748,5 @@ void my_put_next_rx_char(void *callback_state, char c);
 
 // helper complex freq shift function
 
-void freq_shift_coh(COMP rx_fdm_fcorr[], COMP rx_fdm[], float foff, float Fs, COMP *foff_phase_rect, int nin) FREEDV_NONBLOCKING;
 
 #endif //__FDMDV2_MAIN__

@@ -43,6 +43,10 @@ MonitorVolumeAdjPopup::MonitorVolumeAdjPopup( wxWindow* parent, ConfigurationDat
         
     SetSizerAndFit(mainSizer);
     Layout();
+
+    // Names for automated GUI testing.
+    SetName("monitorVolume");
+    volumeSlider_->SetName("monitorVolume.slider");
     
     // Link event handlers
     volumeSlider_->Connect(wxEVT_SLIDER, wxCommandEventHandler(MonitorVolumeAdjPopup::OnSliderAdjusted), NULL, this);

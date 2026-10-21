@@ -55,7 +55,6 @@
 #endif // defined(ENABLE_TEST_AGENT)
 #include "audio/AudioEngineFactory.h"
 #include "pipeline/TxRxThread.h"
-#include "pipeline/TxOutputStart.h"
 #include "reporting/pskreporter.h"
 #include "reporting/FreeDVReporter.h"
 #include "reporting/CsvReporter.h"
@@ -173,6 +172,7 @@ int                 g_nSoundCards;
 
 std::atomic<int>    g_infifo1_full;
 std::atomic<int>    g_outfifo1_empty;
+std::atomic<int>    g_outfifo1_emptyWhileTransmitting; // ...the times that mattered
 std::atomic<int>    g_infifo2_full;
 std::atomic<int>    g_outfifo2_empty;
 int                 g_AEstatus1[4];
@@ -232,10 +232,6 @@ std::mutex g_mutexProtectingPlayFiles;
 // End of TX state control
 std::atomic<bool> endingTx;
 
-// Whether the radio's sound card has begun to be given the current
-// transmission: see TxOutputStart.h.
-std::atomic<bool> g_txOutputStarted;
-
 // Running state
 std::atomic<bool> isModemRunning;
 
@@ -254,26 +250,67 @@ static const wxChar* const FREEDV_STATE_APP_NAME    = wxT("FreeDV-State");
 static const wxChar* const FREEDV_VENDOR_NAME = wxT("CODEC2-Project");
 static const wxChar* const LAST_USED_CONFIG_KEY     = wxT("/LastUsedConfigFile");
 
+#if defined(ENABLE_TEST_AGENT) && defined(__WXMSW__)
+// GUI tests (test/gui) keep FreeDV away from the registry, where its default
+// configuration and the state above otherwise go on Windows, by giving a
+// folder for them to be files in instead (as they are on Linux and macOS).
+static wxString TestConfigFile_(const wxString& name)
+{
+    wxString folder;
+    if (!wxGetEnv("FREEDV_TEST_CONFIG_DIR", &folder) || folder.IsEmpty())
+    {
+        return wxEmptyString;
+    }
+    return wxFileName(folder, name).GetFullPath();
+}
+#endif // defined(ENABLE_TEST_AGENT) && defined(__WXMSW__)
+
+// Opens the default configuration: the one used when FreeDV isn't told which
+// to use.
+[[maybe_unused]] static wxConfigBase* CreateDefaultConfig_()
+{
+#if defined(ENABLE_TEST_AGENT) && defined(__WXMSW__)
+    wxString testFile = TestConfigFile_(wxT("FreeDV.ini"));
+    if (!testFile.IsEmpty())
+    {
+        return new wxFileConfig(wxT("FreeDV"), FREEDV_VENDOR_NAME, testFile, testFile, wxCONFIG_USE_LOCAL_FILE);
+    }
+#endif // defined(ENABLE_TEST_AGENT) && defined(__WXMSW__)
+    return wxConfigBase::Create();
+}
+
+static std::unique_ptr<wxConfigBase> OpenStateConfig_()
+{
+#if defined(ENABLE_TEST_AGENT) && defined(__WXMSW__)
+    wxString testFile = TestConfigFile_(wxT("FreeDV-State.ini"));
+    if (!testFile.IsEmpty())
+    {
+        return std::make_unique<wxFileConfig>(FREEDV_STATE_APP_NAME, FREEDV_VENDOR_NAME, testFile, testFile, wxCONFIG_USE_LOCAL_FILE);
+    }
+#endif // defined(ENABLE_TEST_AGENT) && defined(__WXMSW__)
+    return std::make_unique<wxConfig>(FREEDV_STATE_APP_NAME, FREEDV_VENDOR_NAME);
+}
+
 wxString getLastUsedConfigPath()
 {
-    wxConfig stateConfig(FREEDV_STATE_APP_NAME, FREEDV_VENDOR_NAME);
+    auto stateConfig = OpenStateConfig_();
     wxString path;
-    stateConfig.Read(LAST_USED_CONFIG_KEY, &path, wxEmptyString);
+    stateConfig->Read(LAST_USED_CONFIG_KEY, &path, wxEmptyString);
     return path;
 }
 
 void saveLastUsedConfigPath(const wxString& path)
 {
-    wxConfig stateConfig(FREEDV_STATE_APP_NAME, FREEDV_VENDOR_NAME);
-    stateConfig.Write(LAST_USED_CONFIG_KEY, path);
-    stateConfig.Flush();
+    auto stateConfig = OpenStateConfig_();
+    stateConfig->Write(LAST_USED_CONFIG_KEY, path);
+    stateConfig->Flush();
 }
 
 void clearLastUsedConfigPath()
 {
-    wxConfig stateConfig(FREEDV_STATE_APP_NAME, FREEDV_VENDOR_NAME);
-    stateConfig.Write(LAST_USED_CONFIG_KEY, wxEmptyString);
-    stateConfig.Flush();
+    auto stateConfig = OpenStateConfig_();
+    stateConfig->Write(LAST_USED_CONFIG_KEY, wxEmptyString);
+    stateConfig->Flush();
 }
 
 // Unit test management
@@ -541,7 +578,18 @@ void MainApp::UnitTest_()
     
     // Wait a second to make sure we're not doing any more processing
     std::this_thread::sleep_for(1000ms);
- 
+
+    // What the sound cards went through, for telling a failure that started
+    // there from one that didn't. (Only the radio's output going short while
+    // transmitting is of any account: otherwise there's nothing to send it.
+    // Likewise the microphone's input overflowing while receiving, when
+    // nothing's taking it.)
+    log_info(
+        "Sound card FIFOs: radio out short %d times while transmitting, radio in overflowed %d times, "
+        "mic in overflowed %d times, speaker out short %d times",
+        g_outfifo1_emptyWhileTransmitting.load(std::memory_order_relaxed), g_infifo1_full.load(std::memory_order_relaxed),
+        g_infifo2_full.load(std::memory_order_relaxed), g_outfifo2_empty.load(std::memory_order_relaxed));
+
     // Fire event to stop FreeDV
     log_info("Firing stop");
     CallAfter([this]() {
@@ -632,7 +680,7 @@ bool MainApp::OnCmdLineParsed(wxCmdLineParser& parser)
         // would find the same one as it does when FreeDV is started
         // without being given a configuration to use.
         wxConfigBase::Set(nullptr);
-        defaultConfig = wxConfigBase::Create();
+        defaultConfig = CreateDefaultConfig_();
         wxConfigBase::Set(pConfig);
 #endif // wxCHECK_VERSION(3,3,0) && defined(__linux__)
     }
@@ -691,6 +739,7 @@ bool MainApp::OnCmdLineParsed(wxCmdLineParser& parser)
         }
 #else
         defaultConfigFilePath = tempOldFile.GetPath();
+        wxConfigBase::Set(CreateDefaultConfig_());
 #endif // wxCHECK_VERSION(3,3,0) && defined(__linux__)
 
         // Whichever it is, this is the default configuration.
@@ -1085,8 +1134,6 @@ void MainFrame::loadConfiguration_()
 #endif // wxCHECK_VERSION(3,1,0)
     if (w < smallestSize.GetWidth() || w > 2048) w = defaultSize.GetWidth();
     if (h < smallestSize.GetHeight() || h > 2048) h = defaultSize.GetHeight();
-
-
     
     if (!wxGetApp().appConfiguration.independentWorkspace)
     {
@@ -1439,7 +1486,6 @@ MainFrame::MainFrame(wxWindow *parent) : TopFrame(parent, wxID_ANY, wxT("FreeDV 
     m_panelDemodIn = nullptr;
     m_panelSNR = nullptr;
 
-    m_zoom              = 1.;
     suppressFreqModeUpdates_ = false;
     lastBand_ = BAND_OTHER;
     
@@ -1550,6 +1596,14 @@ MainFrame::MainFrame(wxWindow *parent) : TopFrame(parent, wxID_ANY, wxT("FreeDV 
         const_cast<wxAuiManager&>(m_auiNbookCtrl->GetAuiManager()).Update();
     });
 
+    // Names for automated GUI testing.
+    m_panelWaterfall->SetName("main.plotWaterfall");
+    m_panelSpectrum->SetName("main.plotSpectrum");
+    m_panelDemodIn->SetName("main.plotFromRadio");
+    m_panelSpeechIn->SetName("main.plotFromMic");
+    m_panelSpeechOut->SetName("main.plotFromDecoder");
+    m_panelSNR->SetName("main.plotSNR");
+
     m_togBtnOnOff->Connect(wxEVT_UPDATE_UI, wxUpdateUIEventHandler(MainFrame::OnTogBtnOnOffUI), NULL, this);
     m_togBtnAnalog->Connect(wxEVT_UPDATE_UI, wxUpdateUIEventHandler(MainFrame::OnTogBtnAnalogClickUI), NULL, this);
     m_btnTogPTT->Bind(wxEVT_LEFT_DOWN, &MainFrame::OnTogBtnPTTMouseDown, this);
@@ -1636,7 +1690,7 @@ MainFrame::MainFrame(wxWindow *parent) : TopFrame(parent, wxID_ANY, wxT("FreeDV 
         this
         );
 
-    m_RxRunning = false;
+    m_RxRunning.store(false, std::memory_order_release);
 
     m_txThread = nullptr;
     m_rxThread = nullptr;
@@ -1683,7 +1737,6 @@ MainFrame::MainFrame(wxWindow *parent) : TopFrame(parent, wxID_ANY, wxT("FreeDV 
     g_tone_phase.store(0.0f, std::memory_order_relaxed);
 
     optionsDlg = new OptionsDlg(this);
-    m_schedule_restore = false;
 
     vk_state = VK_IDLE;
 
@@ -2183,7 +2236,7 @@ MainFrame::~MainFrame()
 
     {
         std::unique_lock<std::recursive_mutex> lk(stoppingMutex);
-        if (m_RxRunning)
+        if (m_RxRunning.load(std::memory_order_acquire))
         {
             stopRxStream();
             freedvInterface.stop();
@@ -2298,7 +2351,7 @@ void MainFrame::OnTimer(wxTimerEvent &evt)
 
     auto& timer = evt.GetTimer();
     auto timerId = timer.GetId();
-    if (!m_RxRunning || !timer.IsRunning())
+    if (!m_RxRunning.load(std::memory_order_acquire) || !timer.IsRunning())
     {
         return;
     }
@@ -2380,6 +2433,20 @@ void MainFrame::OnTimer(wxTimerEvent &evt)
           m_panelDemodIn->add_new_short_samples(demodInPlotSamples, WAVEFORM_PLOT_BUF, 32767);
           m_panelDemodIn->refreshData();
       }
+      else if (timerId == ID_TIMER_SNR)
+      {
+          // Only the SNR plot here: everything below goes by time passing
+          // (the SNR filter, the voice keyer, how long since sync was lost)
+          // and so must only happen once per DT, on ID_TIMER_UPDATE_OTHER.
+          if (!halfDuplexState || !txState)
+          {
+              float snr = freedvInterface.getSync() ? g_snr : NO_SNR_VAL;
+              snr = std::min(snr, (float)MAX_SNR_VAL);
+              snr = std::max(snr, (float)NO_SNR_VAL);
+              m_panelSNR->add_new_sample(snr);
+              m_panelSNR->refreshData();
+          }
+      }
       else
       {
          // Update average magnitudes
@@ -2453,15 +2520,6 @@ void MainFrame::OnTimer(wxTimerEvent &evt)
             m_gaugeSNR->SetValue(0);
         }
 
-        if (timerId == ID_TIMER_SNR && (!halfDuplexState || !txState))
-        {
-            float snr = freedvInterface.getSync() ? g_snr : NO_SNR_VAL;
-            snr = std::min(snr, (float)MAX_SNR_VAL);
-            snr = std::max(snr, (float)NO_SNR_VAL);
-            m_panelSNR->add_new_sample(snr);
-            m_panelSNR->refreshData();
-        }
-        
         // sync LED (Colours don't work on Windows) ------------------------
 
         auto state = g_State.load(std::memory_order_acquire);
@@ -2719,13 +2777,6 @@ void MainFrame::OnTimer(wxTimerEvent &evt)
         /* FIFO and PortAudio under/overflow debug counters */
         optionsDlg->DisplayFifoPACounters();
 
-        // command from UDP thread that is best processed in main thread to avoid seg faults
-
-        if (m_schedule_restore) {
-            if (IsIconized())
-                Restore();
-            m_schedule_restore = false;
-        }
     
         // Voice Keyer state machine
         VoiceKeyerProcessEvent(VK_DT);
@@ -2737,7 +2788,7 @@ void MainFrame::OnTimer(wxTimerEvent &evt)
         // Level Gauge -----------------------------------------------------------------------
 
         bool updated = false;
-        if (timerId == ID_TIMER_DEMOD_IN && !txState && m_RxRunning)
+        if (timerId == ID_TIMER_DEMOD_IN && !txState && m_RxRunning.load(std::memory_order_acquire))
         {
             // receive mode - display From Radio peaks
             // peak from this DT sampling period
@@ -2840,7 +2891,7 @@ void MainFrame::topFrame_OnClose( wxCloseEvent& event )
         m_reporterDialog = nullptr;
     }
 
-    if (m_RxRunning)
+    if (m_RxRunning.load(std::memory_order_acquire))
     {
         if (m_btnTogPTT->GetValue())
         {
@@ -2868,7 +2919,7 @@ void MainFrame::topFrame_OnClose( wxCloseEvent& event )
 void MainFrame::OnExit(wxCommandEvent&)
 {
     displayWorkspace_.SetSnappingEnabled(false);
-    if (m_RxRunning)
+    if (m_RxRunning.load(std::memory_order_acquire))
     {
         if (m_btnTogPTT->GetValue())
         {
@@ -3027,7 +3078,7 @@ void MainFrame::performFreeDVOn_()
             
             startRxStream();
 
-            if (m_RxRunning)
+            if (m_RxRunning.load(std::memory_order_acquire))
             {
                 // Enable Tune button if TX is valid.
                 if (g_nSoundCards > 1)
@@ -3323,7 +3374,7 @@ void MainFrame::OnTogBtnOnOff(wxCommandEvent&)
         
     // we are attempting to start
 
-    if (!m_RxRunning)
+    if (!m_RxRunning.load(std::memory_order_acquire))
     {
         std::thread onOffExec([this]() 
         {
@@ -3331,7 +3382,7 @@ void MainFrame::OnTogBtnOnOff(wxCommandEvent&)
 
             performFreeDVOn_();
             
-            if (!m_RxRunning)
+            if (!m_RxRunning.load(std::memory_order_acquire))
             {
                 // Startup failed.
                 performFreeDVOff_();
@@ -3340,20 +3391,20 @@ void MainFrame::OnTogBtnOnOff(wxCommandEvent&)
             // On/Off actions complete, re-enable button.
             executeOnUiThreadAndWait_([&]() {
                 bool txEnabled = 
-                    m_RxRunning && 
+                    m_RxRunning.load(std::memory_order_acquire) &&
                     !wxGetApp().appConfiguration.reportingConfiguration.freedvReporterForceReceiveOnly &&
                     (g_nSoundCards == 2);
                 
-                m_togBtnAnalog->Enable(m_RxRunning);
+                m_togBtnAnalog->Enable(m_RxRunning.load(std::memory_order_acquire));
                 m_togBtnVoiceKeyer->Enable(txEnabled);
                 m_btnTogPTT->Enable(txEnabled);
-                optionsDlg->setSessionActive(m_RxRunning);
+                optionsDlg->setSessionActive(m_RxRunning.load(std::memory_order_acquire));
 
-                if (m_RxRunning)
+                if (m_RxRunning.load(std::memory_order_acquire))
                 {
                     m_togBtnOnOff->SetLabel(_("&Stop Modem"));
                 }
-                m_togBtnOnOff->SetValue(m_RxRunning);
+                m_togBtnOnOff->SetValue(m_RxRunning.load(std::memory_order_acquire));
                 m_togBtnOnOff->Enable(true);
 
                 // On some systems the Report Frequency box ends up getting
@@ -3395,11 +3446,11 @@ void MainFrame::OnTogBtnOnOff(wxCommandEvent&)
 
             // On/Off actions complete, re-enable button.
             executeOnUiThreadAndWait_([&]() {
-                m_togBtnAnalog->Enable(m_RxRunning);
-                m_togBtnVoiceKeyer->Enable(m_RxRunning);
-                m_btnTogPTT->Enable(m_RxRunning);
-                optionsDlg->setSessionActive(m_RxRunning);
-                m_togBtnOnOff->SetValue(m_RxRunning);
+                m_togBtnAnalog->Enable(m_RxRunning.load(std::memory_order_acquire));
+                m_togBtnVoiceKeyer->Enable(m_RxRunning.load(std::memory_order_acquire));
+                m_btnTogPTT->Enable(m_RxRunning.load(std::memory_order_acquire));
+                optionsDlg->setSessionActive(m_RxRunning.load(std::memory_order_acquire));
+                m_togBtnOnOff->SetValue(m_RxRunning.load(std::memory_order_acquire));
                 m_togBtnOnOff->SetLabel(_("&Start Modem"));
                 m_togBtnOnOff->Enable(true);
 
@@ -3420,11 +3471,11 @@ void MainFrame::stopRxStream()
 {
     std::unique_lock<std::recursive_mutex> lk(stoppingMutex);
 
-    if(m_RxRunning)
+    if(m_RxRunning.load(std::memory_order_acquire))
     {
         StopLowLatencyActivity();
 
-        m_RxRunning = false;
+        m_RxRunning.store(false, std::memory_order_release);
 
         if (m_txThread)
         {
@@ -3542,8 +3593,8 @@ static TxRxThreadUiHooks MakeTxRxUiHooks(
 void MainFrame::startRxStream()
 {
     log_debug("startRxStream .....");
-    if(!m_RxRunning) {
-        m_RxRunning = true;
+    if(!m_RxRunning.load(std::memory_order_acquire)) {
+        m_RxRunning.store(true, std::memory_order_release);
         
         auto engine = AudioEngineFactory::GetAudioEngine();
         engine->setOnEngineError([](IAudioEngine& dev, std::string const& error, void* state) { 
@@ -3627,7 +3678,7 @@ void MainFrame::startRxStream()
                 wxMessageBox(_("No Sound Cards configured, use Tools->Settings to configure"), _("Error"), wxOK);
             });
             
-            m_RxRunning = false;
+            m_RxRunning.store(false, std::memory_order_release);
             
             engine->stop();
             engine->setOnEngineError(nullptr, nullptr);
@@ -3686,7 +3737,7 @@ void MainFrame::startRxStream()
                     rxOutSoundDevice.reset();
                 }
                 
-                m_RxRunning = false;
+                m_RxRunning.store(false, std::memory_order_release);
             
                 engine->stop();
                 engine->setOnEngineError(nullptr, nullptr);
@@ -3832,7 +3883,7 @@ void MainFrame::startRxStream()
                     txOutSoundDevice.reset();
                 }
                 
-                m_RxRunning = false;
+                m_RxRunning.store(false, std::memory_order_release);
             
                 engine->stop();
                 engine->setOnEngineError(nullptr, nullptr);
@@ -3855,6 +3906,7 @@ void MainFrame::startRxStream()
 
         g_infifo1_full.store(0, std::memory_order_relaxed);
         g_outfifo1_empty.store(0, std::memory_order_relaxed);
+        g_outfifo1_emptyWhileTransmitting.store(0, std::memory_order_relaxed);
         g_infifo2_full.store(0, std::memory_order_relaxed);
         g_outfifo2_empty.store(0, std::memory_order_relaxed);
         for (int i=0; i<4; i++) {
@@ -4007,7 +4059,7 @@ void MainFrame::startRxStream()
                 rxOutSoundDevice.reset();
                 txInSoundDevice.reset();
                 txOutSoundDevice.reset();
-                m_RxRunning = false;
+                m_RxRunning.store(false, std::memory_order_release);
                 return;
             }
 
@@ -4019,7 +4071,7 @@ void MainFrame::startRxStream()
                 rxOutSoundDevice.reset();
                 txInSoundDevice.reset();
                 txOutSoundDevice.reset();
-                m_RxRunning = false;
+                m_RxRunning.store(false, std::memory_order_release);
                 return;
             }
         }
@@ -4036,7 +4088,7 @@ void MainFrame::startRxStream()
             rxOutSoundDevice.reset();
             txInSoundDevice.reset();
             txOutSoundDevice.reset();
-            m_RxRunning = false;
+            m_RxRunning.store(false, std::memory_order_release);
             return;
         }
 
@@ -4051,7 +4103,7 @@ void MainFrame::startRxStream()
             rxOutSoundDevice.reset();
             txInSoundDevice.reset();
             txOutSoundDevice.reset();
-            m_RxRunning = false;
+            m_RxRunning.store(false, std::memory_order_release);
             return;
         }
 
@@ -4090,10 +4142,10 @@ void MainFrame::startRxStream()
         bool rxDevicesRunning = 
             (rxInSoundDevice && rxInSoundDevice->isRunning()) &&
             (rxOutSoundDevice && rxOutSoundDevice->isRunning());
-        m_RxRunning = txDevicesRunning && rxDevicesRunning;
+        m_RxRunning.store(txDevicesRunning && rxDevicesRunning, std::memory_order_release);
     }
 
-    if (m_RxRunning)
+    if (m_RxRunning.load(std::memory_order_acquire))
     {
         StartLowLatencyActivity();
     }
@@ -4405,88 +4457,72 @@ void MainFrame::OnTxOutAudioData_(IAudioDevice& dev, void* data, size_t size, vo
 
     auto toRead = std::min((size_t)cbData->outfifo1->numUsed(), size);
     auto isTuning = cbData->isTuning.load(std::memory_order_acquire);
-
-    // A transmission isn't given to the sound card until enough of it is
-    // ready that the sound card won't run out part of the way through.
-    auto output = TxOutput::Ready;
-    if (!isTuning)
-    {
-        output = txOutputFor(
-            cbData->outfifo1->numUsed(), cbData->outfifo1->capacity(), (int)size, dev.getSampleRate(),
-            endingTx.load(std::memory_order_acquire), g_txOutputStarted);
-    }
-
-    if (output != TxOutput::Waiting && toRead < size && !isTuning)
+    if (toRead < size && !isTuning)
     {
         g_outfifo1_empty.fetch_add(1, std::memory_order_relaxed);
+        if (g_tx.load(std::memory_order_acquire))
+        {
+            g_outfifo1_emptyWhileTransmitting.fetch_add(1, std::memory_order_relaxed);
+        }
+    }
+
+    // Always fill the callback, including partial FIFO reads and underruns.
+    if (!isTuning && toRead > 0 && cbData->outfifo1->read(tmpOutput, toRead) != 0)
+    {
+        // Raced with a concurrent reset(); nothing was actually copied
+        // into tmpOutput, so fall back to silence below instead of
+        // replaying stale samples from the previous callback.
+        toRead = 0;
+    }
+
+    auto numChannels = dev.getNumChannels();
+    auto enableVoxTone = g_tx.load(std::memory_order_acquire) && cbData->leftChannelVoxTone.load(std::memory_order_acquire);
+    auto sr = dev.getSampleRate();
+
+    if (isTuning)
+    {
+        // This may be better as a pipeline step but would also add additional
+        // complexity (i.e. additional decision steps to let through the sine wave
+        // vs. regular TX).
+        auto txLevel = g_tuneLevelScale.load(std::memory_order_acquire) * (SHRT_MAX / 2);
+
+        // Load once before the loop and store once after to avoid per-sample atomic
+        // memory barriers, which can cause the audio callback to overrun its deadline.
+        auto sineWaveSampleNumber = cbData->tuneSineWaveSampleNumber.load(std::memory_order_acquire);
+        const double phaseIncrement = 2.0 * M_PI * FDMDV_FCENTRE / sr;
+        for (unsigned long index = 0; index < size; index++)
+        {
+            auto carrierSample = txLevel * sin(phaseIncrement * sineWaveSampleNumber);
+            for (int i = 0; i < numChannels; i++)
+            {
+                *audioData++ = carrierSample;
+            }
+            // Conditional branch is cheaper than integer division (% sr).
+            if (++sineWaveSampleNumber >= (int)sr)
+                sineWaveSampleNumber = 0;
+        }
+        cbData->tuneSineWaveSampleNumber.store(sineWaveSampleNumber, std::memory_order_release);
     }
     else
     {
-        if (output == TxOutput::Waiting)
+        for (size_t count = 0; count < size; count++, audioData += numChannels)
         {
-            // Silence meanwhile, with the VOX tone (if it's on) so that a
-            // radio keyed by it is transmitting by the time the signal
-            // arrives.
-            toRead = 0;
-        }
+            auto output = (count < toRead) ? tmpOutput[count] : 0;
 
-        if (toRead >= size && cbData->outfifo1->read(tmpOutput, size) != 0)
-        {
-            // Raced with a concurrent reset(); nothing was actually copied
-            // into tmpOutput, so fall back to silence below instead of
-            // replaying stale samples from the previous callback.
-            toRead = 0;
-        }
-
-        auto numChannels = dev.getNumChannels();
-        auto enableVoxTone = g_tx.load(std::memory_order_acquire) && cbData->leftChannelVoxTone.load(std::memory_order_acquire);
-        auto sr = dev.getSampleRate();
-
-        if (isTuning)
-        {
-            // This may be better as a pipeline step but would also add additional
-            // complexity (i.e. additional decision steps to let through the sine wave
-            // vs. regular TX).
-            auto txLevel = g_tuneLevelScale.load(std::memory_order_acquire) * (SHRT_MAX / 2);
-
-            // Load once before the loop and store once after to avoid per-sample atomic
-            // memory barriers, which can cause the audio callback to overrun its deadline.
-            auto sineWaveSampleNumber = cbData->tuneSineWaveSampleNumber.load(std::memory_order_acquire);
-            const double phaseIncrement = 2.0 * M_PI * FDMDV_FCENTRE / sr;
-            for (unsigned long index = 0; index < size; index++)
+            // write signal to all channels to start. This is so that
+            // the compiler can optimize for the most common case.
+            for (auto j = 0; j < numChannels; j++)
             {
-                auto carrierSample = txLevel * sin(phaseIncrement * sineWaveSampleNumber);
-                for (int i = 0; i < numChannels; i++)
-                {
-                    *audioData++ = carrierSample;
-                }
-                // Conditional branch is cheaper than integer division (% sr).
-                if (++sineWaveSampleNumber >= (int)sr)
-                    sineWaveSampleNumber = 0;
+                audioData[j] = output;
             }
-            cbData->tuneSineWaveSampleNumber.store(sineWaveSampleNumber, std::memory_order_release);
-        }
-        else
-        {
-            for (size_t count = 0; count < size; count++, audioData += numChannels)
-            {
-                 auto output = (count < toRead) ? tmpOutput[count] : 0;
 
-                // write signal to all channels to start. This is so that
-                // the compiler can optimize for the most common case.
-                for (auto j = 0; j < numChannels; j++)
-                {
-                    audioData[j] = output;
-                }
-                        
-                // If VOX tone is enabled, go back through and add the VOX tone
-                // on the left channel.
-                if (enableVoxTone)
-                {
-                    cbData->voxTonePhase += 2.0*M_PI*VOX_TONE_FREQ/sr;
-                    cbData->voxTonePhase -= 2.0*M_PI*floor(cbData->voxTonePhase/(2.0*M_PI));
-                    audioData[0] = VOX_TONE_AMP*cos(cbData->voxTonePhase);
-                }
+            // If VOX tone is enabled, go back through and add the VOX tone
+            // on the left channel.
+            if (enableVoxTone)
+            {
+                cbData->voxTonePhase += 2.0*M_PI*VOX_TONE_FREQ/sr;
+                cbData->voxTonePhase -= 2.0*M_PI*floor(cbData->voxTonePhase/(2.0*M_PI));
+                audioData[0] = VOX_TONE_AMP*cos(cbData->voxTonePhase);
             }
         }
     }

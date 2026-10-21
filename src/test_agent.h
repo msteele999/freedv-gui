@@ -22,12 +22,20 @@
 
 #include <atomic>
 #include <deque>
+#include <map>
 #include <mutex>
 #include <string>
 #include <vector>
 
 #include <wx/wx.h>
+#include <wx/timer.h>
 
+// On Windows, wxWidgets has already brought in wincrypt.h, some of whose
+// names LibreSSL's headers (from TcpConnectionHandler.h) replace with their
+// own. Nothing here uses wincrypt.h's, so that's fine.
+#if defined(_WIN32) && !defined(LIBRESSL_DISABLE_OVERRIDE_WINCRYPT_DEFINES_WARNING)
+#define LIBRESSL_DISABLE_OVERRIDE_WINCRYPT_DEFINES_WARNING
+#endif // defined(_WIN32) && !defined(LIBRESSL_DISABLE_OVERRIDE_WINCRYPT_DEFINES_WARNING)
 #include "util/TcpConnectionHandler.h"
 #include "yyjson.h"
 
@@ -97,7 +105,20 @@ private:
     // Titles of the file and folder choosers that would have been displayed,
     // and what to choose from the next ones (false to cancel).
     std::vector<wxString> pathDialogs_;
-    std::deque<std::pair<bool, wxString>> pathDialogAnswers_;
+    struct PathDialogAnswer
+    {
+        bool choose;
+        wxString path;
+        std::map<wxString, bool> options;
+    };
+    std::deque<PathDialogAnswer> pathDialogAnswers_;
+
+    // Addresses of the web pages that would have been opened.
+    std::vector<wxString> browserUrls_;
+
+    // For closing the main window (see commandQuit_()).
+    wxTimer quitTimer_;
+    int quitAttemptsLeft_;
 
     int onMessageBox_(const wxString& message, const wxString& caption, int style);
     bool onPathDialog_(const wxString& title, wxString& path);
@@ -128,6 +149,10 @@ private:
     void commandGetState_(yyjson_val* id);
     void commandKey_(yyjson_val* id, yyjson_val* request);
     void commandPathDialogs_(yyjson_val* id, yyjson_val* request);
+    void commandBrowserUrls_(yyjson_val* id, yyjson_val* request);
+    void commandMouse_(yyjson_val* id, yyjson_val* request);
+    void commandFocus_(yyjson_val* id, yyjson_val* request);
+    void commandClipboard_(yyjson_val* id);
     void commandMessageBoxes_(yyjson_val* id, yyjson_val* request);
     void commandQuit_(yyjson_val* id);
 };

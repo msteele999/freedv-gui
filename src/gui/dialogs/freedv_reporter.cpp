@@ -1064,11 +1064,6 @@ void FreeDVReporterDialog::OnSystemColorChanged(wxSysColourChangedEvent& event)
     event.Skip();
 }
 
-void FreeDVReporterDialog::OnInitDialog(wxInitDialogEvent&)
-{
-    // TBD
-}
-
 void FreeDVReporterDialog::OnShow(wxShowEvent&)
 {
     wxGetApp().appConfiguration.reporterWindowVisible = true;
@@ -1158,7 +1153,7 @@ void FreeDVReporterDialog::OnSendQSY(wxCommandEvent&)
 void FreeDVReporterDialog::OnOpenWebsite(wxCommandEvent&)
 {
     std::string url = std::string("https://") + (const char*)wxGetApp().appConfiguration.reportingConfiguration.freedvReporterHostname->utf8_str() + "/";
-    wxLaunchDefaultBrowser(url);
+    LaunchBrowser(url);
     DeselectItem();
 }
 
@@ -2088,7 +2083,7 @@ void FreeDVReporterDialog::OnQRZLookup(wxCommandEvent&)
 {
     if (tempCallsign_ != wxT(""))
     {
-        wxLaunchDefaultBrowser(wxString::Format("https://www.qrz.com/db/%s", tempCallsign_));
+        LaunchBrowser(wxString::Format("https://www.qrz.com/db/%s", tempCallsign_));
     }
 }
 
@@ -2096,7 +2091,7 @@ void FreeDVReporterDialog::OnHamQTHLookup(wxCommandEvent&)
 {
     if (tempCallsign_ != wxT(""))
     {
-        wxLaunchDefaultBrowser(wxString::Format("https://www.hamqth.com/%s", tempCallsign_));
+        LaunchBrowser(wxString::Format("https://www.hamqth.com/%s", tempCallsign_));
     }
 }
 
@@ -2104,7 +2099,7 @@ void FreeDVReporterDialog::OnHamCallLookup(wxCommandEvent&)
 {
     if (tempCallsign_ != wxT(""))
     {
-        wxLaunchDefaultBrowser(wxString::Format("https://hamcall.net/call?callsign=%s", tempCallsign_));
+        LaunchBrowser(wxString::Format("https://hamcall.net/call?callsign=%s", tempCallsign_));
     }
 }
 
@@ -2542,6 +2537,26 @@ wxString FreeDVReporterDialog::FreeDVReporterDataModel::makeValidTime_(std::stri
 {
     wxRegEx& millisecondsRemoval = millisecondsRgx_;
     wxString tmp = timeStr;
+
+    // ParseISOCombined() can't take the fraction of a second (the server
+    // sends microseconds, and none at all when there are exactly zero), so
+    // it's taken off here and its milliseconds added back once parsed.
+    // Otherwise, e.g. stations that connected within the same second
+    // can't be told apart when sorting.
+    int milliseconds = 0;
+    if (millisecondsRemoval.Matches(tmp))
+    {
+        wxString fraction = millisecondsRemoval.GetMatch(tmp); // e.g. ".123456"
+        int digits = 0;
+        for (size_t i = 1; i < fraction.length() && digits < 3 && wxIsdigit(fraction[i]); i++, digits++)
+        {
+            milliseconds = milliseconds * 10 + (int)(fraction[i].GetValue() - '0');
+        }
+        for (; digits < 3; digits++)
+        {
+            milliseconds *= 10;
+        }
+    }
     millisecondsRemoval.Replace(&tmp, parent_->EMPTY_STR);
     
     wxRegEx& timezoneRgx = timezoneRgx_;
@@ -2569,6 +2584,7 @@ wxString FreeDVReporterDialog::FreeDVReporterDataModel::makeValidTime_(std::stri
     if (tmpDate.ParseISOCombined(tmp))
     {
         tmpDate.MakeFromTimezone(timeZone);
+        tmpDate += wxTimeSpan::Milliseconds(milliseconds);
         timeObj = tmpDate;
         if (wxGetApp().appConfiguration.reportingConfiguration.useUTCForReporting)
         {
@@ -2650,16 +2666,6 @@ FreeDVReporterDialog::FilterFrequency FreeDVReporterDialog::getFilterForFrequenc
     return GetFilterForFrequency(freq);
 }
 
-bool FreeDVReporterDialog::FreeDVReporterDataModel::filtersEnabled() const
-{
-    return
-        (currentBandFilter_ != FilterFrequency::BAND_ALL) ||
-        (wxGetApp().appConfiguration.reportingConfiguration.freedvReporterBandFilterTracksFrequency &&
-                wxGetApp().appConfiguration.reportingConfiguration.freedvReporterBandFilterTracksExactFreq) ||
-        wxGetApp().appConfiguration.reportingConfiguration.freedvReporterEnableMaxIdleFilter ||
-        hasAnyColumnFilter();
-}
-
 void FreeDVReporterDialog::FreeDVReporterDataModel::setColumnFilter(int col, int op, const wxString& val)
 {
     if (col >= 0 && col < NUM_COLS)
@@ -2685,18 +2691,6 @@ bool FreeDVReporterDialog::FreeDVReporterDataModel::getColumnFilter(int col, int
         op = columnFilterOperators_[col];
         val = columnFilterValues_[col];
         return true;
-    }
-    return false;
-}
-
-bool FreeDVReporterDialog::FreeDVReporterDataModel::hasAnyColumnFilter() const
-{
-    for (int col = 0; col < NUM_COLS; col++)
-    {
-        if (columnFilterOperators_[col] != FreeDVReporterDialog::FILTER_NONE)
-        {
-            return true;
-        }
     }
     return false;
 }
