@@ -47,6 +47,10 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(whisper)
 
+# Also patch reused dependency sources when FetchContent skips PATCH_COMMAND.
+include("${CMAKE_CURRENT_LIST_DIR}/PatchWhisperGGMLCPU.cmake")
+freedv_patch_whisper_cpu("${whisper_SOURCE_DIR}/ggml/src/ggml-cpu/ggml-cpu.c")
+
 # Validate reused dependency sources even when PATCH_COMMAND is skipped.
 function(freedv_validate_whisper_nbytes)
     set(source "${whisper_SOURCE_DIR}/ggml/src/ggml.c")

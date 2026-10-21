@@ -1081,6 +1081,13 @@ bool MainApp::OnInit()
 int MainApp::OnExit()
 {
     testAgent_ = nullptr;
+    // wxWidgets deletes the active configuration during cleanup. The saved
+    // default is ours to delete when a custom configuration is still active.
+    if (defaultConfig != wxConfigBase::Get(false))
+    {
+        delete defaultConfig;
+    }
+    defaultConfig = nullptr;
     return 0;
 }
 
@@ -1869,6 +1876,7 @@ static std::recursive_mutex stoppingMutex;
 
 void MainFrame::setConfiguration_(wxConfigBase* config)
 {
+    wxConfigBase* previousConfig = pConfig;
     pConfig = config;
     wxConfigBase::Set(pConfig);
         
@@ -1888,6 +1896,13 @@ void MainFrame::setConfiguration_(wxConfigBase* config)
     
     // Resets all configuration to defaults.
     loadConfiguration_();
+
+    // Set() transfers no ownership. Keep the default available for the menu,
+    // but release a replaced custom configuration after the reload finishes.
+    if (previousConfig != pConfig && previousConfig != wxGetApp().defaultConfig)
+    {
+        delete previousConfig;
+    }
 }
 
 void MainFrame::captureDecodedSpeechGeometry_()

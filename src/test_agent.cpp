@@ -40,6 +40,7 @@
 #include "test_agent.h"
 #include "main.h"
 #include "freedv_interface.h"
+#include "gui/controls/LevelGauge.h"
 
 extern std::atomic<bool> g_tx;
 extern std::atomic<int> g_analog;
@@ -795,6 +796,10 @@ yyjson_mut_val* TestAgent::describeWindow_(yyjson_mut_doc* doc, wxWindow* window
     else if (auto gauge = wxDynamicCast(window, wxGauge))
     {
         yyjson_mut_obj_add_int(doc, obj, "value", gauge->GetValue());
+    }
+    else if (auto levelGauge = dynamic_cast<LevelGauge*>(window))
+    {
+        yyjson_mut_obj_add_int(doc, obj, "value", levelGauge->GetValue());
     }
     else if (auto slider = wxDynamicCast(window, wxSlider))
     {
