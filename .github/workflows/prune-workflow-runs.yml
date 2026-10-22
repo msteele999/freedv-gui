@@ -117,6 +117,10 @@ jobs:
           # be hidden inside a loop. Published prereleases are protected too.
           required_api --paginate "repos/$GH_REPO/releases?per_page=100" \
             --jq '.[] | select(.draft == false) | .tag_name' > "$PRUNE_DIR/release-tags.txt"
+          if [[ ! -s "$PRUNE_DIR/release-tags.txt" ]]; then
+            echo "No published releases returned; refusing cleanup" >&2
+            exit 1
+          fi
           while IFS= read -r TAG; do
             ENCODED_TAG="$(jq -rn --arg tag "$TAG" '$tag | @uri')"
             TAG_OBJECT="$(required_api "repos/$GH_REPO/git/ref/tags/$ENCODED_TAG" --jq '[.object.type, .object.sha] | @tsv')"
