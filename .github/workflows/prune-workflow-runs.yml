@@ -37,9 +37,11 @@ jobs:
           INPUT_KEEP: ${{ inputs.keep }}
         shell: bash
         run: |
-          set -euo pipefail
+          set -Eeuo pipefail
+          shopt -s inherit_errexit
+          trap 'echo "Cleanup failed at line $LINENO; stopping without further deletions" >&2' ERR
 
-          # Keep scheduled runs in preview mode until validated.
+          # Keep scheduled cleanup in preview until a manual dry run is validated.
           if [[ "$EVENT_NAME" == "schedule" ]]; then
             DRY_RUN=true
             KEEP=10
@@ -52,75 +54,226 @@ jobs:
             echo "KEEP must be a positive integer"
             exit 1
           fi
+          if [[ "$DRY_RUN" != "true" && "$DRY_RUN" != "false" ]]; then
+            echo "dry_run must be true or false"
+            exit 1
+          fi
 
           echo "Dry run: $DRY_RUN"
           echo "Keep per workflow: $KEEP"
 
-          gh api --paginate \
+          PRUNE_DIR="$(mktemp -d)"
+          trap 'rm -rf -- "$PRUNE_DIR"' EXIT
+
+          # Required metadata must be complete before any deletion is allowed.
+          # Propagate failures, including inside command substitutions.
+          required_api() {
+            if gh api "$@"; then
+              return 0
+            fi
+            echo "Required GitHub API request failed; refusing further cleanup" >&2
+            return 1
+          }
+
+          # Fetch every page before deleting anything. Avoid search filters:
+          # GitHub caps filtered workflow-run searches at 1,000 results.
+          # Any API/pagination error stops the script via set -euo pipefail.
+          required_api --paginate \
             "repos/$GH_REPO/actions/runs?per_page=100" \
             --jq '.workflow_runs[] |
-              [.id, .workflow_id, .status, .conclusion, .created_at, .head_sha] |
-              @tsv' > /tmp/workflow-runs.tsv
+              [.id, .workflow_id, .status, (.conclusion // "unknown"),
+               .created_at, .head_sha, (.run_attempt // 0), .event] |
+              @tsv' > "$PRUNE_DIR/runs-raw.tsv"
+          # Runs may shift between pages as new ones start. Count each ID once.
+          awk -F '\t' '!seen[$1]++' "$PRUNE_DIR/runs-raw.tsv" > "$PRUNE_DIR/workflow-runs.tsv"
+
+          # Workflow filenames are stable identifiers across repositories;
+          # numeric IDs are resolved in the repository being cleaned.
+          : > "$PRUNE_DIR/ci-workflow-ids.txt"
+          for WORKFLOW_FILE in cmake-windows.yml cmake-linux.yml cmake-macos.yml; do
+            CI_ID="$(required_api "repos/$GH_REPO/actions/workflows/$WORKFLOW_FILE" --jq '.id')"
+            if ! [[ "$CI_ID" =~ ^[0-9]+$ ]]; then
+              echo "Could not resolve CI workflow: $WORKFLOW_FILE"
+              exit 1
+            fi
+            echo "CI workflow: $WORKFLOW_FILE id=$CI_ID"
+            printf '%s\n' "$CI_ID" >> "$PRUNE_DIR/ci-workflow-ids.txt"
+          done
+
+          ASSEMBLY_ID="$(required_api "repos/$GH_REPO/actions/workflows/w2mws-release.yml" --jq '.id')"
+          if ! [[ "$ASSEMBLY_ID" =~ ^[0-9]+$ ]]; then
+            echo "Could not resolve W2MWS release assembly workflow; refusing cleanup"
+            exit 1
+          fi
+          echo "Release assembly workflow: w2mws-release.yml id=$ASSEMBLY_ID"
 
           # Protect CI runs for every published release tag.
           # Resolve tags to commits, then retain successful builds
           # for Windows, Linux, and macOS on those commits.
-          : > /tmp/protected-runs.txt
+          : > "$PRUNE_DIR/protected-runs.txt"
+          : > "$PRUNE_DIR/published-releases.tsv"
 
-          gh api --paginate "repos/$GH_REPO/releases?per_page=100" --jq '.[] | select(.draft == false) | .tag_name' |
+          # Save the complete release list first so pagination failures cannot
+          # be hidden inside a loop. Published prereleases are protected too.
+          required_api --paginate "repos/$GH_REPO/releases?per_page=100" \
+            --jq '.[] | select(.draft == false) | .tag_name' > "$PRUNE_DIR/release-tags.txt"
           while IFS= read -r TAG; do
-            SHA="$(gh api "repos/$GH_REPO/git/ref/tags/$TAG" --jq '.object.sha')"
+            ENCODED_TAG="$(jq -rn --arg tag "$TAG" '$tag | @uri')"
+            TAG_OBJECT="$(required_api "repos/$GH_REPO/git/ref/tags/$ENCODED_TAG" --jq '[.object.type, .object.sha] | @tsv')"
+            IFS=$'\t' read -r TYPE SHA <<< "$TAG_OBJECT"
 
-            # Annotated tags point to tag objects, not directly to commits.
-            TYPE="$(gh api "repos/$GH_REPO/git/ref/tags/$TAG" --jq '.object.type')"
-            if [[ "$TYPE" == "tag" ]]; then
-              SHA="$(gh api "repos/$GH_REPO/git/tags/$SHA" --jq '.object.sha')"
+            # Peel annotated tags, including tags pointing to other tags.
+            DEPTH=0
+            while [[ "$TYPE" == "tag" ]]; do
+              if (( DEPTH >= 20 )); then
+                echo "Release tag nesting too deep: $TAG; refusing cleanup"
+                exit 1
+              fi
+              TAG_OBJECT="$(required_api "repos/$GH_REPO/git/tags/$SHA" --jq '[.object.type, .object.sha] | @tsv')"
+              IFS=$'\t' read -r TYPE SHA <<< "$TAG_OBJECT"
+              DEPTH=$((DEPTH + 1))
+            done
+            if [[ "$TYPE" != "commit" || ! "$SHA" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "Could not resolve release tag to a commit: $TAG; refusing cleanup"
+              exit 1
             fi
+            echo "Protect published release: tag=$TAG commit=$SHA"
+            printf '%s\t%s\n' "$TAG" "$SHA" >> "$PRUNE_DIR/published-releases.tsv"
 
             awk -F '\t' -v sha="$SHA" \
-              '$6 == sha && $3 == "completed" && $4 == "success" && ($2 == 362206641 || $2 == 362206639 || $2 == 362206640) {print $1}' \
-              /tmp/workflow-runs.tsv >> /tmp/protected-runs.txt
-          done
+              'NR == FNR {ci[$1] = 1; next}
+               $6 == sha && $3 == "completed" && $4 == "success" && ($2 in ci) {print $1}' \
+              "$PRUNE_DIR/ci-workflow-ids.txt" "$PRUNE_DIR/workflow-runs.tsv" >> "$PRUNE_DIR/protected-runs.txt"
+          done < "$PRUNE_DIR/release-tags.txt"
 
-          sort -u -o /tmp/protected-runs.txt /tmp/protected-runs.txt
+          # Assembly is manually dispatched with an input tag: its head_sha
+          # identifies the workflow checkout, not necessarily the release.
+          # Use the validated tag/commit pair printed by w2mws-release.yml.
+          awk -F '\t' -v id="$ASSEMBLY_ID" \
+            '$2 == id && $3 == "completed" && $4 == "success" {print $1}' \
+            "$PRUNE_DIR/workflow-runs.tsv" > "$PRUNE_DIR/assembly-runs.txt"
+          while IFS= read -r ASSEMBLY_RUN; do
+            # The API redirects to a short-lived ZIP URL. Follow HTTPS redirects
+            # explicitly; curl strips Authorization on cross-host redirects.
+            # Do not use --location-trusted, which would forward the token.
+            if ! curl --fail --silent --show-error --location \
+                --proto '=https' --proto-redir '=https' \
+                --connect-timeout 20 --max-time 120 --retry 2 \
+                -H "Authorization: Bearer $GH_TOKEN" \
+                -H "Accept: application/vnd.github+json" \
+                --output "$PRUNE_DIR/assembly.zip" \
+                "$GITHUB_API_URL/repos/$GH_REPO/actions/runs/$ASSEMBLY_RUN/logs"; then
+              echo "PROTECT release assembly: run=$ASSEMBLY_RUN reason=logs-unavailable"
+              printf '%s\n' "$ASSEMBLY_RUN" >> "$PRUNE_DIR/protected-runs.txt"
+              continue
+            fi
+            if ! unzip -tq "$PRUNE_DIR/assembly.zip" > /dev/null; then
+              echo "PROTECT release assembly: run=$ASSEMBLY_RUN reason=logs-invalid-zip"
+              printf '%s\n' "$ASSEMBLY_RUN" >> "$PRUNE_DIR/protected-runs.txt"
+              continue
+            fi
+            # Parse only the step that validates the release, avoiding accidental
+            # tag/commit pairs assembled across unrelated step log files.
+            if ! unzip -p "$PRUNE_DIR/assembly.zip" \
+                '*_Validate tag and download production artifacts.txt' > "$PRUNE_DIR/assembly.log"; then
+              echo "PROTECT release assembly: run=$ASSEMBLY_RUN reason=logs-unreadable"
+              printf '%s\n' "$ASSEMBLY_RUN" >> "$PRUNE_DIR/protected-runs.txt"
+              continue
+            fi
+            # Match output lines, not the echoed shell script or environment.
+            awk '
+              {sub(/\r$/, "")}
+              /^[0-9T:.Z+-]+ Release tag: / {
+                sub(/^[0-9T:.Z+-]+ Release tag: /, ""); tag = $0
+              }
+              /^[0-9T:.Z+-]+ Release commit: / && tag != "" {
+                sub(/^[0-9T:.Z+-]+ Release commit: /, "")
+                printf "%s\t%s\n", tag, $0; tag = ""
+              }
+            ' "$PRUNE_DIR/assembly.log" | sort -u > "$PRUNE_DIR/assembly-release.tsv"
+            ASSEMBLY_TAG=""
+            ASSEMBLY_SHA=""
+            IFS=$'\t' read -r ASSEMBLY_TAG ASSEMBLY_SHA < "$PRUNE_DIR/assembly-release.tsv" || true
+            if [[ "$(wc -l < "$PRUNE_DIR/assembly-release.tsv")" -ne 1 ||
+                  ! "$ASSEMBLY_TAG" =~ ^v.*-W2MWS\.[0-9]+$ ||
+                  ! "$ASSEMBLY_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "PROTECT release assembly: run=$ASSEMBLY_RUN reason=release-unidentified"
+              printf '%s\n' "$ASSEMBLY_RUN" >> "$PRUNE_DIR/protected-runs.txt"
+              continue
+            fi
+            awk -F '\t' -v run="$ASSEMBLY_RUN" '
+              NR == FNR {published[$0] = 1; next}
+              ($0 in published) {print run}
+            ' "$PRUNE_DIR/published-releases.tsv" "$PRUNE_DIR/assembly-release.tsv" >> "$PRUNE_DIR/protected-runs.txt"
+          done < "$PRUNE_DIR/assembly-runs.txt"
+
+          sort -u -o "$PRUNE_DIR/protected-runs.txt" "$PRUNE_DIR/protected-runs.txt"
+          declare -A RELEASE_PROTECTED=()
+          while IFS= read -r PROTECTED_ID; do
+            RELEASE_PROTECTED["$PROTECTED_ID"]=1
+          done < "$PRUNE_DIR/protected-runs.txt"
 
           # Process each workflow separately.
-          cut -f2 /tmp/workflow-runs.tsv | sort -u |
+          cut -f2 "$PRUNE_DIR/workflow-runs.tsv" | sort -u > "$PRUNE_DIR/workflow-ids.txt"
+          DELETED=0
+          WOULD_DELETE=0
           while read -r WORKFLOW_ID; do
+            awk -F '\t' -v id="$WORKFLOW_ID" \
+              '$2 == id && $3 != "completed" {
+                printf "RETAIN non-completed: workflow=%s run=%s status=%s\n", $2, $1, $3
+              }' "$PRUNE_DIR/workflow-runs.tsv"
 
-            mapfile -t RUNS < <(
-              awk -F '\t' -v id="$WORKFLOW_ID" \
+            # Use a file instead of process substitution so errors propagate.
+            awk -F '\t' -v id="$WORKFLOW_ID" \
                 '$2 == id && $3 == "completed" {print}' \
-                /tmp/workflow-runs.tsv |
-              sort -t $'\t' -k5,5r
-            )
+                "$PRUNE_DIR/workflow-runs.tsv" |
+              sort -t $'\t' -k5,5r -k1,1nr > "$PRUNE_DIR/completed.tsv"
+            mapfile -t RUNS < "$PRUNE_DIR/completed.tsv"
 
             # Protect the latest successful run, even if outside
             # the newest KEEP completed runs.
-            LATEST_SUCCESS="$(
-              printf '%s\n' "${RUNS[@]}" |
-              awk -F '\t' '$4 == "success" {print $1; exit}'
-            )"
+            LATEST_SUCCESS="$(awk -F '\t' '$4 == "success" {print $1; exit}' "$PRUNE_DIR/completed.tsv")"
 
-            for ((i=KEEP; i<${#RUNS[@]}; i++)); do
+            for ((i=0; i<${#RUNS[@]}; i++)); do
               RUN_ID="${RUNS[$i]%%$'\t'*}"
 
-              if grep -Fxq "$RUN_ID" /tmp/protected-runs.txt; then
-                echo "PROTECT published release: $RUN_ID"
+              if [[ "${RELEASE_PROTECTED[$RUN_ID]:-}" == "1" ]]; then
+                echo "PROTECT published release: workflow=$WORKFLOW_ID run=$RUN_ID"
                 continue
               fi
 
               if [[ "$RUN_ID" == "$LATEST_SUCCESS" ]]; then
-                echo "PROTECT latest success: $RUN_ID"
+                echo "PROTECT latest success: workflow=$WORKFLOW_ID run=$RUN_ID"
+                continue
+              fi
+
+              if (( i < KEEP )); then
+                echo "RETAIN newest $KEEP: workflow=$WORKFLOW_ID run=$RUN_ID rank=$((i + 1))"
                 continue
               fi
 
               if [[ "$DRY_RUN" == "true" ]]; then
                 echo "WOULD DELETE workflow=$WORKFLOW_ID run=$RUN_ID"
+                WOULD_DELETE=$((WOULD_DELETE + 1))
               else
-                echo "DELETE workflow=$WORKFLOW_ID run=$RUN_ID"
-                gh api -X DELETE \
+                # Compare execution state and stable identity, not updated_at:
+                # metadata-only updates must not prevent cleanup. A changed
+                # status/attempt (including a completed rerun) is retained.
+                CURRENT_RUN="$(required_api "repos/$GH_REPO/actions/runs/$RUN_ID" \
+                  --jq '[.id, .workflow_id, .status, (.conclusion // "unknown"),
+                         .created_at, .head_sha, (.run_attempt // 0), .event] | @tsv')"
+                SNAPSHOT_ATTEMPT="$(cut -f7 <<< "${RUNS[$i]}")"
+                if [[ "$CURRENT_RUN" != "${RUNS[$i]}" || ! "$SNAPSHOT_ATTEMPT" =~ ^[1-9][0-9]*$ ]]; then
+                  echo "RETAIN changed execution or unknown attempt: workflow=$WORKFLOW_ID run=$RUN_ID"
+                  continue
+                fi
+                echo "DELETING workflow=$WORKFLOW_ID run=$RUN_ID"
+                # GitHub removes associated run artifacts when deleting a run.
+                required_api -X DELETE \
                   "repos/$GH_REPO/actions/runs/$RUN_ID"
+                DELETED=$((DELETED + 1))
+                echo "DELETED workflow=$WORKFLOW_ID run=$RUN_ID"
               fi
             done
-          done
+          done < "$PRUNE_DIR/workflow-ids.txt"
+          echo "Cleanup complete: deleted=$DELETED would_delete=$WOULD_DELETE dry_run=$DRY_RUN"
