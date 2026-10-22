@@ -175,7 +175,7 @@ jobs:
             # Parse only the step that validates the release, avoiding accidental
             # tag/commit pairs assembled across unrelated step log files.
             if ! unzip -p "$PRUNE_DIR/assembly.zip" \
-                '*_Validate tag and download production artifacts.txt' > "$PRUNE_DIR/assembly.log"; then
+                '0_Build W2MWS release from validated CI artifacts.txt' > "$PRUNE_DIR/assembly.log"; then
               echo "PROTECT release assembly: run=$ASSEMBLY_RUN reason=logs-unreadable"
               printf '%s\n' "$ASSEMBLY_RUN" >> "$PRUNE_DIR/protected-runs.txt"
               continue
