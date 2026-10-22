@@ -2,7 +2,7 @@ name: Prune old workflow runs
 
 on:
   schedule:
-    - cron: '37 4 * * 0'
+    - cron: '37 4 * * *'
   workflow_dispatch:
     inputs:
       dry_run:
@@ -13,7 +13,7 @@ on:
       keep:
         description: 'Number of recent completed runs to retain per workflow'
         type: number
-        default: 10
+        default: 2
         required: true
 
 permissions:
@@ -44,10 +44,10 @@ jobs:
           # Keep scheduled cleanup in preview until a manual dry run is validated.
           if [[ "$EVENT_NAME" == "schedule" ]]; then
             DRY_RUN=true
-            KEEP=10
+            KEEP=2
           else
             DRY_RUN="${INPUT_DRY_RUN:-true}"
-            KEEP="${INPUT_KEEP:-10}"
+            KEEP="${INPUT_KEEP:-2}"
           fi
 
           if ! [[ "$KEEP" =~ ^[0-9]+$ ]] || (( KEEP < 1 )); then
@@ -116,7 +116,9 @@ jobs:
           # Save the complete release list first so pagination failures cannot
           # be hidden inside a loop. Published prereleases are protected too.
           required_api --paginate "repos/$GH_REPO/releases?per_page=100" \
-            --jq '.[] | select(.draft == false) | .tag_name' > "$PRUNE_DIR/release-tags.txt"
+            --jq '.[] | select(.draft == false) | [.created_at, .tag_name] | @tsv' > "$PRUNE_DIR/release-metadata.tsv"
+          sort -r -k1,1 "$PRUNE_DIR/release-metadata.tsv" |
+            awk -F '\t' 'NR <= 3 {print $2}' > "$PRUNE_DIR/release-tags.txt"
           if [[ ! -s "$PRUNE_DIR/release-tags.txt" ]]; then
             echo "No published releases returned; refusing cleanup" >&2
             exit 1
@@ -233,6 +235,10 @@ jobs:
                 "$PRUNE_DIR/workflow-runs.tsv" |
               sort -t $'\t' -k5,5r -k1,1nr > "$PRUNE_DIR/completed.tsv"
             mapfile -t RUNS < "$PRUNE_DIR/completed.tsv"
+            WORKFLOW_KEEP="$KEEP"
+            if [[ "$WORKFLOW_ID" == "382681223" ]]; then
+              WORKFLOW_KEEP=1
+            fi
 
             # Protect the latest successful run, even if outside
             # the newest KEEP completed runs.
@@ -251,8 +257,8 @@ jobs:
                 continue
               fi
 
-              if (( i < KEEP )); then
-                echo "RETAIN newest $KEEP: workflow=$WORKFLOW_ID run=$RUN_ID rank=$((i + 1))"
+              if (( i < WORKFLOW_KEEP )); then
+                echo "RETAIN newest $WORKFLOW_KEEP: workflow=$WORKFLOW_ID run=$RUN_ID rank=$((i + 1))"
                 continue
               fi
 
