@@ -41,9 +41,9 @@ jobs:
           shopt -s inherit_errexit
           trap 'echo "Cleanup failed at line $LINENO; stopping without further deletions" >&2' ERR
 
-          # Keep scheduled cleanup in preview until a manual dry run is validated.
+          # Run validated cleanup automatically every day.
           if [[ "$EVENT_NAME" == "schedule" ]]; then
-            DRY_RUN=true
+            DRY_RUN=false
             KEEP=2
           else
             DRY_RUN="${INPUT_DRY_RUN:-true}"
@@ -169,21 +169,18 @@ jobs:
                 -H "Accept: application/vnd.github+json" \
                 --output "$PRUNE_DIR/assembly.zip" \
                 "$GITHUB_API_URL/repos/$GH_REPO/actions/runs/$ASSEMBLY_RUN/logs"; then
-              echo "PROTECT release assembly: run=$ASSEMBLY_RUN reason=logs-unavailable"
-              printf '%s\n' "$ASSEMBLY_RUN" >> "$PRUNE_DIR/protected-runs.txt"
+              echo "UNIDENTIFIED release assembly: run=$ASSEMBLY_RUN reason=logs-unavailable"
               continue
             fi
             if ! unzip -tq "$PRUNE_DIR/assembly.zip" > /dev/null; then
-              echo "PROTECT release assembly: run=$ASSEMBLY_RUN reason=logs-invalid-zip"
-              printf '%s\n' "$ASSEMBLY_RUN" >> "$PRUNE_DIR/protected-runs.txt"
+              echo "UNIDENTIFIED release assembly: run=$ASSEMBLY_RUN reason=logs-invalid-zip"
               continue
             fi
             # Parse only the step that validates the release, avoiding accidental
             # tag/commit pairs assembled across unrelated step log files.
             if ! unzip -p "$PRUNE_DIR/assembly.zip" \
                 '0_Build W2MWS release from validated CI artifacts.txt' > "$PRUNE_DIR/assembly.log"; then
-              echo "PROTECT release assembly: run=$ASSEMBLY_RUN reason=logs-unreadable"
-              printf '%s\n' "$ASSEMBLY_RUN" >> "$PRUNE_DIR/protected-runs.txt"
+              echo "UNIDENTIFIED release assembly: run=$ASSEMBLY_RUN reason=logs-unreadable"
               continue
             fi
             # Match output lines, not the echoed shell script or environment.
@@ -203,8 +200,7 @@ jobs:
             if [[ "$(wc -l < "$PRUNE_DIR/assembly-release.tsv")" -ne 1 ||
                   ! "$ASSEMBLY_TAG" =~ ^v.*-W2MWS\.[0-9]+$ ||
                   ! "$ASSEMBLY_SHA" =~ ^[0-9a-f]{40}$ ]]; then
-              echo "PROTECT release assembly: run=$ASSEMBLY_RUN reason=release-unidentified"
-              printf '%s\n' "$ASSEMBLY_RUN" >> "$PRUNE_DIR/protected-runs.txt"
+              echo "UNIDENTIFIED release assembly: run=$ASSEMBLY_RUN reason=release-unidentified"
               continue
             fi
             awk -F '\t' -v run="$ASSEMBLY_RUN" '
