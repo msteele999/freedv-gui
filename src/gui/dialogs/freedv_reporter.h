@@ -523,7 +523,7 @@ class FreeDVReporterDialog : public wxFrame
             
         };
 
-        bool isSelectionPossible_;
+        bool isSelectionPossible_ = false;
 
         void createColumn_(int col, bool visible);
         wxDataViewColumn* getColumnForModelColId_(unsigned int col);

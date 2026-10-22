@@ -231,6 +231,7 @@ std::mutex g_mutexProtectingPlayFiles;
 
 // End of TX state control
 std::atomic<bool> endingTx;
+extern std::atomic<bool> g_eoo_enqueued;
 
 // Running state
 std::atomic<bool> isModemRunning;
@@ -4470,6 +4471,10 @@ void MainFrame::OnTxOutAudioData_(IAudioDevice& dev, void* data, size_t size, vo
     short* audioData = static_cast<short*>(data);
     short* tmpOutput = cbData->tmpWriteTxBuffer_.get();
 
+    // Read EOO completion before the FIFO occupancy: observing completion must
+    // also make the final queued samples visible to this callback.
+    const bool drainingTx = endingTx.load(std::memory_order_acquire) &&
+        g_eoo_enqueued.load(std::memory_order_acquire);
     auto toRead = std::min((size_t)cbData->outfifo1->numUsed(), size);
     auto isTuning = cbData->isTuning.load(std::memory_order_acquire);
     if (toRead < size && !isTuning)
@@ -4531,9 +4536,10 @@ void MainFrame::OnTxOutAudioData_(IAudioDevice& dev, void* data, size_t size, vo
                 audioData[j] = output;
             }
 
-            // If VOX tone is enabled, go back through and add the VOX tone
-            // on the left channel.
-            if (enableVoxTone)
+            // Keep VOX active through the last EOO sample, then send silence
+            // during the output-latency wait. Continuing to generate tone
+            // there would leave fresh tone queued after returning to RX.
+            if (enableVoxTone && (!drainingTx || count < toRead))
             {
                 cbData->voxTonePhase += 2.0*M_PI*VOX_TONE_FREQ/sr;
                 cbData->voxTonePhase -= 2.0*M_PI*floor(cbData->voxTonePhase/(2.0*M_PI));
