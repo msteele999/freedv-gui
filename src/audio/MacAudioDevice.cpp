@@ -66,7 +66,7 @@ static OSStatus GetIsWirelessDevice(AudioObjectID inDeviceID, bool *isWireless)
                                                    &transportType);
     if(theError == 0)
     {
-        *isWireless = 
+        *isWireless =
             transportType == kAudioDeviceTransportTypeAirPlay ||
             transportType == kAudioDeviceTransportTypeBluetooth ||
             transportType == kAudioDeviceTransportTypeBluetoothLE;
@@ -122,24 +122,24 @@ MacAudioDevice::MacAudioDevice(MacAudioEngine* parent, std::string deviceName, i
     , inputFrames_(nullptr)
     , isDefaultDevice_(false)
     , parent_(parent)
+    , auHAL_(nullptr)
+    , bufferList_(nullptr)
     , running_(false)
 {
     log_info("Create MacAudioDevice \"%s\" with ID %d, channels %d and sample rate %d", deviceName_.c_str(), coreAudioId, numChannels, sampleRate);
-    
+
     sem_ = dispatch_semaphore_create(0);
 }
 
 MacAudioDevice::~MacAudioDevice()
 {
-    if (running_)
-    {
-        stopImpl_();
-    }
-    
+    // Also cleans up after a start() that failed partway through.
+    stopImpl_();
+
     waitForAllTasksComplete_();
     dispatch_release(sem_);
 }
-    
+
 int MacAudioDevice::getNumChannels() FREEDV_NONBLOCKING
 {
     return numChannels_;
@@ -163,7 +163,7 @@ void MacAudioDevice::start()
             .mElement = kAudioObjectPropertyElementMain
         };
 
-        propertyAddress.mScope = 
+        propertyAddress.mScope =
             (direction_ == IAudioEngine::AUDIO_ENGINE_IN) ?
             kAudioDevicePropertyScopeInput :
             kAudioDevicePropertyScopeOutput;
@@ -190,16 +190,16 @@ void MacAudioDevice::start()
             return;
         }
 #endif // 0
-        
-        // Attempt to set the IO frame size to an optimal value. This hopefully 
+
+        // Attempt to set the IO frame size to an optimal value. This hopefully
         // reduces dropouts on marginal hardware.
         UInt32 minFrameSize = 0;
         UInt32 maxFrameSize = 0;
         UInt32 desiredFrameSize = AUDIO_SAMPLE_BLOCK_MSEC * sampleRate_ / MS_TO_SEC;
-        
+
         // Calculate next power of two above desiredFrameSize if not already power of two
         desiredFrameSize = nextPowerOfTwo_(desiredFrameSize);
-        
+
         GetIOBufferFrameSizeRange(coreAudioId_, &minFrameSize, &maxFrameSize);
         if (minFrameSize != 0 && maxFrameSize != 0)
         {
@@ -207,7 +207,7 @@ void MacAudioDevice::start()
             desiredFrameSize = std::min(maxFrameSize, desiredFrameSize);
             desiredFrameSize = std::max(minFrameSize, desiredFrameSize);
             log_info("Device %d: calculated frame size of %d", coreAudioId_, desiredFrameSize);
-            
+
             // Detect whether this is a Bluetooth device. If so, automatically use the maxFrameSize
             // to avoid dropouts.
             bool isWireless = false;
@@ -217,10 +217,10 @@ void MacAudioDevice::start()
                 desiredFrameSize = nextPowerOfTwo_(desiredFrameSize);
                 desiredFrameSize = std::min(maxFrameSize, desiredFrameSize);
                 desiredFrameSize = std::max(minFrameSize, desiredFrameSize);
-                
+
                 log_info("Device %d: detected wireless device, using frame size of %d instead", coreAudioId_, desiredFrameSize);
             }
-            
+
             log_info("Set frame size for device %d to %d", coreAudioId_, desiredFrameSize);
             if (SetCurrentIOBufferFrameSize(coreAudioId_, desiredFrameSize) != noErr)
             {
@@ -232,7 +232,7 @@ void MacAudioDevice::start()
             // Set maxFrameSize to something reasonable for further down.
             maxFrameSize = 4096;
         }
-        
+
         chosenFrameSize_ = desiredFrameSize;
 
         // Create AUHAL object
@@ -272,7 +272,7 @@ void MacAudioDevice::start()
 
          //gains access to the services provided by the component
         AudioComponentInstanceNew(comp, &auHAL_);
-        
+
         // Enables input or output depending on the direction
         UInt32 enableIO;
         UInt32 size=0;
@@ -293,8 +293,8 @@ void MacAudioDevice::start()
                     0,   //output element
                     &enableIO,
                     sizeof(enableIO));
-    
-        
+
+
         // Set associated device for AUHAL object
         log_info("Device %d: setting AUHAL device to current", coreAudioId_);
         OSStatus error = AudioUnitSetProperty(auHAL_,
@@ -315,7 +315,7 @@ void MacAudioDevice::start()
             prom->set_value();
             return;
         }
-        
+
         // Set sample rate of device
         log_info("Device %d: setting stream format", coreAudioId_);
         AudioStreamBasicDescription deviceFormat;
@@ -334,7 +334,7 @@ void MacAudioDevice::start()
         // Get the device's format
         auto setScope = (direction_ == IAudioEngine::AUDIO_ENGINE_OUT) ? kAudioUnitScope_Input : kAudioUnitScope_Output;
         auto bus = (direction_ == IAudioEngine::AUDIO_ENGINE_IN) ? 1 : 0;
-        
+
         error = AudioUnitSetProperty (auHAL_,
                                        kAudioUnitProperty_StreamFormat,
                                        setScope,
@@ -361,17 +361,17 @@ void MacAudioDevice::start()
 
         if (direction_ == IAudioEngine::AUDIO_ENGINE_IN)
         {
-            //calculate number of buffers from channels       
+            //calculate number of buffers from channels
             auto propsize = offsetof(AudioBufferList, mBuffers[0]) + (sizeof(AudioBuffer) * numChannels_);
 
             //malloc buffer lists
             bufferList_ = (AudioBufferList *)malloc(propsize);
             bufferList_->mNumberBuffers = numChannels_;
-                                   
-            //pre-malloc buffers for AudioBufferLists          
-            for(UInt32 i =0; i< bufferList_->mNumberBuffers ; i++) 
+
+            //pre-malloc buffers for AudioBufferLists
+            for(UInt32 i =0; i< bufferList_->mNumberBuffers ; i++)
             {
-                bufferList_->mBuffers[i].mNumberChannels = 1;                   
+                bufferList_->mBuffers[i].mNumberChannels = 1;
                 bufferList_->mBuffers[i].mDataByteSize = (maxFrameSize + 1)  * sizeof(Float32);
                 bufferList_->mBuffers[i].mData = malloc((maxFrameSize + 1) * sizeof(Float32));
             }
@@ -380,7 +380,7 @@ void MacAudioDevice::start()
         {
             bufferList_ = nullptr;
         }
-        
+
         // Set callbacks
         log_info("Device %d: setting callbacks", coreAudioId_);
         if (direction_ == IAudioEngine::AUDIO_ENGINE_IN)
@@ -411,7 +411,7 @@ void MacAudioDevice::start()
                     &output,
                     sizeof(output));
         }
-        
+
         // Start audio
         log_info("Device %d: initializing audio unit", coreAudioId_);
         error = AudioUnitInitialize(auHAL_);
@@ -427,7 +427,7 @@ void MacAudioDevice::start()
             prom->set_value();
             return;
         }
-        
+
         log_info("Device %d: starting audio unit", coreAudioId_);
         error = AudioOutputUnitStart(auHAL_);
         if (error != noErr)
@@ -442,7 +442,7 @@ void MacAudioDevice::start()
             prom->set_value();
             return;
         }
-        
+
         running_ = true;
 
         // add listener for detecting when a device is removed
@@ -474,7 +474,7 @@ void MacAudioDevice::start()
             kAudioObjectPropertyElementMaster
         };
 
-        AudioObjectGetPropertyData(kAudioObjectSystemObject, &defaultAddr, 0, NULL, &defaultSize, &defaultDevice); 
+        AudioObjectGetPropertyData(kAudioObjectSystemObject, &defaultAddr, 0, NULL, &defaultSize, &defaultDevice);
         if ((int)defaultDevice == coreAudioId_)
         {
             isDefaultDevice_ = true;
@@ -499,62 +499,74 @@ void MacAudioDevice::stopImpl_()
     std::shared_ptr<std::promise<void>> prom = std::make_shared<std::promise<void> >();
     auto fut = prom->get_future();
     enqueue_([&, prom]() {
-        log_info("Device %d: removing listeners", coreAudioId_);
-        
-        const AudioObjectPropertyAddress aliveAddress =
+        // Safe to call more than once, or without a successful start():
+        // only undo what start() actually did.
+        if (running_)
         {
-            kAudioDevicePropertyDeviceIsAlive,
-            kAudioObjectPropertyScopeGlobal,
-            kAudioObjectPropertyElementMaster
-        };
-        AudioObjectRemovePropertyListener(coreAudioId_, &aliveAddress, DeviceIsAliveCallback_, this);
+            log_info("Device %d: removing listeners", coreAudioId_);
 
-        const AudioObjectPropertyAddress overloadAddress =
-        {
-            kAudioDeviceProcessorOverload,
-            (direction_ == IAudioEngine::AUDIO_ENGINE_OUT) ? kAudioDevicePropertyScopeOutput : kAudioDevicePropertyScopeInput,
-            0
-        };
-        AudioObjectRemovePropertyListener(coreAudioId_, &overloadAddress, DeviceOverloadCallback_, this);
-
-        log_info("Device %d: stopping audio unit", coreAudioId_);
-        running_ = false;
-        AudioOutputUnitStop(auHAL_);
-        
-        // Wait for audio to stop
-        Boolean isRunning = 1;
-        while (isRunning)
-        {
-            log_info("[Device %d] Waiting for audio unit to stop", coreAudioId_);
-            
-            UInt32 s = sizeof( isRunning );
-            auto err = AudioUnitGetProperty( 
-                auHAL_, 
-                kAudioOutputUnitProperty_IsRunning, 
-                kAudioUnitScope_Global, 
-                0,  &isRunning, &s );
-            if (err != noErr)
+            const AudioObjectPropertyAddress aliveAddress =
             {
-                log_warn("[Device %d] Could not get kAudioOutputUnitProperty_IsRunning value (err %d)", coreAudioId_, err);
+                kAudioDevicePropertyDeviceIsAlive,
+                kAudioObjectPropertyScopeGlobal,
+                kAudioObjectPropertyElementMaster
+            };
+            AudioObjectRemovePropertyListener(coreAudioId_, &aliveAddress, DeviceIsAliveCallback_, this);
+
+            const AudioObjectPropertyAddress overloadAddress =
+            {
+                kAudioDeviceProcessorOverload,
+                (direction_ == IAudioEngine::AUDIO_ENGINE_OUT) ? kAudioDevicePropertyScopeOutput : kAudioDevicePropertyScopeInput,
+                0
+            };
+            AudioObjectRemovePropertyListener(coreAudioId_, &overloadAddress, DeviceOverloadCallback_, this);
+
+            log_info("Device %d: stopping audio unit", coreAudioId_);
+            running_ = false;
+            AudioOutputUnitStop(auHAL_);
+
+            // Wait for audio to stop
+            Boolean isRunning = 1;
+            while (isRunning)
+            {
+                log_info("[Device %d] Waiting for audio unit to stop", coreAudioId_);
+
+                UInt32 s = sizeof( isRunning );
+                auto err = AudioUnitGetProperty(
+                    auHAL_,
+                    kAudioOutputUnitProperty_IsRunning,
+                    kAudioUnitScope_Global,
+                    0,  &isRunning, &s );
+                if (err != noErr)
+                {
+                    log_warn("[Device %d] Could not get kAudioOutputUnitProperty_IsRunning value (err %d)", coreAudioId_, err);
+                    break;
+                }
+                std::this_thread::sleep_for(10ms);
             }
-            std::this_thread::sleep_for(10ms);
         }
-        
-        AudioUnitUninitialize(auHAL_);
-        AudioComponentInstanceDispose(auHAL_);
+
+        if (auHAL_ != nullptr)
+        {
+            AudioUnitUninitialize(auHAL_);
+            AudioComponentInstanceDispose(auHAL_);
+            auHAL_ = nullptr;
+        }
         if (bufferList_ != nullptr)
         {
-            for(UInt32 i =0; i< bufferList_->mNumberBuffers ; i++) 
+            for(UInt32 i =0; i< bufferList_->mNumberBuffers ; i++)
             {
                 free(bufferList_->mBuffers[i].mData);
             }
             free(bufferList_);
+            bufferList_ = nullptr;
         }
         delete[] inputFrames_;
-        
+        inputFrames_ = nullptr;
+
         prom->set_value();
     });
-    
+
     fut.wait();
 }
 
@@ -567,61 +579,61 @@ int64_t MacAudioDevice::getLatencyInMicroseconds()
 {
     std::shared_ptr<std::promise<int64_t>> prom = std::make_shared<std::promise<int64_t> >();
     auto fut = prom->get_future();
-    enqueue_([&, prom]() {        
+    enqueue_([&, prom]() {
         // Total latency is based on the formula:
-        //     kAudioDevicePropertyLatency + kAudioDevicePropertySafetyOffset + 
+        //     kAudioDevicePropertyLatency + kAudioDevicePropertySafetyOffset +
         //     kAudioDevicePropertyBufferFrameSize + kAudioStreamPropertyLatency.
         // This is in terms of the number of samples. Divide by sample rate and number of channels to get number of seconds.
         // More info:
         //     https://stackoverflow.com/questions/65600996/avaudioengine-reconcile-sync-input-output-timestamps-on-macos-ios
         //     https://forum.juce.com/t/macos-round-trip-latency/45278
-        auto scope = 
-            (direction_ == IAudioEngine::AUDIO_ENGINE_IN) ? 
+        auto scope =
+            (direction_ == IAudioEngine::AUDIO_ENGINE_IN) ?
             kAudioDevicePropertyScopeInput :
             kAudioDevicePropertyScopeOutput;
-            
+
         // Get audio device latency
         AudioObjectPropertyAddress propertyAddress = {
-              kAudioDevicePropertyLatency, 
+              kAudioDevicePropertyLatency,
               scope,
               kAudioObjectPropertyElementMaster};
         UInt32 deviceLatencyFrames = 0;
         UInt32 size = sizeof(deviceLatencyFrames);
         OSStatus result = AudioObjectGetPropertyData(
-                  coreAudioId_, 
-                  &propertyAddress, 
+                  coreAudioId_,
+                  &propertyAddress,
                   0,
-                  nullptr, 
-                  &size, 
+                  nullptr,
+                  &size,
                   &deviceLatencyFrames); // assume 0 if we can't retrieve for some reason
-         
+
         UInt32 deviceSafetyOffset = 0;
         propertyAddress.mSelector = kAudioDevicePropertySafetyOffset;
         result = AudioObjectGetPropertyData(
-                  coreAudioId_, 
-                  &propertyAddress, 
+                  coreAudioId_,
+                  &propertyAddress,
                   0,
-                  nullptr, 
-                  &size, 
+                  nullptr,
+                  &size,
                   &deviceSafetyOffset);
-                  
+
         UInt32 bufferFrameSize = 0;
         propertyAddress.mSelector = kAudioDevicePropertyBufferFrameSize;
         result = AudioObjectGetPropertyData(
-                  coreAudioId_, 
-                  &propertyAddress, 
+                  coreAudioId_,
+                  &propertyAddress,
                   0,
-                  nullptr, 
-                  &size, 
+                  nullptr,
+                  &size,
                   &bufferFrameSize);
-    
+
         propertyAddress.mSelector = kAudioDevicePropertyStreams;
         size = 0;
         result = AudioObjectGetPropertyDataSize(
-                  coreAudioId_, 
-                  &propertyAddress, 
+                  coreAudioId_,
+                  &propertyAddress,
                   0,
-                  nullptr, 
+                  nullptr,
                   &size);
         UInt32 streamLatency = 0;
         if (result == noErr)
@@ -630,28 +642,28 @@ int64_t MacAudioDevice::getLatencyInMicroseconds()
             assert(streams != nullptr);
 
             result = AudioObjectGetPropertyData(
-                      coreAudioId_, 
-                      &propertyAddress, 
+                      coreAudioId_,
+                      &propertyAddress,
                       0,
-                      nullptr, 
-                      &size, 
+                      nullptr,
+                      &size,
                       streams);
             if (result == noErr)
             {
                 propertyAddress.mSelector = kAudioStreamPropertyLatency;
                 size = sizeof(streamLatency);
                 result = AudioObjectGetPropertyData(
-                          streams[0], 
-                          &propertyAddress, 
+                          streams[0],
+                          &propertyAddress,
                           0,
-                          nullptr, 
-                          &size, 
+                          nullptr,
+                          &size,
                           &streamLatency);
             }
 
             delete[] streams;
         }
-        
+
         int64_t ioLatency = streamLatency + deviceLatencyFrames + deviceSafetyOffset;
         int64_t frameSize = bufferFrameSize;
         prom->set_value(1000000 * (ioLatency + frameSize) / sampleRate_);
@@ -668,10 +680,10 @@ void MacAudioDevice::setHelperRealTime()
 
     // Adapted from Chromium project. May need to adjust parameters
     // depending on behavior.
-    
+
     // Get current thread ID
     auto currentThreadId = pthread_mach_thread_np(pthread_self());
-    
+
     // Increase thread priority to real-time.
     // Please note that the thread_policy_set() calls may fail in
     // rare cases if the kernel decides the system is under heavy load
@@ -701,7 +713,7 @@ void MacAudioDevice::setHelperRealTime()
     {
         log_warn("Could not increase thread priority: %d", result);
     }
-    
+
     // Most important, set real-time constraints.
     // Define the guaranteed and max fraction of time for the audio thread.
     // These "duty cycle" values can range from 0 to 1.  A value of 0.5
@@ -710,17 +722,17 @@ void MacAudioDevice::setHelperRealTime()
     // Good means that audio performance is high and other threads won't starve.
     const double kGuaranteedAudioDutyCycle = 0.75;
     const double kMaxAudioDutyCycle = 0.85;
-    
+
     // Define constants determining how much time the audio thread can
     // use in a given time quantum.  All times are in milliseconds.
     const double kTimeQuantum = 60; // 60ms, calculated by AUDIO_SAMPLE_BLOCK_WIRELESS_MSEC / kGuaranteedAudioDutyCycle + a bit extra.
-    
+
     // Time guaranteed each quantum.
     const double kAudioTimeNeeded = kGuaranteedAudioDutyCycle * kTimeQuantum;
-    
+
     // Maximum time each quantum.
     const double kMaxTimeAllowed = kMaxAudioDutyCycle * kTimeQuantum;
-    
+
     // Get the conversion factor from milliseconds to absolute time
     // which is what the time-constraints call needs.
     mach_timebase_info_data_t tbInfo;
@@ -732,7 +744,7 @@ void MacAudioDevice::setHelperRealTime()
     timeConstraints.computation = kAudioTimeNeeded * ms_to_abs_time;
     timeConstraints.constraint = kMaxTimeAllowed * ms_to_abs_time;
     timeConstraints.preemptible = 1;
-    
+
     result =
         thread_policy_set(currentThreadId,
                           THREAD_TIME_CONSTRAINT_POLICY,
@@ -758,7 +770,7 @@ OSStatus MacAudioDevice::InputProc_(
 {
     MacAudioDevice* thisObj = (MacAudioDevice*)inRefCon;
     OSStatus err = noErr;
- 
+
     err = AudioUnitRender(thisObj->auHAL_,
                     ioActionFlags,
                     inTimeStamp,
@@ -777,13 +789,13 @@ OSStatus MacAudioDevice::InputProc_(
                     thisObj->inputFrames_[thisObj->numChannels_ * index + chan] = ((float*)thisObj->bufferList_->mBuffers[chan].mData)[index] * 32767;
                 }
             }
-            
+
             thisObj->onAudioDataFunction(*thisObj, thisObj->inputFrames_, inNumberFrames, thisObj->onAudioDataState);
         }
-          
+
         auto numWorkers = thisObj->numRealTimeWorkers_.load(std::memory_order_acquire);
         for (; numWorkers > 0; numWorkers--)
-        { 
+        {
             // Note: assuming that semaphore signalling is safe. This mechanism will need to revisited
             // if that turns out not to be the case.
             FREEDV_BEGIN_VERIFIED_SAFE
@@ -798,10 +810,10 @@ OSStatus MacAudioDevice::InputProc_(
         log_warn("Device %d: got error in render func (%d)", thisObj->coreAudioId_, err);
         FREEDV_END_VERIFIED_SAFE
     }
-    
+
     return err;
 }
-            
+
 OSStatus MacAudioDevice::OutputProc_(
             void *inRefCon,
             AudioUnitRenderActionFlags *,
@@ -828,7 +840,7 @@ OSStatus MacAudioDevice::OutputProc_(
             }
         }
     }
-    
+
     return OSStatus(noErr);
 }
 
@@ -852,13 +864,13 @@ void MacAudioDevice::joinWorkgroup_()
     // Join Core Audio workgroup
     Workgroup_ = nullptr;
     JoinToken_ = nullptr;
-    
+
     UInt32 size = sizeof(os_workgroup_t);
     os_workgroup_t* wgMem = new os_workgroup_t;
     assert(wgMem != nullptr);
     os_workgroup_join_token_s* wgToken = new os_workgroup_join_token_s;
     assert(wgToken != nullptr);
-    
+
     AudioObjectPropertyAddress propertyAddress = {
         .mSelector = kAudioDevicePropertyIOThreadOSWorkgroup,
         .mScope = kAudioObjectPropertyScopeGlobal,
@@ -866,11 +878,11 @@ void MacAudioDevice::joinWorkgroup_()
     };
 
     OSStatus osResult = AudioObjectGetPropertyData(
-              coreAudioId_, 
-              &propertyAddress, 
+              coreAudioId_,
+              &propertyAddress,
               0,
-              nullptr, 
-              &size, 
+              nullptr,
+              &size,
               wgMem);
     if (osResult != noErr)
     {
@@ -888,7 +900,7 @@ void MacAudioDevice::joinWorkgroup_()
         JoinToken_ = wgToken;
         CurrentCoreAudioId_ = coreAudioId_;
     }
-  
+
     auto workgroupResult = os_workgroup_join(*wgMem, wgToken);
     if (workgroupResult != 0)
     {
@@ -954,12 +966,12 @@ void MacAudioDevice::leaveWorkgroup_()
     {
         os_workgroup_t* wgMem = (os_workgroup_t*)Workgroup_;
         os_workgroup_join_token_s* wgToken = (os_workgroup_join_token_s*)JoinToken_;
-        
+
         os_workgroup_leave(*wgMem, wgToken);
-        
+
         delete wgMem;
         delete wgToken;
-        
+
         Workgroup_ = nullptr;
         JoinToken_ = nullptr;
         CurrentCoreAudioId_ = 0;
@@ -987,7 +999,7 @@ int MacAudioDevice::DeviceIsAliveCallback_(
             kAudioObjectPropertyElementMaster
         };
 
-        AudioObjectGetPropertyData(kAudioObjectSystemObject, &defaultAddr, 0, NULL, &defaultSize, &defaultDevice); 
+        AudioObjectGetPropertyData(kAudioObjectSystemObject, &defaultAddr, 0, NULL, &defaultSize, &defaultDevice);
 
         // Stop/start device with new ID in a separate thread to avoid deadlocks
         std::thread tmpThread = std::thread([thisObj, defaultDevice]() {
@@ -996,8 +1008,8 @@ int MacAudioDevice::DeviceIsAliveCallback_(
             thisObj->start();
         });
         tmpThread.detach();
-    } 
-    else 
+    }
+    else
     {
         // Possible GUI stuff really shouldn't be happening on the audio thread.
         std::thread tmpThread = std::thread([thisObj]() {

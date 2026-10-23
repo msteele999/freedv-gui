@@ -65,6 +65,7 @@
 #include "gui/displays/DisplayWorkspace.h"
 #include "gui/controls/LevelGauge.h"
 #include "gui/theme/FreeDVTheme.h"
+#include "gui/controls/MsgListPopup.h"
 
 ///////////////////////////////////////////////////////////////////////////
 
@@ -292,6 +293,9 @@ class TopFrame : public wxFrame
                 
         virtual void OnReportFrequencySetFocus(wxFocusEvent& event) { event.Skip(); }
         virtual void OnReportFrequencyKillFocus(wxFocusEvent& event) { event.Skip(); }
+        virtual void OnReportFrequencyContextMenu(wxContextMenuEvent& event) { event.Skip(); }
+        virtual void OnReportFrequencyItemMenu(int) { }
+        virtual void OnReportFrequencyItemDelete(int) { }
 
         virtual void OnSystemColorChanged(wxSysColourChangedEvent& event) { event.Skip(); }
                 
@@ -315,7 +319,8 @@ class TopFrame : public wxFrame
         wxToggleButton* m_btnTogPTT;
         wxToggleButton* m_btnTogTune;
         wxAuiNotebook* m_auiNbookCtrl;
-        wxComboBox*   m_cboReportFrequency;
+        wxComboCtrl*  m_cboReportFrequency;
+        MsgListPopup* m_reportFrequencyList;   // m_cboReportFrequency's drop-down list
         wxStaticBox*  m_freqBox;
         wxStaticBox*  m_txLevelBox;
         wxStaticBox* micSpeakerBox;

@@ -86,12 +86,12 @@ std::atomic<float>  g_monitorVoiceKeyerAudioVol(0.0f);
 std::atomic<float>  g_tone_phase(0.0f);
 
 int g_txLevel = 0;
-int g_dump_timing = 0;
-int g_dump_fifo_state = 0;
-int g_resyncs = 0;
+std::atomic<int> g_dump_timing(0);
+std::atomic<int> g_dump_fifo_state(0);
+std::atomic<int> g_resyncs(0);
 
-int   g_SquelchActive = 0;
-float g_SquelchLevel = 0.0f;
+std::atomic<int>   g_SquelchActive(0);
+std::atomic<float> g_SquelchLevel(0.0f);
 float g_sig_pwr_av = 0.0f;
 
 GenericFIFO<float> g_avmag(2000);
@@ -1819,7 +1819,9 @@ public:
 
     static bool automaticGainControlRaisesQuietMicrophone()
     {
-        auto quietSpeech = sine(TEST_SAMPLE_RATE, 440.0, 300.0);
+        // Loud enough that the leveler treats it as speech rather than
+        // silence, but well below its loudness target.
+        auto quietSpeech = sine(TEST_SAMPLE_RATE, 440.0, 1000.0);
 
         resetGlobals();
         g_tx = true;
@@ -1833,7 +1835,7 @@ public:
         double with = rms(lastSecondSentToRadio(quietSpeech));
 
         bool result = true;
-        result &= checkBetween("level sent without gain control", (int)without, 400, 450); // 300 peak, doubled
+        result &= checkBetween("level sent without gain control", (int)without, 1350, 1480); // 1000 peak, doubled
         if (with < without * 1.15)
         {
             std::cout << "[level sent with gain control was " << with << ", expected well above " << without << "] ";
@@ -2011,6 +2013,26 @@ public:
         double lastSilenceAt = -1;  // seconds into the signal
     };
 
+    // Gives a file's thread time between the sound cards' turns, as it has
+    // when this is for real. A sleep can last far longer than asked for
+    // (several times over on some CI machines), so what one oversleeps by
+    // is taken off the turns that follow rather than added to them all.
+    class TimeBetweenTurns
+    {
+    public:
+        void wait()
+        {
+            owed_ += std::chrono::milliseconds(1);
+            if (owed_ <= std::chrono::steady_clock::duration::zero()) return;
+            auto before = std::chrono::steady_clock::now();
+            std::this_thread::sleep_for(owed_);
+            owed_ -= std::chrono::steady_clock::now() - before;
+        }
+
+    private:
+        std::chrono::steady_clock::duration owed_{};
+    };
+
     // Sends seconds of speech and receives it again, with both sound cards
     // at sampleRate. The samples are handed over in blocks of sizes chosen
     // by the two seeds (zero meaning 20 ms every time). With playedToMic,
@@ -2068,6 +2090,7 @@ public:
             BlockSizes blocks(sampleRate, txSeed);
             std::vector<short> silence(sampleRate / 10, 0);
             size_t offset = 0;
+            TimeBetweenTurns timeBetweenTurns;
             auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(120);
             while (std::chrono::steady_clock::now() < deadline)
             {
@@ -2130,7 +2153,7 @@ public:
                 {
                     // ...and some time between turns as well, as the file
                     // thread has when this is for real.
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    timeBetweenTurns.wait();
                 }
             }
 
@@ -2200,6 +2223,7 @@ public:
 
             bool inSync = false;
             size_t received = 0;
+            TimeBetweenTurns timeBetweenTurns;
             auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(120);
             while (std::chrono::steady_clock::now() < deadline)
             {
@@ -2232,7 +2256,7 @@ public:
 
                 if (fromFile)
                 {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    timeBetweenTurns.wait();
                 }
             }
 

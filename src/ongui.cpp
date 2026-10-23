@@ -42,7 +42,7 @@ extern std::atomic<float> g_monitorTxAudioVol;
 extern std::atomic<int>   g_State, g_prev_State;
 extern FreeDVInterface freedvInterface;
 extern short *g_error_hist, *g_error_histn;
-extern int g_resyncs;
+extern std::atomic<int> g_resyncs;
 extern int g_Nc;
 extern int g_txLevel;
 extern std::atomic<float> g_txLevelScale;
@@ -165,11 +165,21 @@ void MainFrame::OnToolsOptions(wxCommandEvent& event)
 
     wxUnusedVar(event);
 
-    // The same dialog is shown each time, and still has the return code it
-    // was closed with the last time. wxWidgets 3.3.4 on GTK takes one that's
-    // already set to mean that the dialog closed itself while being set up,
-    // and so wouldn't show it a second time.
-    optionsDlg->SetReturnCode(0);
+    if (optionsDlg == nullptr)
+    {
+        optionsDlg = new OptionsDlg(NULL);
+        // Initialize the session-active state so controls are displayed
+        // correctly in case a session is already running.
+        optionsDlg->setSessionActive(m_RxRunning.load(std::memory_order_acquire));
+    }
+    else
+    {
+        // The same dialog is shown each time, and still has the return code it
+        // was closed with the last time. wxWidgets 3.3.4 on GTK takes one that's
+        // already set to mean that the dialog closed itself while being set up,
+        // and so wouldn't show it a second time.
+        optionsDlg->SetReturnCode(0);
+    }
 
     if (optionsDlg->ShowModal() == wxOK)
     {
@@ -954,7 +964,7 @@ void MainFrame::OnChangeMicSpkrLevel( wxScrollEvent& )
 {
     auto sliderLevel = (double)m_sliderMicSpkrLevel->GetValue() / 10.0;
     wxGetApp().appConfiguration.filterConfiguration.spkOutChannel.volInDB = sliderLevel;
-    m_newSpkOutFilter = true;
+    m_newSpkOutFilter.store(true, std::memory_order_release);
     
     wxString fmtString = wxString::Format(MIC_SPKR_LEVEL_FORMAT_STR, wxNumberFormatter::ToString((double)sliderLevel, 1), DECIBEL_STR);
     m_txtMicSpkrLevelNum->SetLabel(fmtString);
@@ -1548,11 +1558,11 @@ void MainFrame::togglePTT(void) {
         if (!newTx)
         {
             g_recFileFromModulator = false;
-            g_recFileFromRadio = true;
+            g_recFileFromRadio.store(true, std::memory_order_release);
         }
         else
         {
-            g_recFileFromRadio = false;
+            g_recFileFromRadio.store(false, std::memory_order_release);
             g_recFileFromModulator = true;
         }
     }
@@ -1907,7 +1917,7 @@ void MainFrame::OnCloseCallsignList( wxCommandEvent& event )
 void MainFrame::resetStats_()
 {
     if (m_RxRunning.load(std::memory_order_acquire))  {
-        g_resyncs = 0;
+        g_resyncs.store(0, std::memory_order_relaxed);
         int i;
         for(i=0; i<2*g_Nc; i++) {
             g_error_hist[i] = 0;
@@ -2067,6 +2077,139 @@ void MainFrame::OnCenterRx(wxCommandEvent&)
     clickTune(FDMDV_FCENTRE);
 }
 
+// The frequency typed or shown in the box as the predefined list shows it
+// (rounded to 100 Hz, as it's used), or empty if it isn't a frequency.
+wxString MainFrame::reportFrequencyListString_(wxString const& text)
+{
+    double value = 0;
+    if (!wxNumberFormatter::FromString(text, &value) || value <= 0)
+    {
+        return wxEmptyString;
+    }
+
+    bool asKhz = wxGetApp().appConfiguration.reportingConfiguration.reportingFrequencyAsKhz;
+    uint64_t hz = round(value * (asKhz ? 1000.0 : 1000.0 * 1000.0));
+    hz = (hz + 50) / 100 * 100;
+    if (hz == 0)
+    {
+        return wxEmptyString;
+    }
+    return asKhz ? wxNumberFormatter::ToString(hz / 1000.0, 1) : wxNumberFormatter::ToString(hz / 1000.0 / 1000.0, 4);
+}
+
+// Adds a frequency (as reportFrequencyListString_() gives it) to the
+// predefined list in its place in ascending order, and saves the list.
+void MainFrame::addReportFrequencyToList_(wxString const& freq)
+{
+    double value = 0;
+    wxNumberFormatter::FromString(freq, &value);
+
+    auto list = wxGetApp().appConfiguration.reportingConfiguration.reportingFrequencyList.get();
+    if (std::find(list.begin(), list.end(), freq) != list.end())
+    {
+        return;
+    }
+    size_t index = ReportingConfiguration::SortedFrequencyIndex(list, value);
+    list.insert(list.begin() + index, freq);
+    wxGetApp().appConfiguration.reportingConfiguration.reportingFrequencyList = list;
+    wxGetApp().appConfiguration.save(pConfig);
+
+    m_reportFrequencyList->Insert(freq, index);
+}
+
+// Right-click on the frequency box: add what's in it to the predefined
+// list. The entry's own menu is replaced, so its editing items are here too.
+void MainFrame::OnReportFrequencyContextMenu(wxContextMenuEvent&)
+{
+    if (!m_cboReportFrequency->IsEnabled())
+    {
+        return;
+    }
+
+    wxString freq = reportFrequencyListString_(m_cboReportFrequency->GetValue());
+    auto const& list = wxGetApp().appConfiguration.reportingConfiguration.reportingFrequencyList.get();
+    bool listed = std::find(list.begin(), list.end(), freq) != list.end();
+    wxString units = wxGetApp().appConfiguration.reportingConfiguration.reportingFrequencyAsKhz ? _("kHz") : _("MHz");
+
+    wxMenu menu;
+    wxMenuItem* addItem = menu.Append(wxID_ANY,
+        freq.IsEmpty() ? _("&Add frequency to list") : wxString::Format(_("&Add %s%s to list"), freq, units));
+    addItem->Enable(!freq.IsEmpty() && !listed);
+    menu.Bind(wxEVT_MENU, [this, freq](wxCommandEvent&) { addReportFrequencyToList_(freq); }, addItem->GetId());
+
+    wxTextCtrl* text = m_cboReportFrequency->GetTextCtrl();
+    menu.AppendSeparator();
+    menu.Append(wxID_CUT, _("&Cut"))->Enable(text->CanCut());
+    menu.Append(wxID_COPY, _("C&opy"))->Enable(text->CanCopy());
+    menu.Append(wxID_PASTE, _("&Paste"))->Enable(text->CanPaste());
+    menu.Bind(wxEVT_MENU, [text](wxCommandEvent&) { text->Cut(); }, wxID_CUT);
+    menu.Bind(wxEVT_MENU, [text](wxCommandEvent&) { text->Copy(); }, wxID_COPY);
+    menu.Bind(wxEVT_MENU, [text](wxCommandEvent&) { text->Paste(); }, wxID_PASTE);
+
+    ShowPopupMenu(m_cboReportFrequency, &menu);
+}
+
+// Right-click on a frequency in the open list: delete it. The list closes
+// for the menu, so open it again afterwards where it was, ready for the
+// next one.
+void MainFrame::OnReportFrequencyItemMenu(int item)
+{
+    if (item < 0 || (unsigned)item >= m_reportFrequencyList->GetCount())
+    {
+        return;
+    }
+
+    wxString units = wxGetApp().appConfiguration.reportingConfiguration.reportingFrequencyAsKhz ? _("kHz") : _("MHz");
+#if wxCHECK_VERSION(3, 1, 0)
+    int top = m_reportFrequencyList->GetTopItem();
+#else
+    // GetTopItem() needs wxWidgets 3.1+; without it the list reopens at the top.
+    int top = wxNOT_FOUND;
+#endif // wxCHECK_VERSION(3, 1, 0)
+
+    wxMenu menu;
+    wxMenuItem* deleteItem = menu.Append(wxID_ANY,
+        wxString::Format(_("&Delete %s%s from list"), m_reportFrequencyList->GetString(item), units));
+    menu.Bind(wxEVT_MENU, [this, item, top](wxCommandEvent&) {
+        OnReportFrequencyItemDelete(item);
+        CallAfter([this, top]() {
+            if (m_reportFrequencyList->GetCount() == 0)
+            {
+                return;
+            }
+            m_cboReportFrequency->Popup();
+            if (top != wxNOT_FOUND)
+            {
+                m_reportFrequencyList->SetFirstItem(std::min(top, (int)m_reportFrequencyList->GetCount() - 1));
+            }
+        });
+    }, deleteItem->GetId());
+
+    ShowPopupMenu(m_cboReportFrequency, &menu);
+}
+
+// Deletes a frequency from the predefined list (Del on it in the open list,
+// or its right-click menu), and saves the list.
+void MainFrame::OnReportFrequencyItemDelete(int item)
+{
+    if (item < 0 || (unsigned)item >= m_reportFrequencyList->GetCount())
+    {
+        return;
+    }
+
+    wxString freq = m_reportFrequencyList->GetString(item);
+    auto list = wxGetApp().appConfiguration.reportingConfiguration.reportingFrequencyList.get();
+    auto it = std::find(list.begin(), list.end(), freq);
+    if (it != list.end())
+    {
+        list.erase(it);
+        wxGetApp().appConfiguration.reportingConfiguration.reportingFrequencyList = list;
+        wxGetApp().appConfiguration.save(pConfig);
+    }
+
+    m_reportFrequencyList->Delete(item);
+}
+
 void MainFrame::updateReportingFreqList_()
 {
     uint64_t prevFreqInt = wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency;
@@ -2086,18 +2229,14 @@ void MainFrame::updateReportingFreqList_()
     {
         prevSelected = wxNumberFormatter::ToString(freq, 4);
     }
-    m_cboReportFrequency->Clear();
-    
+    m_reportFrequencyList->Clear();
+
     for (auto& item : wxGetApp().appConfiguration.reportingConfiguration.reportingFrequencyList.get())
     {
-        m_cboReportFrequency->Append(item);
+        m_reportFrequencyList->Append(item);
     }
-    
-    auto idx = m_cboReportFrequency->FindString(prevSelected);
-    if (idx >= 0)
-    {
-        m_cboReportFrequency->SetSelection(idx);
-    }
+
+    m_reportFrequencyList->SetStringValue(prevSelected);
     m_cboReportFrequency->SetValue(prevSelected);
     
     // Update associated label if the units have changed
@@ -2115,7 +2254,7 @@ void MainFrame::OnResetMicSpkrLevel(wxMouseEvent&)
 {
     auto sliderLevel = 0;
     wxGetApp().appConfiguration.filterConfiguration.spkOutChannel.volInDB = sliderLevel;
-    m_newSpkOutFilter = true;
+    m_newSpkOutFilter.store(true, std::memory_order_release);
     
     wxString fmtString = wxString::Format(MIC_SPKR_LEVEL_FORMAT_STR, wxNumberFormatter::ToString((double)sliderLevel, 1), DECIBEL_STR);
     m_txtMicSpkrLevelNum->SetLabel(fmtString);
