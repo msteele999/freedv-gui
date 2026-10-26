@@ -880,10 +880,10 @@ LDPC | Low Density Parity Check Codes - a family of powerful FEC codes
     * Fix silence being mixed into the first half second of each transmission, and holes in the signal at its start. (PR #1562)
 3. Build system:
     * Update wxWidgets to 3.3.4. (PR #1560, #1556)
-    * CI: only build with PGO, run the tests and report coverage on merges; other pushes get unsigned packages to try out. (PR #1563)
+    * CI: only build with PGO, run the tests and report coverage on merges; other pushes get unsigned packages to try out. (PR #1563, #1585)
 4. Other:
     * Remove legacy FreeDV modes (700D/700E/1600). (PR #1407, #1411, #1415)
-    * Add automated tests of the user interface: Setup Wizard, FreeDV Reporter, Settings, main, Log QSO, Start Recording and Filter windows, plots, audio device errors, serial port PTT and rig control. (PR #1544, #1546, #1548, #1550, #1551, #1553, #1554, #1556)
+    * Add automated tests of the user interface: Setup Wizard, FreeDV Reporter, Settings, main, Log QSO, Start Recording and Filter windows, plots, audio device errors, serial port PTT and rig control. (PR #1544, #1546, #1548, #1550, #1551, #1553, #1554, #1556, #1588, #1595)
     * Run the automated user interface tests, and report test coverage, as part of CI. (PR #1556)
     * Run the automated user interface tests on macOS. (PR #1563)
     * Run the automated user interface tests on Windows. (PR #1566)
@@ -966,6 +966,11 @@ LDPC | Low Density Parity Check Codes - a family of powerful FEC codes
     * Fix data races between the window and the threads that start/stop FreeDV and process audio on the frequency offset display, the list of active reporters and the audio device latency check at the end of TX. (PR #1583)
     * macOS: fix a possible crash when an audio device that failed to start, or was already stopped, is stopped again. (PR #1583)
     * Windows: fix audio devices closing their timing handles while the audio processing thread could still be waiting on them, and undoing the 1 ms timer resolution request twice. (PR #1583)
+    * Prevent duplicate contacts from being restored. (PR #1589)
+    * Disable Log QSO button if logging is disabled. (PR #1589)
+    * Keep a typed FreeDV Reporter status message when the saved list closes. (PR #1590)
+    * Stop the radio recording budget at zero instead of wrapping it. (PR #1592)
+    * Windows: Fix issue preventing audio devices that don't support raw mode from starting. (PR #1594)
 2. Build system:
     * Windows versions are now built with llvm-mingw 20260908 (PR #1489)
     * Ccache support extended to third party dependencies. (PR #1498, #1505))
@@ -981,6 +986,7 @@ LDPC | Low Density Parity Check Codes - a family of powerful FEC codes
 4. Other:
     * Various GUI performance improvements. (PR #1481, #1521, #1524, #1527, #1531)
     * Windows audio thread timing improvements. (PR #1488)
+    * Log when the sound server puts a PulseAudio stream on another device. (PR #1591)
 
 ## V2.4.0 August 2026
 
@@ -1010,6 +1016,7 @@ LDPC | Low Density Parity Check Codes - a family of powerful FEC codes
     * Fix waterfall/spectrum filling solid colour during half-duplex TX. (PR #1462) - thanks @barjac!
     * Windows/macOS: Zero audio on startup. (PR #1463)
     * Fix issue causing TX thread to use more CPU time than expected with no audio available. (PR #1465)
+    * AppImage: stop forcing GDK_BACKEND=x11. (PR #1593)
 2. Enhancements:
     * Add UDP broadcast of received callsigns. (PR #1367)
     * Add Time-Out Timer (TOT) capability to FreeDV. (PR #1366, #1398, #1405) - thanks @barjac!

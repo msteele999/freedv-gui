@@ -199,13 +199,13 @@ if(BOOTSTRAP_WXWIDGETS)
     if(APPLE)
         target_compile_definitions(FreeDV PRIVATE ${WXBUILD_BUILD_DEFS})
         target_include_directories(FreeDV PRIVATE ${WXBUILD_INCLUDES})
-        
+
         add_dependencies(FreeDV wx::core wx::base wx::aui wx::html wx::net wx::adv wx::propgrid)
         target_link_libraries(FreeDV wx::core wx::base wx::aui wx::html wx::net wx::adv wx::propgrid)
     else(APPLE)
         target_compile_definitions(freedv PRIVATE ${WXBUILD_BUILD_DEFS})
         target_include_directories(freedv PRIVATE ${WXBUILD_INCLUDES})
-        
+
         add_dependencies(freedv wx::core wx::base wx::aui wx::html wx::net wx::adv wx::propgrid)
         target_link_libraries(freedv wx::core wx::base wx::aui wx::html wx::net wx::adv wx::propgrid)
     endif(APPLE)
@@ -332,7 +332,7 @@ if(APPLE)
     if (NOT USE_NATIVE_AUDIO)
         set(PORTAUDIO_BUNDLE_ARG -s ${portaudio_BINARY_DIR})
     endif(NOT USE_NATIVE_AUDIO)
-    
+
     # Get folder containing lib*san so we don't need to enter it to macdylibbundler.
     if(ENABLE_ASAN)
         set(SANITIZER_LIB_NAME libclang_rt.asan_osx_dynamic.dylib)
@@ -351,7 +351,7 @@ if(APPLE)
         COMMAND ${CMAKE_C_COMPILER} -print-file-name=${SANITIZER_LIB_NAME}
         OUTPUT_VARIABLE CLANG_SANITIZER_FILE
         OUTPUT_STRIP_TRAILING_WHITESPACE)
-    
+
     add_custom_command(
         TARGET FreeDV
         POST_BUILD
@@ -361,17 +361,17 @@ if(APPLE)
         COMMAND cp ARGS ${CMAKE_CURRENT_SOURCE_DIR}/freedv.icns FreeDV.app/Contents/Resources
         COMMAND rm ARGS -rf FreeDV.app/Contents/Frameworks
         COMMAND mkdir ARGS FreeDV.app/Contents/Frameworks
-        
+
         # Codesign binary so that it can execute
-        #COMMAND codesign --force --options runtime --timestamp --entitlements ${CMAKE_CURRENT_SOURCE_DIR}/entitlements.plist --sign ${MACOS_CODESIGN_IDENTITY} ${CMAKE_CURRENT_BINARY_DIR}/FreeDV.app `find ${CMAKE_CURRENT_BINARY_DIR}/FreeDV.app -name '*.so' -o -name '*.dylib'` ${CMAKE_CURRENT_BINARY_DIR}/FreeDV.app/Contents/MacOS/FreeDV 
-        COMMAND codesign --force --options runtime --timestamp --entitlements ${CMAKE_CURRENT_SOURCE_DIR}/entitlements.plist --sign ${MACOS_CODESIGN_IDENTITY} ${CMAKE_CURRENT_BINARY_DIR}/FreeDV.app `find ${CMAKE_CURRENT_BINARY_DIR}/FreeDV.app -name '*.so' -o -name '*.dylib'` ${CMAKE_CURRENT_BINARY_DIR}/FreeDV.app/Contents/MacOS/FreeDV 
+        #COMMAND codesign --force --options runtime --timestamp --entitlements ${CMAKE_CURRENT_SOURCE_DIR}/entitlements.plist --sign ${MACOS_CODESIGN_IDENTITY} ${CMAKE_CURRENT_BINARY_DIR}/FreeDV.app `find ${CMAKE_CURRENT_BINARY_DIR}/FreeDV.app -name '*.so' -o -name '*.dylib'` ${CMAKE_CURRENT_BINARY_DIR}/FreeDV.app/Contents/MacOS/FreeDV
+        COMMAND codesign --force --options runtime --timestamp --entitlements ${CMAKE_CURRENT_SOURCE_DIR}/entitlements.plist --sign ${MACOS_CODESIGN_IDENTITY} ${CMAKE_CURRENT_BINARY_DIR}/FreeDV.app `find ${CMAKE_CURRENT_BINARY_DIR}/FreeDV.app -name '*.so' -o -name '*.dylib'` ${CMAKE_CURRENT_BINARY_DIR}/FreeDV.app/Contents/MacOS/FreeDV
     )
 
     if (MACOS_CODESIGN_KEYCHAIN_PROFILE)
         add_custom_target(release
             COMMAND "${CMAKE_SOURCE_DIR}/cmake/macos_build_dmg.sh" "${CMAKE_CURRENT_BINARY_DIR}/FreeDV.app" "${FREEDV_APPLICATION_NAME}"
             COMMAND codesign --timestamp -i ${FREEDV_APPLICATION_IDENTIFIER} --sign ${MACOS_CODESIGN_IDENTITY} FreeDV.dmg
-            COMMAND xcrun notarytool submit ./FreeDV.dmg --keychain-profile ${MACOS_CODESIGN_KEYCHAIN_PROFILE} --wait 
+            COMMAND "${CMAKE_SOURCE_DIR}/cmake/macos_notarize.sh" ./FreeDV.dmg "${MACOS_CODESIGN_KEYCHAIN_PROFILE}"
             COMMAND xcrun stapler staple ./FreeDV.dmg
             DEPENDS FreeDV
             VERBATIM)
@@ -388,7 +388,7 @@ if(SIGN_WINDOWS_BINARIES)
     # Add custom command to sign freedv.exe.
     if (PKCS11_SECONDARY_CERTIFICATE)
         add_custom_command(
-            TARGET freedv 
+            TARGET freedv
             POST_BUILD
             COMMAND mv $<TARGET_FILE:freedv> $<TARGET_FILE:freedv>.tmp
             COMMAND ${OSSLSIGNCODE_BIN} ARGS sign -pkcs11engine ${PKCS11_ENGINE} -pkcs11module ${PKCS11_MODULE} -pkcs11cert "${PKCS11_CERTIFICATE}" -key "${PKCS11_KEY}" -h ${SIGN_HASH} -ts ${TIMESTAMP_SERVER} -comm -ac ${INTERMEDIATE_CERT_FILE} -n "FreeDV - ${PROJECT_DESCRIPTION}" -i "https://freedv.org/" -in $<TARGET_FILE:freedv>.tmp -out $<TARGET_FILE:freedv>
@@ -398,7 +398,7 @@ if(SIGN_WINDOWS_BINARIES)
             VERBATIM)
     else()
         add_custom_command(
-            TARGET freedv 
+            TARGET freedv
             POST_BUILD
             COMMAND mv $<TARGET_FILE:freedv> $<TARGET_FILE:freedv>.tmp
             COMMAND ${OSSLSIGNCODE_BIN} ARGS sign -pkcs11engine ${PKCS11_ENGINE} -pkcs11module ${PKCS11_MODULE} -pkcs11cert "${PKCS11_CERTIFICATE}" -key "${PKCS11_KEY}" -h ${SIGN_HASH} -ts ${TIMESTAMP_SERVER} -comm -ac ${INTERMEDIATE_CERT_FILE} -n "FreeDV - ${PROJECT_DESCRIPTION}" -i "https://freedv.org/" -in $<TARGET_FILE:freedv>.tmp -out $<TARGET_FILE:freedv>

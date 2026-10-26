@@ -33,6 +33,12 @@ else
     chmod +x linuxdeploy-${MACH_ARCH}.AppImage linuxdeploy-plugin-gtk.sh
 fi
 
+# The GTK plugin's AppRun hook forces GDK_BACKEND=x11, overwriting whatever the user
+# set. On Wayland desktops that runs the bundled (older) GTK under XWayland, where
+# panels flicker and the Settings dialog redraws over itself. Leave the backend to
+# GTK instead: Wayland when available, else X11 (and GDK_BACKEND is respected again).
+sed -i '/^export GDK_BACKEND=x11/d' linuxdeploy-plugin-gtk.sh
+
 ./linuxdeploy-${MACH_ARCH}.AppImage \
   --executable "$APPEXEC" \
   --appdir "$APPDIR" \
@@ -62,6 +68,12 @@ LDAI_OUTPUT="${APPNAME}-${MACH_ARCH}.AppImage" ./linuxdeploy-${MACH_ARCH}.AppIma
   --appdir "$APPDIR" \
   --plugin gtk \
   --output appimage
+
+# Fail rather than ship an AppImage that still forces X11 (e.g. if the plugin changes).
+if grep -q "GDK_BACKEND" "$APPDIR"/apprun-hooks/*.sh; then
+    echo "AppRun hook still sets GDK_BACKEND"
+    exit 1
+fi
 
 # Include version number in AppImage filename
 FREEDV_VERSION=`cat ../build_linux/freedv-version.txt`

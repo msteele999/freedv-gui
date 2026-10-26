@@ -346,6 +346,36 @@ static void LogLockFunction_(bool lock, void *)
     }
 }
 
+// wxWidgets' default log target collects log messages into a modal message
+// dialog, which blocks the main loop while it's open -- including at exit,
+// where a message queued while windows are being torn down can keep that
+// dialog (and thus the process) up forever. FreeDV surfaces log messages in
+// its own log instead, so send wxWidgets' log messages there as well.
+class UlogLogTarget : public wxLog
+{
+    void DoLogRecord(wxLogLevel level, const wxString& msg, const wxLogRecordInfo& /* info */) override
+    {
+        auto utf8 = msg.ToUTF8();
+        const char* text = utf8.data();
+        switch (level)
+        {
+            case wxLOG_Error:
+                log_error("%s", text);
+                break;
+            case wxLOG_Warning:
+                log_warn("%s", text);
+                break;
+            case wxLOG_Info:
+            case wxLOG_Message:
+                log_info("%s", text);
+                break;
+            default:
+                log_debug("%s", text);
+                break;
+        }
+    }
+};
+
 template<int soundCardId, bool isOut>
 void MainFrame::handleAudioDeviceChange_(std::string const& newDeviceName)
 {
@@ -987,6 +1017,10 @@ bool MainApp::OnInit()
     GTKSuppressDiagnostics();
 #endif // wxCHECK_VERSION(3,1,6) && defined(__WXGTK__)
 
+    // Route wxWidgets' own log messages (and any that GTK queues on its
+    // behalf) through ulog rather than wxLogGui's message dialogs.
+    wxLog::SetActiveTarget(new UlogLogTarget());
+
     // Initialize locale. Note that wxWidgets takes ownership of the wxTranslations
     // object, but clang-analyzer can't see that and reports a leak further down.
     // NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
@@ -1305,7 +1339,7 @@ void MainFrame::loadConfiguration_()
     m_freqBox->Show(isFrequencyControlEnabled_());
 
     restoreCallsignListFromCsv_();
-    m_logQSO->Enable(m_lastReportedCallsignListView->GetItemCount() > 0);
+    m_logQSO->Enable(canLogQso_());
 
     // Show/hide callsign combo box based on reporting enablement
     if (wxGetApp().appConfiguration.reportingConfiguration.reportingEnabled)
@@ -1866,6 +1900,18 @@ void MainFrame::restoreCallsignListFromCsv_()
         wxString snrDisplay;
         snrDisplay.Printf(SNR_FORMAT_STR_NO_DB, (float)snrInt);
 
+        // The log gets a row for every time a callsign is decoded, but while
+        // on the air repeated decodes of the same station on the same
+        // frequency only update the SNR of the top row. Do the same here so
+        // the list looks the same after a restart.
+        if (m_lastReportedCallsignListView->GetItemCount() > 0 &&
+            m_lastReportedCallsignListView->GetItemText(0, 0) == wxString(callsign) &&
+            m_lastReportedCallsignListView->GetItemText(0, 1) == freqDisplay)
+        {
+            m_lastReportedCallsignListView->SetItem(0, 3, snrDisplay);
+            continue;
+        }
+
         auto index = m_lastReportedCallsignListView->InsertItem(0, wxString(callsign), 0);
         m_lastReportedCallsignListView->SetItem(index, 1, freqDisplay);
         m_lastReportedCallsignListView->SetItem(index, 2, dateTime);
@@ -2200,6 +2246,14 @@ void MainFrame::appendDecodedSpeech_(const std::string& text)
 //-------------------------------------------------------------------------
 MainFrame::~MainFrame()
 {
+    // Close the frequency list now if it's open. Otherwise ~wxComboCtrlBase()
+    // closes it once this window is partly destroyed, and on macOS working out
+    // where the mouse is then asserts ("TopLevel Window missing").
+    if (m_cboReportFrequency->IsPopupShown())
+    {
+        m_cboReportFrequency->Dismiss();
+    }
+
     delete voiceKeyerPopupMenu_;
 
     if (m_filterDialog != nullptr)
@@ -3381,7 +3435,7 @@ void MainFrame::performFreeDVOff_()
         m_btnTogPTT->Disable();
         m_togBtnVoiceKeyer->Disable();
 
-        m_logQSO->Enable(m_lastReportedCallsignListView->GetItemCount() > 0);
+        m_logQSO->Enable(canLogQso_());
 
         // Make sure QSY button becomes disabled after stop.
         if (m_reporterDialog != nullptr)
