@@ -47,6 +47,50 @@ bool sessionsAndConnectivity()
         list.Records().at("K1ABC").lastSeen == 400;
 }
 
+bool automaticReconnectWithoutConnectCallback()
+{
+    auto config = makeConfig();
+    Watchlist list;
+    list.Add("K1ABC");
+    list.Add("OLD/P");
+    list.BeginSync();
+    list.Observe("old-one", "K1ABC", firstTime, "connect", "first session", 100);
+    list.Observe("old-two", "OLD/P", firstTime, "connect", "absent on reconnect", 100);
+    list.CompleteSync();
+    list.Disconnect();
+    if (!list.Commit(config.get())) return false;
+
+    // A data update alone cannot manufacture presence while disconnected.
+    list.Observe("old-one", "K1ABC", laterTime, "frequency", "14236000", 150);
+    list.Observe("", "K1ABC", laterTime, "connect", "invalid session", 150);
+    if (list.GetStatus("K1ABC") != Status::Unknown || list.Records().at("K1ABC").lastSeen != 100)
+        return false;
+
+    // The backend replays new_connection events on automatic reconnect, but
+    // does not repeat its initial onReporterConnect callback.
+    list.Observe("replay-one", "K1ABC", firstTime, "connect", "first replay", 200);
+    list.Observe("replay-two", "K1ABC", laterTime, "connect", "second replay", 300);
+    Status notifiedStatus = Status::NotListed;
+    list.SetChangedHandler([&]() { notifiedStatus = list.GetStatus("K1ABC"); });
+    if (!list.Commit(config.get()) || notifiedStatus != Status::Unknown ||
+        list.HighlightRemainingMs("K1ABC") != 0) return false;
+    list.CompleteSync();
+    if (!list.Commit(config.get()) || notifiedStatus != Status::Listed ||
+        list.HighlightRemainingMs("K1ABC") != 0 || list.GetStatus("OLD/P") != Status::NotListed)
+        return false;
+    list.RemoveSession("replay-one", laterTime);
+    if (list.GetStatus("K1ABC") != Status::Listed) return false;
+    list.RemoveSession("replay-two", laterTime);
+    if (list.GetStatus("K1ABC") != Status::NotListed) return false;
+
+    // An empty reconnect snapshot completes normally and retains all history.
+    list.Disconnect();
+    list.CompleteSync();
+    return list.GetStatus("K1ABC") == Status::NotListed && list.Records().at("K1ABC").lastSeen == 300 &&
+        list.Records().at("K1ABC").lastUpdate == Watchlist::ParseReporterTime(laterTime) &&
+        list.Records().at("OLD/P").lastSeen == 100;
+}
+
 bool monotonicTimestampsAndMeaningfulObservations()
 {
     Watchlist list;
@@ -256,6 +300,7 @@ int main()
     if (!initializer.IsOk()) return -1;
     executeTestCase("normalizationAndDuplicates", normalizationAndDuplicates);
     executeTestCase("sessionsAndConnectivity", sessionsAndConnectivity);
+    executeTestCase("automaticReconnectWithoutConnectCallback", automaticReconnectWithoutConnectCallback);
     executeTestCase("monotonicTimestampsAndMeaningfulObservations", monotonicTimestampsAndMeaningfulObservations);
     executeTestCase("timezoneAndInvalidTimestamps", timezoneAndInvalidTimestamps);
     executeTestCase("persistenceAndIndefiniteRetention", persistenceAndIndefiniteRetention);

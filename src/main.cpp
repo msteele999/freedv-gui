@@ -1996,6 +1996,9 @@ void MainFrame::restoreAuxiliaryWindowVisibility_()
     else watchlistWindow_->Hide();
     if (config.decodedSpeechWindowVisible) decodedSpeechViewer_->ShowWithoutActivating();
     else decodedSpeechViewer_->Hide();
+    // Notebook startup need not switch workspaces. Enable snapping in either
+    // presentation once the restored auxiliary frames have been placed.
+    displayWorkspace_.SetSnappingEnabled(true);
 }
 
 void MainFrame::prepareAuxiliaryWindowsForShutdown_()

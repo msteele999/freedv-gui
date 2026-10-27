@@ -139,6 +139,8 @@ def reconnect_and_filters():
         second = server.station("K1ABC", "FN43")
         first.set_frequency(14236000)
         second.set_frequency(14236000)
+        viewer = server.viewer()
+        check_equal(viewer.callsigns().count("K1ABC"), 2, "Fixture has two active sessions")
         settings = reporter_settings(server.hostname)
         settings[RECORDS] = "K1ABC|0|0,W2DEF|0|0"
         # Zero is deliberately seeded to exercise idle hiding without a long sleep.
@@ -152,7 +154,9 @@ def reconnect_and_filters():
             normal = app.get(ENTRIES)["background"]
             check_equal(rows(app)["K1ABC"]["background"], normal, "Initial sync has no appearance alert")
             first.disconnect()
-            time.sleep(1)
+            app.wait_until(lambda: viewer.callsigns().count("K1ABC") == 1,
+                           description="server to remove only the first session")
+            time.sleep(1)  # Allow FreeDV's separate connection to drain the removal as well.
             check_equal(status(app, "K1ABC"), "Listed", "Other session keeps callsign listed")
             server.interrupt_freedv()
             wait_status(app, "K1ABC", "Unknown")
@@ -195,16 +199,15 @@ def geometry_and_theme():
                 check_equal(rows(app)["UNSEEN"]["image"], 3, "Unknown overrides old age")
                 original_indicator = rows(app)["UNSEEN"]["indicatorColor"]
                 # Select an application appearance while Watchlist remains open.
-                main = "@" + app.get("main")["label"] + "/"
                 requested = "Light" if mode == 2 else "Dark"
-                app.click(main + requested)
+                app.click("main.appearance." + requested.lower())
                 expected = "#FFFFFF" if requested == "Light" else "#181A1E"
                 app.wait_until(lambda: app.get(ENTRIES)["background"].upper() == expected)
                 check_equal(rows(app)["UNSEEN"]["image"], 3, "Theme change preserves indicator meaning")
                 if mode in (1, 2):
                     check(rows(app)["UNSEEN"]["indicatorColor"] != original_indicator,
                           "Indicator palette did not refresh with appearance")
-                app.click(main + {0: "System", 1: "Light", 2: "Dark"}[mode])
+                app.click("main.appearance." + {0: "system", 1: "light", 2: "dark"}[mode])
                 messages = app.message_boxes(clear=True)
                 check(all(message["caption"] == "Appearance" for message in messages), "Unexpected theme error dialog")
                 app.system_colours_changed()
@@ -298,6 +301,7 @@ def visibility_and_footer():
             app.wait_for_window("decodedSpeech")
             footer = app.get("watchlist.legend")
             check_equal(footer["label"], legend, "Compact single-line footer")
+            check("1\u201312 hours" in footer["tooltip"], "Unicode en dash in footer help")
             for explanation in ("Not Listed", "Unknown", "Last Seen", "Last Update",
                                 "does not mean currently connected", "History is kept"):
                 check(explanation in footer["tooltip"], "Tooltip is missing " + explanation)

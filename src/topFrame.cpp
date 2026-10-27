@@ -1347,6 +1347,10 @@ wxStaticBoxSizer* TopFrame::CreateAppearanceSelector(std::size_t index)
         _("Light"));
     selector.dark = new wxRadioButton(selector.sizer->GetStaticBox(), wxID_ANY,
         _("Dark"));
+    const wxString namePrefix = index == 0 ? "main.appearance." : "main.independentAppearance.";
+    selector.system->SetName(namePrefix + "system");
+    selector.light->SetName(namePrefix + "light");
+    selector.dark->SetName(namePrefix + "dark");
 
     selector.sizer->Add(selector.system, 0, wxALL, 2);
     selector.sizer->Add(selector.light, 0, wxALL, 2);

@@ -57,27 +57,27 @@ CallsignWatchlistWindow::CallsignWatchlistWindow(wxWindow* parent, FreeDVConfigu
     controls->Add(add_, 0, wxRIGHT, ::FromDIP(this, 6));
     controls->Add(remove_, 0, wxRIGHT, ::FromDIP(this, 6));
     controls->Add(filter_, 0);
-    layout->Add(controls, 0, wxEXPAND | wxALL, ::FromDIP(this, 8));
+    layout->Add(controls, 0, static_cast<int>(wxEXPAND) | static_cast<int>(wxALL), ::FromDIP(this, 8));
     list_ = new wxListCtrl(panel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_SINGLE_SEL);
     list_->SetName("watchlist.entries");
     list_->InsertColumn(0, _("Callsign"), wxLIST_FORMAT_LEFT, ::FromDIP(this, 125));
     list_->InsertColumn(1, _("Status"), wxLIST_FORMAT_LEFT, ::FromDIP(this, 110));
     list_->InsertColumn(2, _("Last Seen (local)"), wxLIST_FORMAT_LEFT, ::FromDIP(this, 235));
     list_->InsertColumn(3, _("Last Update (local)"), wxLIST_FORMAT_LEFT, ::FromDIP(this, 235));
-    layout->Add(list_, 1, wxEXPAND | wxLEFT | wxRIGHT, ::FromDIP(this, 8));
+    layout->Add(list_, 1, static_cast<int>(wxEXPAND) | static_cast<int>(wxLEFT) | static_cast<int>(wxRIGHT), ::FromDIP(this, 8));
     auto* explanation = new wxStaticText(panel, wxID_ANY,
-        _("Green: Listed/recent | Yellow: 1–12h | Red: >12h | Gray: Unknown/never seen"));
+        _(L"Green: Listed/recent | Yellow: 1\u201312h | Red: >12h | Gray: Unknown/never seen"));
     explanation->SetName("watchlist.legend");
     explanation->SetToolTip(_(
-        "Listed means a current Reporter session exists, including stations hidden by Reporter filters.\n"
-        "Not Listed means the Reporter is available and has no session for the callsign.\n"
-        "Unknown means the Reporter is unavailable or synchronizing; indicators are gray.\n"
-        "Green means Listed, or Not Listed and last seen less than one hour ago.\n"
-        "Yellow means Not Listed and last seen 1–12 hours ago; red means more than 12 hours ago.\n"
-        "Never-seen callsigns are gray. Recent activity alone does not mean currently connected.\n"
-        "Last Seen records the last Reporter observation; Last Update records the last observed status or metadata change.\n"
-        "Timestamps use local time for each observation, including daylight-saving time.\n"
-        "History is kept until you remove the callsign."));
+        L"Listed means a current Reporter session exists, including stations hidden by Reporter filters.\n"
+        L"Not Listed means the Reporter is available and has no session for the callsign.\n"
+        L"Unknown means the Reporter is unavailable or synchronizing; indicators are gray.\n"
+        L"Green means Listed, or Not Listed and last seen less than one hour ago.\n"
+        L"Yellow means Not Listed and last seen 1\u201312 hours ago; red means more than 12 hours ago.\n"
+        L"Never-seen callsigns are gray. Recent activity alone does not mean currently connected.\n"
+        L"Last Seen records the last Reporter observation; Last Update records the last observed status or metadata change.\n"
+        L"Timestamps use local time for each observation, including daylight-saving time.\n"
+        L"History is kept until you remove the callsign."));
     layout->Add(explanation, 0, wxALL, ::FromDIP(this, 8));
     panel->SetSizer(layout);
     auto* frameLayout = new wxBoxSizer(wxVERTICAL);

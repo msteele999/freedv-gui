@@ -174,8 +174,15 @@ void CallsignWatchlist::Observe(const std::string& sid, const wxString& callsign
                                const wxString& detail, Timestamp observedAt)
 {
     const auto normalized = Normalize(callsign);
-    if (sid.empty() || normalized.empty() || connection_ == Connection::Unavailable)
+    if (sid.empty() || normalized.empty())
         return;
+    if (connection_ == Connection::Unavailable)
+    {
+        // Automatic transport reconnects replay sessions without repeating the
+        // initial Reporter connect callback. Stay Unknown until CompleteSync().
+        if (kind != "connect") return;
+        BeginSync();
+    }
     const auto wasListed = GetStatus(normalized) == Status::Listed;
     const auto previous = sessions_.find(sid);
     const bool affectsWatchlist = Contains(normalized) ||
