@@ -314,12 +314,14 @@ def visibility_and_footer():
                 app.command("window_geometry", name=name, rect=rect)
                 time.sleep(0.5)
                 geometry[name] = app.get(name)["rect"]
-            # Cover File > Exit as well as the main-window close path below.
-            check_equal(app.message_boxes(), [], "Errors before File > Exit")
-            app.menu("File/Exit")  # Both auxiliary windows are still open.
-            check_equal(app.wait_for_exit(), 0, "File > Exit status")
+            # Cover the native Exit/Quit menu as well as window closing below.
+            # wxWidgets moves wxID_EXIT into the application menu on macOS.
+            exit_menu = "FreeDV/Quit FreeDV" if freedvtest.audio.MACOS else "File/Exit"
+            check_equal(app.message_boxes(), [], "Errors before application exit")
+            app.menu(exit_menu)  # Both auxiliary windows are still open.
+            check_equal(app.wait_for_exit(), 0, "Exit/Quit menu status")
             check_equal([line for line in app.log().splitlines() if " ERROR " in line or " FATAL " in line],
-                        [], "Errors during File > Exit")
+                        [], "Errors during application exit")
         check_saved(config, True, True)
 
         # Each normal restart uses exactly what the preceding shutdown saved.

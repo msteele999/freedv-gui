@@ -17,6 +17,12 @@ string(TOLOWER "${_freedv_whisper_arch}" _freedv_whisper_arch)
 if(_freedv_whisper_arch MATCHES "(^|;)(arm|aarch64)")
     set(GGML_NATIVE OFF CACHE BOOL "" FORCE)
     set(GGML_CPU_ARM_ARCH "armv8-a" CACHE STRING "" FORCE)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND _freedv_whisper_arch MATCHES "^(x86_64|amd64)$")
+    # AppImages must not inherit the runner's AMX extensions via -march=native.
+    # The pinned GGML AMX path leaves unresolved kernel symbols in the PGO
+    # build. Keep the same portable CPU flags for instrumented and profile-use
+    # builds; AMX options alone cannot override GGML_NATIVE's compiler flags.
+    set(GGML_NATIVE OFF CACHE BOOL "" FORCE)
 endif()
 unset(_freedv_whisper_arch)
 
