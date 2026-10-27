@@ -1931,10 +1931,10 @@ void TestAgent::commandGetState_(yyjson_val* id)
     yyjson_mut_doc* doc = yyjson_mut_doc_new(nullptr);
     yyjson_mut_val* state = yyjson_mut_obj(doc);
 
-    bool running = app.frame->m_RxRunning;
+    bool running = app.frame->m_RxRunning.load(std::memory_order_acquire);
     yyjson_mut_obj_add_bool(doc, state, "running", running);
     yyjson_mut_obj_add_bool(doc, state, "modemRunning", isModemRunning.load(std::memory_order_acquire));
-    yyjson_mut_obj_add_bool(doc, state, "receiveWorkerActive", app.frame->m_rxThread != nullptr);
+    yyjson_mut_obj_add_bool(doc, state, "receiveWorkerActive", running);
     yyjson_mut_obj_add_bool(doc, state, "transmitting", g_tx.load(std::memory_order_acquire));
     yyjson_mut_obj_add_int(doc, state, "numSoundCards", g_nSoundCards);
     yyjson_mut_obj_add_int(doc, state, "sync", running ? freedvInterface.getSync() : 0);

@@ -47,13 +47,13 @@ CallsignWatchlist::Timestamp CallsignWatchlist::ParseReporterTime(const wxString
     const int hour = wxAtoi(civil.Mid(11, 2));
     const int minute = wxAtoi(civil.Mid(14, 2));
     const int second = wxAtoi(civil.Mid(17, 2));
-    const auto leapYears = [](int before) { return before / 4 - before / 100 + before / 400; };
+    const auto leapYearCount = [](int before) { return before / 4 - before / 100 + before / 400; };
     const bool leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
     const int monthDays[] = {31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
     if (year < 1970 || month < 1 || month > 12 || day < 1 || day > monthDays[month - 1] ||
         hour > 23 || minute > 59 || second > 59)
         return 0;
-    Timestamp days = 365LL * (year - 1970) + leapYears(year - 1) - leapYears(1969) + day - 1;
+    Timestamp days = 365LL * (year - 1970) + leapYearCount(year - 1) - leapYearCount(1969) + day - 1;
     for (int m = 1; m < month; ++m) days += monthDays[m - 1];
     const auto zone = pattern.GetMatch(time, 3);
     int offset = 0;
@@ -252,6 +252,7 @@ void CallsignWatchlist::load(wxConfigBase* config)
 wxString CallsignWatchlist::Serialize() const
 {
     std::vector<wxString> rows;
+    rows.reserve(records_.size());
     for (const auto& record : records_)
         rows.push_back(record.first + wxString::Format("|%lld|%lld", record.second.lastSeen, record.second.lastUpdate));
     // Same representation as WxWidgetsConfigStore's string-vector specialization.
