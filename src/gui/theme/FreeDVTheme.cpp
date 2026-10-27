@@ -6,15 +6,24 @@
 
 namespace FreeDVTheme
 {
+#if defined(__APPLE__)
+bool SystemUsesDarkAppearance();
+#endif
 namespace
 {
 bool darkModeEnabled = false;
+bool sessionDarkModeOverride = false;
 SignalDisplayStyle signalDisplayStyle = SignalDisplayStyle::Multicolor;
 }
 
 void SetDarkModeEnabled(bool enabled)
 {
     darkModeEnabled = enabled;
+}
+
+void SetSessionDarkModeOverride(bool enabled)
+{
+    sessionDarkModeOverride = enabled;
 }
 
 const Palette& GetPalette()
@@ -36,6 +45,29 @@ const Palette& GetPalette()
 void SetSignalDisplayStyle(SignalDisplayStyle style)
 {
     signalDisplayStyle = style;
+}
+
+Palette GetAppearancePalette(AppearanceMode mode)
+{
+    if (sessionDarkModeOverride) return GetPalette();
+    bool dark = mode == AppearanceMode::Dark;
+#if defined(__APPLE__)
+    if (mode == AppearanceMode::System)
+        dark = SystemUsesDarkAppearance();
+#elif wxCHECK_VERSION(3, 3, 0)
+    if (mode == AppearanceMode::System)
+        dark = wxSystemSettings::GetAppearance().AreAppsDark();
+#elif wxCHECK_VERSION(3, 1, 3)
+    if (mode == AppearanceMode::System)
+        dark = wxSystemSettings::GetAppearance().IsDark();
+#endif
+    if (dark)
+        return GetPalette();
+    // Light must also work when the native app is still dark pending restart.
+    // Keep semantic colours here, without changing Reporter TX/RX preferences.
+    return {wxColour(255, 255, 255), wxColour(242, 244, 247), wxColour(28, 32, 38),
+            wxColour(85, 94, 108), wxColour(180, 187, 197), wxColour(0, 91, 164),
+            wxColour(22, 110, 60), wxColour(128, 87, 0), wxColour(168, 30, 30)};
 }
 
 SignalDisplayStyle GetSignalDisplayStyle()

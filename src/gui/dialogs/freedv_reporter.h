@@ -188,6 +188,8 @@ class FreeDVReporterDialog : public wxFrame
         wxObjectDataPtr<wxDataViewModel> spotsDataModel_;
         wxMenu* spotsPopupMenu_;
         wxMenu* callsignPopupMenu_;
+        wxMenuItem* watchlistAddMenuItem_;
+        wxMenuItem* watchlistRemoveMenuItem_;
         wxString tempUserMessage_; // to store the currently hovering message prior to going on the clipboard
         wxString tempCallsign_; // to store the currently hovering callsign prior to lookup
         // QSY text

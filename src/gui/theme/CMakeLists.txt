@@ -1,4 +1,8 @@
 add_library(fdv_gui_theme STATIC FreeDVTheme.cpp FreeDVTheme.h)
+if(APPLE)
+    target_sources(fdv_gui_theme PRIVATE SystemAppearance_osx.mm)
+    target_link_libraries(fdv_gui_theme PRIVATE "-framework Foundation")
+endif()
 
 target_compile_options(fdv_gui_theme PRIVATE ${WARNINGS_AS_ERRORS_FLAGS})
 

@@ -72,6 +72,7 @@
 #include "topFrame.h"
 #include "gui/displays/DisplayWorkspace.h"
 #include "gui/dialogs/filter_frequency.h"
+#include "gui/dialogs/callsign_watchlist.h"
 #include "gui/dialogs/tot_warning.h"
 #include "gui/controls/plot.h"
 #include "gui/controls/plot_scalar.h"
@@ -304,11 +305,15 @@ class TxRxThread;
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=
 class MainFrame : public TopFrame
 {
+#if defined(ENABLE_TEST_AGENT)
+    friend class TestAgent;
+#endif
     public:
         MainFrame(wxWindow *parent);
         virtual ~MainFrame();
 
         bool HasActiveDisplay() const { return displayWorkspace_.HasActiveDisplay(); }
+        void ShowCallsignWatchlist();
 
         FilterDlg*              m_filterDialog;
 
@@ -588,8 +593,12 @@ class MainFrame : public TopFrame
         class OptionsDlg *optionsDlg;
 
         wxFrame* decodedSpeechViewer_ = nullptr;
+        CallsignWatchlistWindow* watchlistWindow_ = nullptr;
         wxRect decodedSpeechNormalGeometry_;
         void captureDecodedSpeechGeometry_();
+        void restoreAuxiliaryWindowVisibility_();
+        void prepareAuxiliaryWindowsForShutdown_();
+        bool auxiliaryWindowsShuttingDown_ = false;
         wxTextCtrl* decodedSpeechText_ = nullptr;
         wxFont decodedSpeechNativeFont_;
         wxButton* decodedSpeechFontSmaller_ = nullptr;

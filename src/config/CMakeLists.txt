@@ -1,4 +1,6 @@
 add_library(fdv_config STATIC
+    CallsignWatchlist.cpp
+    LocalTimestamp.cpp
     AudioConfiguration.cpp
     FilterConfiguration.cpp
     FreeDVConfiguration.cpp
@@ -26,6 +28,7 @@ macro(DefineConfigUnitTest utName)
 endmacro()
 
 DefineConfigUnitTest(ConfigurationDataElementTest)
+DefineConfigUnitTest(CallsignWatchlistTest)
 DefineConfigUnitTest(ConfigMigrationTest)
 DefineConfigUnitTest(ReportingFrequencyListTest)
 DefineConfigUnitTest(WxWidgetsConfigStoreTest)

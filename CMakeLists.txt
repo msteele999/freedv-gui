@@ -16,7 +16,7 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum OS X deployment ver
 
 set(PROJECT_NAME FreeDV)
 set(PROJECT_VERSION 3.0.0)
-set(W2MWS_RELEASE_NUMBER 12)
+set(W2MWS_RELEASE_NUMBER 13)
 option(W2MWS_PACKAGE "Use the stable W2MWS application/package identity" ON)
 if(W2MWS_PACKAGE)
     set(FREEDV_APPLICATION_NAME "FreeDV W2MWS")
@@ -913,6 +913,13 @@ endforeach(scenario)
 # These also need a window manager to be running and, other than live_view
 # (which is skipped if the public FreeDV Reporter server can't be reached), the
 # Python packages listed in test/gui/freedvtest/reporter.py.
+foreach(scenario management history reconnect_and_filters geometry_and_theme indicators visibility_and_footer)
+    add_test(NAME gui_watchlist_${scenario}
+             COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/test/gui/test_watchlist.py ${scenario})
+    set_tests_properties(gui_watchlist_${scenario} PROPERTIES LABELS gui SKIP_RETURN_CODE 77)
+    freedv_set_test_pass_criteria(gui_watchlist_${scenario})
+endforeach()
+
 foreach(scenario live_view stations sorting sorted_updates updates_while_sorted display_options damaged_layout sort_every_column band_filter column_filters numeric_filters idle_filter columns status_message status_message_flags text_filters saved_filters selection qsy qsy_with_radio row_actions turn_off off_at_start new_callsign window connection_burst frequency_in_khz)
     add_test(NAME gui_reporter_${scenario}
              COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/test/gui/test_reporter.py ${scenario})

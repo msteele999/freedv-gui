@@ -31,6 +31,7 @@
 #include "FilterConfiguration.h"
 #include "RigControlConfiguration.h"
 #include "ReportingConfiguration.h"
+#include "CallsignWatchlist.h"
 #include "../gui/theme/FreeDVTheme.h"
 
 class FreeDVConfiguration : public WxWidgetsConfigStore
@@ -43,6 +44,7 @@ public:
     FilterConfiguration filterConfiguration;
     RigControlConfiguration rigControlConfiguration;
     ReportingConfiguration reportingConfiguration;
+    CallsignWatchlist callsignWatchlist;
     
     ConfigurationDataElement<bool> firstTimeUse;
     
@@ -57,6 +59,12 @@ public:
     ConfigurationDataElement<long> decodedSpeechWindowTop;
     ConfigurationDataElement<long> decodedSpeechWindowWidth;
     ConfigurationDataElement<long> decodedSpeechWindowHeight;
+    ConfigurationDataElement<bool> decodedSpeechWindowVisible;
+    ConfigurationDataElement<long> watchlistWindowLeft;
+    ConfigurationDataElement<long> watchlistWindowTop;
+    ConfigurationDataElement<long> watchlistWindowWidth;
+    ConfigurationDataElement<long> watchlistWindowHeight;
+    ConfigurationDataElement<bool> watchlistWindowVisible;
 
     ConfigurationDataElement<bool> independentWorkspace;
     ConfigurationDataElement<bool> independentVisibilitySaved;

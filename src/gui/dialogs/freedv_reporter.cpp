@@ -449,6 +449,12 @@ FreeDVReporterDialog::FreeDVReporterDialog(wxWindow* parent, wxWindowID id, cons
     filterMenu_ = new wxMenu();
     idleLongerThanMenu_ = new wxMenu();
     menuBar_->Append(filterMenu_, _("Filter"));
+    auto* watchlistMenu = new wxMenu();
+    auto* openWatchlist = watchlistMenu->Append(wxID_ANY, _("Open Callsign Watchlist"));
+    menuBar_->Append(watchlistMenu, _("Watchlist"));
+    Bind(wxEVT_MENU, [parent](wxCommandEvent&) {
+        static_cast<MainFrame*>(parent)->ShowCallsignWatchlist();
+    }, openWatchlist->GetId());
     filterMenu_->Append(wxID_ANY, _("Idle more than (minutes)..."), idleLongerThanMenu_);
 
     auto menuItem = idleLongerThanMenu_->Append(wxID_ANY, _("Disabled"), wxEmptyString, wxITEM_CHECK);
@@ -600,6 +606,22 @@ FreeDVReporterDialog::FreeDVReporterDialog(wxWindow* parent, wxWindowID id, cons
     // Create popup menu for callsign lookups
     callsignPopupMenu_ = new wxMenu();
     assert(callsignPopupMenu_ != nullptr);
+    watchlistAddMenuItem_ = callsignPopupMenu_->Append(wxID_ANY, _("Add to Watchlist"));
+    watchlistRemoveMenuItem_ = callsignPopupMenu_->Append(wxID_ANY, _("Remove from Watchlist"));
+    const auto changeWatchlist = [this](bool add) {
+        auto& watchlist = wxGetApp().appConfiguration.callsignWatchlist;
+        if (add) watchlist.Add(tempCallsign_);
+        else watchlist.Remove(tempCallsign_);
+        if (!watchlist.Commit(wxConfigBase::Get(false)))
+            wxLogWarning("Could not save callsign watchlist; history remains pending in memory.");
+    };
+    callsignPopupMenu_->Bind(wxEVT_MENU, [changeWatchlist](wxCommandEvent&) {
+        changeWatchlist(true);
+    }, watchlistAddMenuItem_->GetId());
+    callsignPopupMenu_->Bind(wxEVT_MENU, [changeWatchlist](wxCommandEvent&) {
+        changeWatchlist(false);
+    }, watchlistRemoveMenuItem_->GetId());
+    callsignPopupMenu_->AppendSeparator();
     
     auto qrzMenuItem = callsignPopupMenu_->Append(wxID_ANY, _("Lookup via QRZ"));
     callsignPopupMenu_->Connect(
@@ -2063,6 +2085,9 @@ void FreeDVReporterDialog::OnItemRightClick(wxDataViewEvent&)
     }
     else if (tempCallsign_ != wxT(""))
     {
+        const bool watched = wxGetApp().appConfiguration.callsignWatchlist.Contains(tempCallsign_);
+        watchlistAddMenuItem_->Enable(!watched);
+        watchlistRemoveMenuItem_->Enable(watched);
         ShowPopupMenu(m_listSpots, callsignPopupMenu_, wxPoint(mouseX, mouseY));
     }
 }
@@ -2659,6 +2684,8 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::execQueuedAction_()
         size = fnQueue_.size();
         lk.unlock();
     }
+    if (!wxGetApp().appConfiguration.callsignWatchlist.Commit(wxConfigBase::Get(false)))
+        wxLogWarning("Could not save callsign watchlist; history remains pending in memory.");
 }
 
 FreeDVReporterDialog::FilterFrequency FreeDVReporterDialog::getFilterForFrequency_(uint64_t freq)
@@ -2926,6 +2953,7 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::setReporter(std::shared_ptr<
             std::unique_lock<std::mutex> lk(fnQueueMtx_);
             CallbackHandler handler;
             handler.fn = [this](CallbackHandler&) {
+                wxGetApp().appConfiguration.callsignWatchlist.Disconnect();
                 clearAllEntries_();
             };
 
@@ -3453,6 +3481,8 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::onReporterConnect_()
     CallbackHandler handler;
     handler.fn = [this](CallbackHandler&) {
         log_debug("Connected to server");
+        wxGetApp().appConfiguration.callsignWatchlist.BeginSync();
+        isConnected_ = false;
         filterSelfMessageUpdates_ = false;
         clearAllEntries_();
     };
@@ -3467,6 +3497,7 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::onReporterDisconnect_()
     CallbackHandler handler;
     handler.fn = [this](CallbackHandler&) {
         log_debug("Disconnected from server");
+        wxGetApp().appConfiguration.callsignWatchlist.Disconnect();
         isConnected_ = false;
         filterSelfMessageUpdates_ = false;
         clearAllEntries_();
@@ -3501,6 +3532,9 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::onUserConnectFn_(std::string
         bool rxOnly = handler.rxOnly;
 
         log_debug("User connected: %s (%s) with SID %s", callsign.c_str(), gridSquare.c_str(), sid.c_str());
+        wxGetApp().appConfiguration.callsignWatchlist.Observe(
+            sid, wxString::FromUTF8(callsign.c_str()), wxString::FromUTF8(lastUpdate.c_str()),
+            "connect", wxString::FromUTF8(connectTime.c_str()));
 
         // Initially populate stored report data, but don't add to the viewable list just yet. 
         // We only add on frequency update and only if the filters check out.
@@ -3607,9 +3641,11 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::onUserConnectFn_(std::string
         temp->isVisible = false;
         temp->isPendingUpdate = false;
 
-        if (allReporterData_.find(sid) != allReporterData_.end() && !isConnected_)
+        if (allReporterData_.find(sid) != allReporterData_.end() && !isConnected_ &&
+            !allReporterData_.at(sid)->isPendingDelete)
         {
             log_warn("Received duplicate user during connection process");
+            delete temp;
             return;
         }
         
@@ -3636,6 +3672,7 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::onConnectionSuccessfulFn_()
         std::unique_lock<std::recursive_mutex> lk(const_cast<std::recursive_mutex&>(dataMtx_));
 
         log_debug("Fully connected to server");
+        wxGetApp().appConfiguration.callsignWatchlist.CompleteSync();
 
         // Enable highlighting now that we're fully connected.
         isConnected_ = true;
@@ -3644,18 +3681,21 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::onConnectionSuccessfulFn_()
     fnQueue_.push_back(std::move(handler));
 }
 
-void FreeDVReporterDialog::FreeDVReporterDataModel::onUserDisconnectFn_(std::string sid, std::string const&, std::string const&, std::string const&, std::string const&, bool, std::string const&)
+void FreeDVReporterDialog::FreeDVReporterDataModel::onUserDisconnectFn_(std::string sid, std::string const& lastUpdate, std::string const&, std::string const&, std::string const&, bool, std::string const&)
 {
     std::unique_lock<std::mutex> lk(fnQueueMtx_);
 
     CallbackHandler handler;
     handler.sid = std::move(sid);
+    handler.lastUpdate = lastUpdate;
     handler.fn = [this](CallbackHandler& handler) {
         std::unique_lock<std::recursive_mutex> lk(const_cast<std::recursive_mutex&>(dataMtx_));
         assert(wxThread::IsMain());
 
         std::string sid = std::move(handler.sid);
         log_debug("User with SID %s disconnected", sid.c_str());
+        wxGetApp().appConfiguration.callsignWatchlist.RemoveSession(
+            sid, wxString::FromUTF8(handler.lastUpdate.c_str()));
 
         auto iter = allReporterData_.find(sid);
         if (iter != allReporterData_.end())
@@ -3714,6 +3754,9 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::onFrequencyChangeFn_(std::st
             }
 
             double frequencyUserReadable = frequencyHz / 1000.0;
+            wxGetApp().appConfiguration.callsignWatchlist.Observe(
+                sid, iter->second->callsign, wxString::FromUTF8(lastUpdate.c_str()),
+                "frequency", wxString::Format("%llu", static_cast<unsigned long long>(frequencyHz)));
             wxString frequencyString;
             
             if (wxGetApp().appConfiguration.reportingConfiguration.reportingFrequencyAsKhz)
@@ -3778,6 +3821,10 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::onTransmitUpdateFn_(std::str
             }
 
             bool isChanged = iter->second->transmitting != transmitting;
+            wxGetApp().appConfiguration.callsignWatchlist.Observe(
+                sid, iter->second->callsign, wxString::FromUTF8(lastUpdate.c_str()),
+                "transmit", wxString::FromUTF8(txMode.c_str()) + (transmitting ? "|TX|" : "|RX|") +
+                wxString::FromUTF8(lastTxDate.c_str()));
             bool isDataChanged = isChanged;
             
             iter->second->transmitting = transmitting;
@@ -3850,6 +3897,9 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::onReceiveUpdateFn_(std::stri
 
             wxString receivedCallsignWx(receivedCallsign);
             wxString rxModeWx(rxMode);
+            wxGetApp().appConfiguration.callsignWatchlist.Observe(
+                sid, iter->second->callsign, wxString::FromUTF8(lastUpdate.c_str()),
+                "receive", receivedCallsignWx + "|" + rxModeWx + wxString::Format("|%.9g", static_cast<double>(snr)));
 
             auto sortingColumn = parent_->m_listSpots->GetSortingColumn();
             bool isChanged = 
@@ -3932,6 +3982,9 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::onMessageUpdateFn_(std::stri
 
             auto sortingColumn = parent_->m_listSpots->GetSortingColumn();
             bool isChanged = false;
+            wxGetApp().appConfiguration.callsignWatchlist.Observe(
+                sid, iter->second->callsign, wxString::FromUTF8(lastUpdate.c_str()),
+                "message", wxString::FromUTF8(message.c_str()));
             if (message.size() == 0)
             {
                 isChanged |= (isSortingColumn_(sortingColumn, USER_MESSAGE_COL) && iter->second->userMessage != parent_->UNKNOWN_STR);

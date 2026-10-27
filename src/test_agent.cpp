@@ -29,9 +29,12 @@
 #include <wx/clipbrd.h>
 #include <wx/evtloop.h>
 #include <wx/listctrl.h>
+#include <wx/imaglist.h>
+#include <wx/image.h>
 #include <wx/popupwin.h>
 #include <wx/spinctrl.h>
 #include <wx/tglbtn.h>
+#include <wx/tooltip.h>
 
 #if defined(__WXMSW__)
 #include <windows.h>
@@ -345,6 +348,48 @@ void TestAgent::handleLine_(std::string const& line)
     else if (cmd == "list_windows")
     {
         commandListWindows_(id);
+    }
+    else if (cmd == "window_geometry")
+    {
+        auto* window = findWindow_(id, request);
+        if (window == nullptr) return;
+        auto* rect = yyjson_obj_get(request, "rect");
+        if (!yyjson_is_arr(rect) || yyjson_arr_size(rect) != 4)
+        {
+            replyError_(id, "rect must be [x, y, width, height]");
+            return;
+        }
+        for (size_t i = 0; i < 4; ++i)
+        {
+            if (!yyjson_is_int(yyjson_arr_get(rect, i)))
+            {
+                replyError_(id, "rect must contain integers");
+                return;
+            }
+        }
+        replyOk_(id, yyjson_mut_doc_new(nullptr));
+        window->SetSize(static_cast<int>(yyjson_get_int(yyjson_arr_get(rect, 0))),
+                        static_cast<int>(yyjson_get_int(yyjson_arr_get(rect, 1))),
+                        static_cast<int>(yyjson_get_int(yyjson_arr_get(rect, 2))),
+                        static_cast<int>(yyjson_get_int(yyjson_arr_get(rect, 3))));
+    }
+    else if (cmd == "list_column_click")
+    {
+        auto* window = findWindow_(id, request);
+        if (window == nullptr) return;
+        auto* list = wxDynamicCast(window, wxListCtrl);
+        auto* column = yyjson_obj_get(request, "column");
+        if (list == nullptr || !yyjson_is_int(column) || yyjson_get_int(column) < 0 ||
+            yyjson_get_int(column) >= list->GetColumnCount())
+        {
+            replyError_(id, "invalid list column");
+            return;
+        }
+        replyOk_(id, yyjson_mut_doc_new(nullptr));
+        wxListEvent event(wxEVT_LIST_COL_CLICK, list->GetId());
+        event.SetEventObject(list);
+        event.SetColumn(static_cast<int>(yyjson_get_int(column)));
+        list->ProcessWindowEvent(event);
     }
     else if (cmd == "list_widgets")
     {
@@ -677,6 +722,14 @@ yyjson_mut_val* TestAgent::describeWindow_(yyjson_mut_doc* doc, wxWindow* window
     yyjson_mut_val* obj = yyjson_mut_obj(doc);
     AddString_(doc, obj, "name", window->GetName());
     AddString_(doc, obj, "class", window->GetClassInfo()->GetClassName());
+    AddString_(doc, obj, "background", window->GetBackgroundColour().GetAsString(wxC2S_HTML_SYNTAX));
+    AddString_(doc, obj, "foreground", window->GetForegroundColour().GetAsString(wxC2S_HTML_SYNTAX));
+    AddString_(doc, obj, "tooltip", window->GetToolTip() ? window->GetToolTip()->GetTip() : wxString());
+    auto* rectangle = yyjson_mut_arr(doc);
+    const auto windowRect = window->GetRect();
+    for (int coordinate : {windowRect.x, windowRect.y, windowRect.width, windowRect.height})
+        yyjson_mut_arr_add_int(doc, rectangle, coordinate);
+    yyjson_mut_obj_add_val(doc, obj, "rect", rectangle);
     yyjson_mut_obj_add_bool(doc, obj, "enabled", window->IsEnabled());
     yyjson_mut_obj_add_bool(doc, obj, "shown", window->IsShownOnScreen());
     wxSize clientSize = window->GetClientSize();
@@ -687,6 +740,10 @@ yyjson_mut_val* TestAgent::describeWindow_(yyjson_mut_doc* doc, wxWindow* window
 
     if (auto topLevel = wxDynamicCast(window, wxTopLevelWindow))
     {
+        auto& snap = wxGetApp().frame->displayWorkspace_.snapManager_;
+        yyjson_mut_obj_add_bool(doc, obj, "snapRegistered",
+            std::find(snap.windows_.begin(), snap.windows_.end(), topLevel) != snap.windows_.end());
+        yyjson_mut_obj_add_bool(doc, obj, "snapEnabled", snap.enabled_);
         AddString_(doc, obj, "label", topLevel->GetTitle());
 
         auto dialog = wxDynamicCast(window, wxDialog);
@@ -781,6 +838,26 @@ yyjson_mut_val* TestAgent::describeWindow_(yyjson_mut_doc* doc, wxWindow* window
             {
                 yyjson_mut_val* itemObj = yyjson_mut_obj(doc);
                 AddString_(doc, itemObj, "label", listCtrl->GetItemText(item, 0));
+                wxListItem imageItem;
+                imageItem.SetId(item);
+                imageItem.SetMask(wxLIST_MASK_IMAGE);
+                listCtrl->GetItem(imageItem);
+                const int imageIndex = imageItem.GetImage();
+                yyjson_mut_obj_add_int(doc, itemObj, "image", imageIndex);
+                auto* images = listCtrl->GetImageList(wxIMAGE_LIST_SMALL);
+                if (images && imageIndex >= 0 && imageIndex < images->GetImageCount())
+                {
+                    const auto icon = images->GetBitmap(imageIndex).ConvertToImage();
+                    const int x = icon.GetWidth() / 2, y = icon.GetHeight() / 2;
+                    const wxColour colour(icon.GetRed(x, y), icon.GetGreen(x, y), icon.GetBlue(x, y));
+                    AddString_(doc, itemObj, "indicatorColor", colour.GetAsString(wxC2S_HTML_SYNTAX));
+                }
+                const auto background = listCtrl->GetItemBackgroundColour(item);
+                const auto foreground = listCtrl->GetItemTextColour(item);
+                if (background.IsOk()) AddString_(doc, itemObj, "background", background.GetAsString(wxC2S_HTML_SYNTAX));
+                if (foreground.IsOk()) AddString_(doc, itemObj, "foreground", foreground.GetAsString(wxC2S_HTML_SYNTAX));
+                const auto font = listCtrl->GetItemFont(item);
+                yyjson_mut_obj_add_bool(doc, itemObj, "bold", font.IsOk() && font.GetWeight() == wxFONTWEIGHT_BOLD);
 
                 yyjson_mut_val* columns = yyjson_mut_arr(doc);
                 for (int column = 0; column < listCtrl->GetColumnCount(); column++)
@@ -1857,6 +1934,7 @@ void TestAgent::commandGetState_(yyjson_val* id)
     bool running = app.frame->m_RxRunning;
     yyjson_mut_obj_add_bool(doc, state, "running", running);
     yyjson_mut_obj_add_bool(doc, state, "modemRunning", isModemRunning.load(std::memory_order_acquire));
+    yyjson_mut_obj_add_bool(doc, state, "receiveWorkerActive", app.frame->m_rxThread != nullptr);
     yyjson_mut_obj_add_bool(doc, state, "transmitting", g_tx.load(std::memory_order_acquire));
     yyjson_mut_obj_add_int(doc, state, "numSoundCards", g_nSoundCards);
     yyjson_mut_obj_add_int(doc, state, "sync", running ? freedvInterface.getSync() : 0);

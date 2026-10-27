@@ -1046,13 +1046,14 @@ def test_row_actions():
             wait_for_cell(app, "VK5DGR", RX_CALLSIGN, "K1ABC")
 
             lookups = ["Lookup via QRZ", "Lookup via HamQTH", "Lookup via HamCall"]
+            callsign_actions = ["Add to Watchlist", "Remove from Watchlist"] + lookups
 
             def menu(callsign, column, choose=None):
                 app.activate("reporter")
                 return [item["label"] for item in app.row_context_menu(LIST, (CALLSIGN, callsign), column, choose)]
 
             # Right-clicking a callsign offers places to look it up...
-            check_equal(menu("K1ABC", CALLSIGN), lookups, "Menu for K1ABC's callsign")
+            check_equal(menu("K1ABC", CALLSIGN), callsign_actions, "Menu for K1ABC's callsign")
             check_equal(app.browser_urls(), [], "Web pages opened by just looking at the menu")
             for item, url in zip(lookups, ["https://www.qrz.com/db/K1ABC", "https://www.hamqth.com/K1ABC",
                                            "https://hamcall.net/call?callsign=K1ABC"]):
@@ -1060,7 +1061,7 @@ def test_row_actions():
                 check_equal(app.browser_urls(clear=True), [url], "Web pages opened by " + item)
 
             # ...including the callsign of whoever a station is hearing.
-            check_equal(menu("VK5DGR", RX_CALLSIGN, choose="Lookup via QRZ"), lookups, "Menu for who VK5DGR hears")
+            check_equal(menu("VK5DGR", RX_CALLSIGN, choose="Lookup via QRZ"), callsign_actions, "Menu for who VK5DGR hears")
             check_equal(app.browser_urls(clear=True), ["https://www.qrz.com/db/K1ABC"], "Web pages opened")
             menu("VK5DGR", CALLSIGN, choose="Lookup via HamQTH")
             check_equal(app.browser_urls(clear=True), ["https://www.hamqth.com/VK5DGR"], "Web pages opened")

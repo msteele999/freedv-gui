@@ -40,10 +40,16 @@ enum class TypographyRole
 // Session-only selection, disabled by default. Set on the UI thread during
 // startup, before creating windows; this does not restyle existing windows.
 void SetDarkModeEnabled(bool enabled);
+// Preserve --dark-mode for auxiliary windows that resolve appearance live.
+void SetSessionDarkModeOverride(bool enabled);
 
 // UI-thread APIs, to be called after wxWidgets initialization. The palette
 // supplies dark design values without changing system appearance or preferences.
 const Palette& GetPalette();
+
+// A live semantic palette for auxiliary windows. System resolves the current
+// OS appearance each time, so wxEVT_SYS_COLOUR_CHANGED can refresh it.
+Palette GetAppearancePalette(AppearanceMode mode);
 
 // Existing FreeDV signal display colour schemes. Numeric values match the
 // persisted /Waterfall/Color setting for backward compatibility.

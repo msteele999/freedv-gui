@@ -43,6 +43,12 @@ FreeDVConfiguration::FreeDVConfiguration()
     , decodedSpeechWindowTop("/Windows/DecodedSpeech/top", 20)
     , decodedSpeechWindowWidth("/Windows/DecodedSpeech/width", 640)
     , decodedSpeechWindowHeight("/Windows/DecodedSpeech/height", 360)
+    , decodedSpeechWindowVisible("/Windows/DecodedSpeech/visible", false)
+    , watchlistWindowLeft("/Windows/CallsignWatchlist/left", 40)
+    , watchlistWindowTop("/Windows/CallsignWatchlist/top", 40)
+    , watchlistWindowWidth("/Windows/CallsignWatchlist/width", 760)
+    , watchlistWindowHeight("/Windows/CallsignWatchlist/height", 400)
+    , watchlistWindowVisible("/Windows/CallsignWatchlist/visible", false)
 
     , independentWorkspace("/Windows/Independent/active", false)
     , independentVisibilitySaved("/Windows/Independent/visibilitySaved", false)
@@ -167,6 +173,7 @@ void FreeDVConfiguration::load(wxConfigBase* config)
     filterConfiguration.load(config);
     rigControlConfiguration.load(config);
     reportingConfiguration.load(config);
+    callsignWatchlist.load(config);
     
     load_(config, firstTimeUse);
     
@@ -199,6 +206,12 @@ void FreeDVConfiguration::load(wxConfigBase* config)
     load_(config, decodedSpeechWindowTop);
     load_(config, decodedSpeechWindowWidth);
     load_(config, decodedSpeechWindowHeight);
+    load_(config, decodedSpeechWindowVisible);
+    load_(config, watchlistWindowLeft);
+    load_(config, watchlistWindowTop);
+    load_(config, watchlistWindowWidth);
+    load_(config, watchlistWindowHeight);
+    load_(config, watchlistWindowVisible);
 
     load_(config, independentWorkspace);
     load_(config, independentVisibilitySaved);
@@ -328,6 +341,7 @@ void FreeDVConfiguration::save(wxConfigBase* config)
     filterConfiguration.save(config);
     rigControlConfiguration.save(config);
     reportingConfiguration.save(config);
+    callsignWatchlist.save(config);
     
     save_(config, firstTimeUse);
     
@@ -342,6 +356,12 @@ void FreeDVConfiguration::save(wxConfigBase* config)
     save_(config, decodedSpeechWindowTop);
     save_(config, decodedSpeechWindowWidth);
     save_(config, decodedSpeechWindowHeight);
+    save_(config, decodedSpeechWindowVisible);
+    save_(config, watchlistWindowLeft);
+    save_(config, watchlistWindowTop);
+    save_(config, watchlistWindowWidth);
+    save_(config, watchlistWindowHeight);
+    save_(config, watchlistWindowVisible);
 
     save_(config, independentWorkspace);
     save_(config, independentVisibilitySaved);

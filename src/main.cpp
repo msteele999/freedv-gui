@@ -694,6 +694,7 @@ bool MainApp::OnCmdLineParsed(wxCmdLineParser& parser)
     }
 
     const bool darkModeOverride = parser.Found("dark-mode");
+    FreeDVTheme::SetSessionDarkModeOverride(darkModeOverride);
 
     wxString configPath;
     if (parser.Found("f", &configPath))
@@ -1145,6 +1146,8 @@ void MainFrame::loadConfiguration_()
     SetIndependentControlPresentation(false);
     updateDisplayVisibilityControls_();
     wxGetApp().appConfiguration.load(pConfig);
+    watchlistWindow_->RestoreGeometry();
+    watchlistWindow_->RefreshAppearance();
     applyDecodedSpeechFontSize_();
 
     if (decodedSpeechViewer_->IsIconized() || decodedSpeechViewer_->IsMaximized())
@@ -1438,6 +1441,8 @@ void MainFrame::loadConfiguration_()
 
     // Initialize FreeDV Reporter as required
     CallAfter(&MainFrame::initializeFreeDVReporter_);
+    // Run after construction, main-window presentation, theme and workspace setup.
+    CallAfter(&MainFrame::restoreAuxiliaryWindowVisibility_);
 
     // If the FreeDV Reporter window was open on last execution, reopen it now.
     CallAfter([&]() {
@@ -1544,12 +1549,17 @@ MainFrame::MainFrame(wxWindow *parent) : TopFrame(parent, wxID_ANY, wxT("FreeDV 
 
     tools->Append(m_menuItemToolsConfigDelete);
 
+    watchlistWindow_ = new CallsignWatchlistWindow(this, wxGetApp().appConfiguration);
+    displayWorkspace_.RegisterSnapWindow(*watchlistWindow_);
+
     // Modeless, session-only transcript history. Like the Reporter, closing
     // this owned window hides it rather than stopping its data source.
     decodedSpeechViewer_ = new wxFrame(this, wxID_ANY, _("Decoded Speech Transcription [Experimental]"),
                                       wxDefaultPosition, wxSize(640, 360));
+    decodedSpeechViewer_->SetName("decodedSpeech");
     decodedSpeechText_ = new wxTextCtrl(decodedSpeechViewer_, wxID_ANY, wxEmptyString,
         wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY);
+    decodedSpeechText_->SetName("decodedSpeech.text");
     auto* transcriptSizer = new wxBoxSizer(wxVERTICAL);
     decodedSpeechNativeFont_ = decodedSpeechText_->GetFont();
     auto* transcriptFontSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -1579,14 +1589,28 @@ MainFrame::MainFrame(wxWindow *parent) : TopFrame(parent, wxID_ANY, wxT("FreeDV 
         event.Skip();
     });
     displayWorkspace_.RegisterSnapWindow(*decodedSpeechViewer_);
+    decodedSpeechViewer_->Bind(wxEVT_SHOW, [this](wxShowEvent& event) {
+        if (!auxiliaryWindowsShuttingDown_)
+            wxGetApp().appConfiguration.decodedSpeechWindowVisible = event.IsShown();
+        event.Skip();
+    });
     decodedSpeechViewer_->Bind(wxEVT_CLOSE_WINDOW, [this](wxCloseEvent& event) {
+        if (auxiliaryWindowsShuttingDown_)
+        {
+            // The owner destroys this frame after saving configuration.
+            if (event.CanVeto()) event.Veto();
+            return;
+        }
         captureDecodedSpeechGeometry_();
+        wxGetApp().appConfiguration.decodedSpeechWindowVisible = false;
         decodedSpeechViewer_->Hide();
         if (event.CanVeto())
             event.Veto();
     });
     auto* transcriptMenuItem = tools->Append(wxID_ANY, _("Decoded Speech Transcription [Experimental]"));
     Bind(wxEVT_MENU, [this](wxCommandEvent&) {
+        if (auxiliaryWindowsShuttingDown_) return;
+        wxGetApp().appConfiguration.decodedSpeechWindowVisible = true;
         decodedSpeechViewer_->Show();
         decodedSpeechViewer_->Raise();
     }, transcriptMenuItem->GetId());
@@ -1928,8 +1952,6 @@ static std::recursive_mutex stoppingMutex;
 void MainFrame::setConfiguration_(wxConfigBase* config)
 {
     wxConfigBase* previousConfig = pConfig;
-    pConfig = config;
-    wxConfigBase::Set(pConfig);
 
     if (wxGetApp().m_sharedReporterObject)
     {
@@ -1945,6 +1967,14 @@ void MainFrame::setConfiguration_(wxConfigBase* config)
         m_reporterDialog = nullptr;
     }
 
+    // Drain and persist old Reporter's watch history against its own config.
+    // Switching the global store before draining would overwrite the incoming
+    // profile's watchlist with records from the previous one.
+    if (!wxGetApp().appConfiguration.callsignWatchlist.Commit(previousConfig))
+        wxLogWarning("Could not flush callsign watchlist before switching configuration.");
+    pConfig = config;
+    wxConfigBase::Set(pConfig);
+
     // Resets all configuration to defaults.
     loadConfiguration_();
 
@@ -1956,11 +1986,34 @@ void MainFrame::setConfiguration_(wxConfigBase* config)
     }
 }
 
+void MainFrame::restoreAuxiliaryWindowVisibility_()
+{
+    if (auxiliaryWindowsShuttingDown_ || IsBeingDeleted()) return;
+    // Showing these owned frames only presents existing UI. It does not start
+    // the modem or create a transcription pipeline. Avoid raising either frame.
+    auto& config = wxGetApp().appConfiguration;
+    if (config.watchlistWindowVisible) watchlistWindow_->Open(false);
+    else watchlistWindow_->Hide();
+    if (config.decodedSpeechWindowVisible) decodedSpeechViewer_->ShowWithoutActivating();
+    else decodedSpeechViewer_->Hide();
+}
+
+void MainFrame::prepareAuxiliaryWindowsForShutdown_()
+{
+    if (auxiliaryWindowsShuttingDown_) return;
+    // Snapshot before yielding, asynchronous modem shutdown, or owned-window
+    // destruction can deliver hide/close events. Those events must not save false.
+    captureDecodedSpeechGeometry_();
+    wxGetApp().appConfiguration.decodedSpeechWindowVisible = decodedSpeechViewer_->IsShown();
+    watchlistWindow_->PrepareForShutdown();
+    auxiliaryWindowsShuttingDown_ = true;
+}
+
 void MainFrame::captureDecodedSpeechGeometry_()
 {
     // Hidden frames and native minimize/maximize transitions must not replace
     // the last usable ordinary rectangle.
-    if (decodedSpeechViewer_ == nullptr || decodedSpeechViewer_->IsBeingDeleted() ||
+    if (auxiliaryWindowsShuttingDown_ || decodedSpeechViewer_ == nullptr || decodedSpeechViewer_->IsBeingDeleted() ||
         !decodedSpeechViewer_->IsShown() || decodedSpeechViewer_->IsIconized() ||
         decodedSpeechViewer_->IsMaximized())
         return;
@@ -1971,6 +2024,7 @@ void MainFrame::captureDecodedSpeechGeometry_()
 
 void MainFrame::exportConfiguration_(wxConfigBase* config)
 {
+    watchlistWindow_->CaptureGeometry();
     captureWorkspace_();
     captureDecodedSpeechGeometry_();
     if (!decodedSpeechNormalGeometry_.IsEmpty())
@@ -2110,6 +2164,7 @@ void MainFrame::OnAppearanceRequest(FreeDVTheme::AppearanceMode mode)
     auto& config = wxGetApp().appConfiguration;
     config.appearanceMode = static_cast<long>(mode);
     SetAppearanceSelection(mode);
+    watchlistWindow_->RefreshAppearance();
 
     auto* pConfig = wxConfigBase::Get();
     config.save(pConfig);
@@ -2246,6 +2301,7 @@ void MainFrame::appendDecodedSpeech_(const std::string& text)
 //-------------------------------------------------------------------------
 MainFrame::~MainFrame()
 {
+    prepareAuxiliaryWindowsForShutdown_();
     // Close the frequency list now if it's open. Otherwise ~wxComboCtrlBase()
     // closes it once this window is partly destroyed, and on macOS working out
     // where the mouse is then asserts ("TopLevel Window missing").
@@ -2947,6 +3003,8 @@ void MainFrame::topFrame_OnClose( wxCloseEvent& event )
         return;
     }
 
+    prepareAuxiliaryWindowsForShutdown_();
+
     if (m_reporterDialog != nullptr)
     {
         // Grab and save the final position explicitly rather than relying
@@ -2996,6 +3054,7 @@ void MainFrame::topFrame_OnClose( wxCloseEvent& event )
 //-------------------------------------------------------------------------
 void MainFrame::OnExit(wxCommandEvent&)
 {
+    prepareAuxiliaryWindowsForShutdown_();
     displayWorkspace_.SetSnappingEnabled(false);
     if (m_RxRunning.load(std::memory_order_acquire))
     {
@@ -4376,6 +4435,11 @@ bool MainFrame::validateSoundCardSetup(bool silent)
     engine->setOnEngineError(nullptr, nullptr);
 
     return canRun;
+}
+
+void MainFrame::ShowCallsignWatchlist()
+{
+    if (!terminating_ && !auxiliaryWindowsShuttingDown_) watchlistWindow_->Open();
 }
 
 void MainFrame::initializeFreeDVReporter_()

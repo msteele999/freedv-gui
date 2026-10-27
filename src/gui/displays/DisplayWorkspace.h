@@ -30,6 +30,9 @@ enum class DisplayId
 // notebook or a frame owned by MainFrame, never to this controller.
 class DisplayWorkspace
 {
+#if defined(ENABLE_TEST_AGENT)
+    friend class TestAgent;
+#endif
 public:
     explicit DisplayWorkspace(wxAuiNotebook& notebook);
     ~DisplayWorkspace();

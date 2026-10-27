@@ -532,6 +532,42 @@ bool settingsSurviveRestart()
     return result;
 }
 
+bool auxiliaryWindowVisibilitySurvivesRestart()
+{
+    bool result = true;
+    // Old configurations may contain geometry but no visibility preferences.
+    auto oldConfig = makeTestConfig("[Windows/DecodedSpeech]\nwidth=700\n"
+                                   "[Windows/CallsignWatchlist]\nwidth=800\n");
+    FreeDVConfiguration defaults;
+    defaults.load(oldConfig.get());
+    result &= check("transcript defaults closed", defaults.decodedSpeechWindowVisible.get(), false);
+    result &= check("watchlist defaults closed", defaults.watchlistWindowVisible.get(), false);
+    for (bool watchlist : {false, true})
+    {
+        for (bool transcript : {false, true})
+        {
+            auto config = makeTestConfig();
+            FreeDVConfiguration before;
+            before.watchlistWindowVisible = watchlist;
+            before.decodedSpeechWindowVisible = transcript;
+            before.watchlistWindowWidth = 810;
+            before.decodedSpeechWindowWidth = 710;
+            before.save(config.get());
+            auto disk = reload(*config);
+            FreeDVConfiguration after;
+            after.load(disk.get());
+            result &= check("independent watchlist visibility", after.watchlistWindowVisible.get(), watchlist);
+            result &= check("independent transcript visibility", after.decodedSpeechWindowVisible.get(), transcript);
+            result &= check("watchlist geometry unchanged", after.watchlistWindowWidth.get(), 810L);
+            result &= check("transcript geometry unchanged", after.decodedSpeechWindowWidth.get(), 710L);
+            after.load(oldConfig.get());
+            result &= check("legacy profile resets watchlist visibility", after.watchlistWindowVisible.get(), false);
+            result &= check("legacy profile resets transcript visibility", after.decodedSpeechWindowVisible.get(), false);
+        }
+    }
+    return result;
+}
+
 bool savingIsRepeatable()
 {
     // Loading what was just saved and saving it again shouldn't change
@@ -614,5 +650,6 @@ int main()
     executeTestCase("voiceKeyerSettingsSurviveRestart", voiceKeyerSettingsSurviveRestart);
     executeTestCase("settingsSurviveRestart", settingsSurviveRestart);
     executeTestCase("savingIsRepeatable", savingIsRepeatable);
+    executeTestCase("auxiliaryWindowVisibilitySurvivesRestart", auxiliaryWindowVisibilitySurvivesRestart);
     return testResult();
 }

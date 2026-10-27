@@ -10,6 +10,9 @@ class wxTopLevelWindow;
 
 class WindowSnapManager : public wxEvtHandler
 {
+#if defined(ENABLE_TEST_AGENT)
+    friend class TestAgent;
+#endif
 public:
     ~WindowSnapManager();
     void AddWindow(wxTopLevelWindow& window);
