@@ -519,6 +519,13 @@ sync with the current VFO on the radio (i.e. if the frequency is changed
 in the application, the radio will also change its frequency).
 Double-clicking on users in the Tools-&gt;FreeDV Reporter window will
 also cause this frequency to change to match the other user.</p>
+<p>By default, pushing Start sets the radio to the frequency FreeDV last
+used, and pushing Stop returns the radio to the frequency and mode it
+had before Start. To leave the radio’s frequency alone instead (FreeDV
+shows the radio’s current frequency on Start, and the radio stays where
+it is on Stop), uncheck “Save and restore the frequency on start and
+stop” in Settings-&gt;Edit Settings-&gt;Rig Control. This applies to
+both Hamlib and OmniRig.</p>
 <p><em>Note: in some setups (such as when using ALE), it is not
 preferred to have the reporting frequency automatically be in sync with
 the radio. For example, in the case of ALE, the radio’s frequency
@@ -1150,6 +1157,11 @@ DTR for PTT. (PR #1544)</li>
 <li>Improved ease of use when adjusting predefined frequencies. (PR
 #1570, #1581) - thanks <span class="citation"
 data-cites="barjac">@barjac</span>!</li>
+<li>Improved Level metering and AGC for easier input level adjustment.
+(PR #1532, #1599, #1604) - thanks <span class="citation"
+data-cites="barjac">@barjac</span>!</li>
+<li>Hamlib/OmniRig: add option to disable saving and restoring the
+radio’s frequency on start and stop. (PR #1600)</li>
 </ul></li>
 <li>Bugfixes:
 <ul>
@@ -1222,8 +1234,8 @@ displays. (PR #1514)</li>
 <li>PulseAudio: give each device its own connection. (PR #1523)</li>
 <li>Fix possible deadlock on playback completion. (PR #1533)</li>
 <li>Windows: add logic to detect audio device stalls. (PR #1537)</li>
-<li>Keep RX muted after TX until the radio confirms PTT off. (PR
-#1536)</li>
+<li>Keep RX muted after TX until the radio confirms PTT off. (PR #1536,
+#1602, #1603, #1605)</li>
 <li>Fix FreeDV hanging when starting the Voice Keyer with a cloud-backed
 file. (PR #1534)</li>
 <li>Fix data races on settings read by the audio threads. (PR
@@ -1339,6 +1351,11 @@ audio processing thread could still be waiting on them, and undoing the
 closes. (PR #1590)</li>
 <li>Stop the radio recording budget at zero instead of wrapping it. (PR
 #1592)</li>
+<li>Windows: Fix issue preventing audio devices that don’t support raw
+mode from starting. (PR #1594)</li>
+<li>PlotScalar: draw the trace when the plot is wider than its sample
+count. (PR #1597) - thanks <span class="citation"
+data-cites="barjac">@barjac</span>!</li>
 </ul></li>
 <li>Build system:
 <ul>

@@ -3,12 +3,8 @@ include(FetchContent)
 FetchContent_Declare(
     freedv_backend
     GIT_REPOSITORY https://github.com/freedv/freedv-backend
-    # Retain the validated enhanced-client revision and OpenSSL workaround.
-    GIT_TAG e9d58299926fe438cba5ec5cb5a6870028c718ac
-    PATCH_COMMAND
-        ${CMAKE_COMMAND}
-        -DBACKEND_SOURCE=<SOURCE_DIR>/src/util/TcpConnectionHandler.cpp
-        -P ${CMAKE_CURRENT_LIST_DIR}/PatchBackendOpenSSL.cmake
+    # Pin the upstream v2.0-dev backend for reproducible builds.
+    GIT_TAG 9922bba3aed07c4b3d13ef7a4b003f917f253ded
 )
 
 FetchContent_MakeAvailable(freedv_backend)

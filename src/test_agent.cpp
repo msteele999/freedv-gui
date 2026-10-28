@@ -44,6 +44,7 @@
 #include "main.h"
 #include "freedv_interface.h"
 #include "gui/controls/LevelGauge.h"
+#include "gui/controls/LevelMeterLed.h"
 
 extern std::atomic<bool> g_tx;
 extern std::atomic<int> g_analog;
@@ -51,6 +52,7 @@ extern std::atomic<float> g_RxFreqOffsetHz;
 extern std::atomic<float> g_TxFreqOffsetHz;
 extern std::atomic<bool> g_loopPlayFileFromRadio;
 extern std::atomic<bool> isModemRunning;
+extern std::atomic<float> g_agcAppliedGainDb;
 extern FreeDVInterface freedvInterface;
 
 #if defined(__APPLE__)
@@ -877,6 +879,15 @@ yyjson_mut_val* TestAgent::describeWindow_(yyjson_mut_doc* doc, wxWindow* window
     else if (auto levelGauge = dynamic_cast<LevelGauge*>(window))
     {
         yyjson_mut_obj_add_int(doc, obj, "value", levelGauge->GetValue());
+    }
+    else if (auto meter = dynamic_cast<LevelMeterLed*>(window))
+    {
+        yyjson_mut_obj_add_real(doc, obj, "value", meter->GetLevelDb());
+        yyjson_mut_obj_add_real(doc, obj, "minDb", meter->GetMinDb());
+        yyjson_mut_obj_add_real(doc, obj, "maxDb", meter->GetMaxDb());
+        yyjson_mut_obj_add_real(doc, obj, "amberStartDb", meter->GetAmberStartDb());
+        yyjson_mut_obj_add_real(doc, obj, "redStartDb", meter->GetRedStartDb());
+        yyjson_mut_obj_add_bool(doc, obj, "zoneColours", meter->GetZoneColours());
     }
     else if (auto slider = wxDynamicCast(window, wxSlider))
     {
@@ -1952,6 +1963,7 @@ void TestAgent::commandGetState_(yyjson_val* id)
     yyjson_mut_obj_add_bool(doc, state, "loopPlayFileFromRadio", g_loopPlayFileFromRadio.load(std::memory_order_relaxed));
     yyjson_mut_obj_add_real(doc, state, "monitorTxAudioVol", config.monitorTxAudioVol.get());
     yyjson_mut_obj_add_real(doc, state, "monitorVoiceKeyerAudioVol", config.monitorVoiceKeyerAudioVol.get());
+    yyjson_mut_obj_add_real(doc, state, "agcAppliedGainDb", g_agcAppliedGainDb.load(std::memory_order_relaxed));
 
     yyjson_mut_val* audio = yyjson_mut_obj(doc);
     yyjson_mut_obj_add_val(doc, audio, "soundCard1In", DescribeSoundDevice_(doc, config.audioConfiguration.soundCard1In));
@@ -1993,6 +2005,7 @@ void TestAgent::commandGetState_(yyjson_val* id)
     yyjson_mut_val* filter = yyjson_mut_obj(doc);
     yyjson_mut_obj_add_bool(doc, filter, "noiseReductionEnable", filterConfig.noiseReductionEnable.get());
     yyjson_mut_obj_add_bool(doc, filter, "agcEnabled", filterConfig.agcEnabled.get());
+    yyjson_mut_obj_add_real(doc, filter, "levelerTargetLufs", filterConfig.levelerTargetLufs.get());
     yyjson_mut_obj_add_bool(doc, filter, "bwExpandEnabled", filterConfig.bwExpandEnabled.get());
     auto describeChannel = [&](auto& channel) {
         yyjson_mut_val* obj = yyjson_mut_obj(doc);

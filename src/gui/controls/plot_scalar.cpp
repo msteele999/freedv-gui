@@ -181,6 +181,7 @@ PlotScalar::PlotScalar(wxWindow* parent,
     plotSurface_ = nullptr;
     addedPoints_ = 0;
     halfPlot_ = halfPlot;
+    lineWidth_ = 1;
     disableFirstLastLabels_ = disableFirstLastLabels;
     traceStyle_ = traceStyle;
 
@@ -462,7 +463,7 @@ void PlotScalar::draw(wxGraphicsContext* ctx, bool repaintDataOnly)
 
     wxPen pen;
     pen.SetColour(DARK_GREEN_COLOR);
-    pen.SetWidth(1);
+    pen.SetWidth(lineWidth_);
     if (!DRAW_DIRECTLY && !useSurface)
     {
         plotAreaDC_->SetPen(pen);
@@ -499,19 +500,19 @@ void PlotScalar::draw(wxGraphicsContext* ctx, bool repaintDataOnly)
 
         x = index_to_px * i;
 
-        // put inside plot window
+        // put inside plot window. The first sample too: when the plot has
+        // more pixels than samples, the pixels before the second sample would
+        // otherwise keep INT_MAX/INT_MIN, a point far outside the plot that
+        // stopped the whole trace being drawn on macOS.
 
-        if (i)
+        for (int x2 = x; x2 <= std::ceil(index_to_px * (i + 1)) && x2 < plotWidth; x2++)
         {
-            for (int x2 = x; x2 <= std::ceil(index_to_px * (i + 1)) && x2 < plotWidth; x2++)
-            {
-                auto item = &lineMap_[x2];
-                item->y1 = std::min(item->y1, y);
+            auto item = &lineMap_[x2];
+            item->y1 = std::min(item->y1, y);
 
-                if (!halfPlot_)
-                {
-                    item->y2 = std::max(item->y2, y);
-                }
+            if (!halfPlot_)
+            {
+                item->y2 = std::max(item->y2, y);
             }
         }
     }

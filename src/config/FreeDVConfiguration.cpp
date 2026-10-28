@@ -87,6 +87,11 @@ FreeDVConfiguration::FreeDVConfiguration()
          {"/Windows/Independent/Displays/SNR/width", -1},
          {"/Windows/Independent/Displays/SNR/height", -1},
          {"/Windows/Independent/Displays/SNR/visible", false}},
+        {{"/Windows/Independent/Displays/AgcGain/left", 20},
+         {"/Windows/Independent/Displays/AgcGain/top", 20},
+         {"/Windows/Independent/Displays/AgcGain/width", -1},
+         {"/Windows/Independent/Displays/AgcGain/height", -1},
+         {"/Windows/Independent/Displays/AgcGain/visible", false}},
     }}
 
     /* Position and size of Audio Config window */

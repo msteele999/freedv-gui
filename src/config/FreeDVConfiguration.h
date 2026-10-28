@@ -81,7 +81,7 @@ public:
         ConfigurationDataElement<long> height;
         ConfigurationDataElement<bool> visible;
     };
-    std::array<IndependentDisplayConfiguration, 6> independentDisplays;
+    std::array<IndependentDisplayConfiguration, 7> independentDisplays;
 
     ConfigurationDataElement<long> audioConfigWindowLeft;
     ConfigurationDataElement<long> audioConfigWindowTop;

@@ -23,6 +23,7 @@ enum class DisplayId
     FrmMic = 3,
     FrmDecoder = 4,
     SNR = 5,
+    AgcGain = 6,
     Count
 };
 

@@ -14,18 +14,24 @@ needs). Hamlib's rigctld stands in for the radio; without it ($RIGCTLD, the
 PATH or the build folder's copy), these are skipped.
 """
 
+import array
 import os
+import shutil
 import sys
+import tempfile
 import time
+import wave
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import freedvtest
 import freedvtest.audio
+from freedvtest.audio import Tone, VirtualAudioDevices, play, record
+from freedvtest.pulse import RecordLatency
 from freedvtest.rigctld import Rigctld, find_rigctld
 from freedvtest.serial import SerialPorts
-from test_main_window import (CALLSIGN, audio_devices, check, check_equal, settings, start_modem, stop_modem,
-                              transmitting, wait_for_transmit)
+from test_main_window import (CALLSIGN, MICROPHONE, RADIO_RX, RADIO_TX, audio_devices, check, check_equal, settings,
+                              start_modem, stop_modem, transmitting, wait_for_transmit)
 
 SKIPPED = 77
 
@@ -175,6 +181,44 @@ def test_frequency_only():
             wait_for(lambda: not radio.transmitting(), "The radio was left keyed")
             stop_modem(app)
             quit_and_check_log(app)
+
+
+def test_save_restore_frequency():
+    """By default, Start puts the radio on the frequency FreeDV last used and
+    Stop puts it back where it was before. Told not to, FreeDV shows where the
+    radio is on Start and leaves it where it is on Stop."""
+    for save_restore in [True, False]:
+        with Rigctld() as radio, audio_devices():
+            radio.set_frequency(14236000)
+            radio.command("M AM 6000")
+            extra = dict(Hamlib__SaveRestoreFrequency=save_restore, Reporting__Frequency=7177000)
+            with freedvtest.start(settings=rig_settings(radio.address, **extra)) as app:
+                app.wait_for_window("main")
+                start_modem(app)
+                if save_restore:
+                    wait_for(lambda: radio.frequency() == 7177000,
+                             lambda: "The radio is on %d Hz after starting, not 7177000" % radio.frequency())
+                    wait_for_frequency(app, "7.1770", "Frequency displayed after starting")
+                else:
+                    wait_for_frequency(app, "14.2360", "Frequency displayed after starting")
+                    check_equal(radio.frequency(), 14236000, "Radio's frequency after starting")
+
+                    # Moving it from FreeDV still works; that's where it stays.
+                    app.set_value("main.cboReportFrequency", "7.1770")
+                    wait_for(lambda: radio.frequency() == 7177000,
+                             lambda: "The radio is on %d Hz, not 7177000" % radio.frequency())
+                wait_for(lambda: "USB" in radio.mode(), lambda: "The radio's mode after starting is %s" % radio.mode())
+
+                stop_modem(app)
+                if save_restore:
+                    wait_for(lambda: (radio.frequency(), radio.mode()) == (14236000, "AM"),
+                             lambda: "The radio is on %d Hz, %s after stopping, not 14236000 Hz, AM" %
+                             (radio.frequency(), radio.mode()))
+                else:
+                    time.sleep(3)
+                    check_equal(radio.frequency(), 7177000, "Radio's frequency after stopping")
+                    check("USB" in radio.mode(), "The radio's mode after stopping is %s" % radio.mode())
+                quit_and_check_log(app)
 
 
 def test_mode_display():
@@ -451,6 +495,65 @@ def test_serial_ptt():
                     quit_and_check_log(app)
 
 
+def test_receive_after_transmit():
+    """Once the radio has confirmed it's stopped transmitting, FreeDV goes
+    back to receiving, even if the sound system says its input is a very long
+    way behind. Some PipeWire versions say about 2055 seconds, which kept RX
+    muted for that long, through Stop and Start too (#1601)."""
+    folder = tempfile.mkdtemp(prefix="freedvtest-files-")
+    try:
+        reply = os.path.join(folder, "reply.wav")
+        with Rigctld() as radio, audio_devices(), RecordLatency(2055085278) as latency:
+            with freedvtest.start(settings=rig_settings(radio.address), env=latency.env) as app:
+                app.wait_for_window("main")
+                start_modem(app)
+
+                def answer(what):
+                    """Plays the reply to FreeDV as if from the radio."""
+                    player = play(RADIO_RX, reply)
+                    try:
+                        app.wait_until(lambda: app.state()["sync"] == 1, timeout=15,
+                                       description="FreeDV to sync on a reply %s" % what)
+                    finally:
+                        player.kill()
+                        player.wait()
+                    app.wait_until(lambda: app.state()["sync"] == 0, timeout=15, description="FreeDV to lose sync")
+
+                # Someone to answer: FreeDV's own transmission, kept for later.
+                with Tone(MICROPHONE):
+                    app.click("main.btnPTT")
+                    wait_for_transmit(app)
+                    wait_for(radio.transmitting, "The radio wasn't keyed")
+                    time.sleep(1)
+                    samples = record(VirtualAudioDevices.input_name(RADIO_TX), 8, rate=48000)[0]
+                    app.click("main.btnPTT")
+                    wait_for_transmit(app, False)
+                    wait_for(lambda: not radio.transmitting(), "The radio was left keyed")
+                with wave.open(reply, "wb") as f:
+                    f.setnchannels(1)
+                    f.setsampwidth(2)
+                    f.setframerate(48000)
+                    f.writeframes(array.array("h", samples).tobytes())
+                if sys.platform.startswith("linux") and not latency.reported():
+                    print("NOTE: FreeDV didn't ask PulseAudio for its input's latency", flush=True)
+
+                answer("after transmitting")
+
+                # Once more, after stopping and starting.
+                app.click("main.btnPTT")
+                wait_for_transmit(app)
+                app.click("main.btnPTT")
+                wait_for_transmit(app, False)
+                stop_modem(app)
+                start_modem(app)
+                answer("after stopping and starting")
+
+                stop_modem(app)
+                quit_and_check_log(app)
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
 def test_lost():
     """The radio going away while FreeDV is running."""
     with Rigctld() as radio, audio_devices():
@@ -502,10 +605,12 @@ SCENARIOS = {
     "frequency_only": test_frequency_only,
     "mode_display": test_mode_display,
     "analog_sideband": test_analog_sideband,
+    "save_restore_frequency": test_save_restore_frequency,
     "editing_frequency": test_editing_frequency,
     "unreachable": test_unreachable,
     "serial_ptt": test_serial_ptt,
     "missing_port": test_missing_port,
+    "receive_after_transmit": test_receive_after_transmit,
     "lost": test_lost,
 }
 
