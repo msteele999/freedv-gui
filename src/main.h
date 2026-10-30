@@ -474,6 +474,8 @@ class MainFrame : public TopFrame
         void OnHelp( wxCommandEvent& event ) override;
 
         void OnTogBtnOnOff( wxCommandEvent& event ) override;
+        void updateRadeModeSelection_();
+        void OnRadeModeSelected(wxCommandEvent& event);
         void OnTogBtnRecord( wxCommandEvent& event ) override;
 
         virtual void OnLogQSO(wxCommandEvent& event) override;

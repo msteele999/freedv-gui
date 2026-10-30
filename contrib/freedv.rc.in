@@ -15,12 +15,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "FreeDV\0"
             VALUE "FileDescription", "FreeDV - @PROJECT_DESCRIPTION@\0"
-            VALUE "FileVersion", "@CPACK_WIN_VERSION@\0"
+            VALUE "FileVersion", "@FREEDV_RESOURCE_VERSION@\0"
             VALUE "InternalName", "FreeDV\0"
             VALUE "LegalCopyright", "Copyright (c) @COPYRIGHT_YEAR@ FreeDV\0"
             VALUE "LegalTrademarks", "\0"
             VALUE "ProductName", "FreeDV\0"
-            VALUE "ProductVersion", "@CPACK_WIN_VERSION@\0"
+            VALUE "ProductVersion", "@FREEDV_RESOURCE_VERSION@\0"
         END
     END
     BLOCK "VarFileInfo"

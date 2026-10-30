@@ -52,6 +52,7 @@
 #include <wx/dialog.h>
 #include <wx/radiobut.h>
 #include <wx/combobox.h>
+#include <wx/choice.h>
 #include <wx/panel.h>
 #include <wx/listbox.h>
 #include <wx/notebook.h>
@@ -119,6 +120,7 @@ class TopFrame : public wxFrame
         wxListViewComboPopup* m_lastReportedCallsignListView;
         
         wxStaticText* m_txtModeStatus;
+        wxChoice* m_choiceRadeMode;
 
         wxStaticText* m_txtTxLevelNum;
         wxButton* m_btnTxLevelMM;

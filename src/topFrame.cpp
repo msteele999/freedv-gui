@@ -32,6 +32,7 @@
 #include <wx/datetime.h>
 
 #include "topFrame.h"
+#include "config/RadeMode.h"
 #include "defines.h"
 #include "gui/theme/FreeDVTheme.h"
 
@@ -860,7 +861,19 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
     sbSizer5 = new wxStaticBoxSizer(controlBox, wxVERTICAL);
 
     //-------------------------------
-    // Stop/Stop signal processing (rx and tx)
+    // Selected mode is independent of the active codec shown in modem status.
+    //-------------------------------
+    sbSizer5->Add(new wxStaticText(controlBox, wxID_ANY, _("Selected RADE mode")),
+                  0, wxLEFT | wxRIGHT | wxTOP, 5);
+    m_choiceRadeMode = new wxChoice(controlBox, wxID_ANY);
+    m_choiceRadeMode->SetName("main.choiceRadeMode");
+    for (const auto mode : RadeModes::selectable)
+        m_choiceRadeMode->Append(wxGetTranslation(RadeModes::DisplayName(mode)));
+    m_choiceRadeMode->SetToolTip(_("Choose a mode while stopped. RADEV2 is experimental and is not yet implemented."));
+    sbSizer5->Add(m_choiceRadeMode, 0, static_cast<int>(wxALL) | static_cast<int>(wxEXPAND), 5);
+
+    //-------------------------------
+    // Start/Stop signal processing (rx and tx)
     //-------------------------------
     m_togBtnOnOff = new wxToggleButton(controlBox, wxID_ANY, _("&Start Modem"), wxDefaultPosition, wxDefaultSize, 0);
     m_togBtnOnOff->SetToolTip(_("Begin/End receiving data."));

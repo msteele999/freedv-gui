@@ -24,6 +24,47 @@ std::unique_ptr<wxFileConfig> makeTestConfig(wxString const& contents = "")
     return makeConfig(wxString(BASE_CONFIG) + contents);
 }
 
+bool radeModeDefaultsAndValidation()
+{
+    FreeDVConfiguration settings;
+    if (settings.getSelectedRadeMode() != RadeMode::RADEV1) return false;
+    for (const auto value : {"", "0", "-1", "3", "999999", "invalid", "2junk"})
+    {
+        auto config = makeTestConfig();
+        if (*value) config->Write("/Modem/SelectedRadeMode", value);
+        // A profile without a valid value must reset a previous V2 selection.
+        settings.setSelectedRadeMode(RadeMode::RADEV2);
+        settings.load(config.get());
+        if (settings.getSelectedRadeMode() != RadeMode::RADEV1) return false;
+    }
+    settings.setSelectedRadeMode(static_cast<RadeMode>(-1));
+    return settings.getSelectedRadeMode() == RadeMode::RADEV1 &&
+        RadeModes::CanStart(RadeMode::RADEV1) && !RadeModes::CanStart(RadeMode::RADEV2) &&
+        !RadeModes::CanStart(static_cast<RadeMode>(-1)) &&
+        check("V1 display", wxString(RadeModes::DisplayName(RadeMode::RADEV1)), "RADEV1") &&
+        check("V2 display", wxString(RadeModes::DisplayName(RadeMode::RADEV2)), "RADEV2 (experimental)");
+}
+
+bool radeModesSurviveRestart()
+{
+    for (const auto mode : RadeModes::selectable)
+    {
+        auto config = makeTestConfig("[Unrelated]\nKeep=preserve me\n");
+        FreeDVConfiguration first;
+        first.load(config.get());
+        first.setSelectedRadeMode(mode);
+        first.save(config.get());
+        auto disk = reload(*config);
+        FreeDVConfiguration second;
+        second.load(disk.get());
+        long stored = 0;
+        disk->Read("/Modem/SelectedRadeMode", &stored);
+        if (second.getSelectedRadeMode() != mode || stored != static_cast<long>(mode) ||
+            disk->Read("/Unrelated/Keep", "") != "preserve me") return false;
+    }
+    return true;
+}
+
 bool audioSampleRatesDefaultToUnset()
 {
     auto config = makeTestConfig();
@@ -623,6 +664,8 @@ int main()
         return -1;
     }
 
+    executeTestCase("radeModeDefaultsAndValidation", radeModeDefaultsAndValidation);
+    executeTestCase("radeModesSurviveRestart", radeModesSurviveRestart);
     executeTestCase("audioSampleRatesDefaultToUnset", audioSampleRatesDefaultToUnset);
     executeTestCase("audioSampleRatesMigrateFromPerCardRates", audioSampleRatesMigrateFromPerCardRates);
     executeTestCase("audioPerDirectionRatesTakePrecedence", audioPerDirectionRatesTakePrecedence);

@@ -32,6 +32,7 @@
 #include "RigControlConfiguration.h"
 #include "ReportingConfiguration.h"
 #include "CallsignWatchlist.h"
+#include "RadeMode.h"
 #include "../gui/theme/FreeDVTheme.h"
 
 class FreeDVConfiguration : public WxWidgetsConfigStore
@@ -150,8 +151,14 @@ public:
     
     ConfigurationDataElement<bool> autoStartOnLaunch;
 
+    RadeMode getSelectedRadeMode();
+    void setSelectedRadeMode(RadeMode mode);
+
     virtual void load(wxConfigBase* config) override;
     virtual void save(wxConfigBase* config) override;
+
+private:
+    ConfigurationDataElement<long> selectedRadeMode_;
 };
 
 #endif // FREEDV_CONFIGURATION_H

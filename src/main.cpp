@@ -1153,6 +1153,7 @@ void MainFrame::loadConfiguration_()
     SetIndependentControlPresentation(false);
     updateDisplayVisibilityControls_();
     wxGetApp().appConfiguration.load(pConfig);
+    updateRadeModeSelection_();
     watchlistWindow_->RestoreGeometry();
     watchlistWindow_->RefreshAppearance();
     applyDecodedSpeechFontSize_();
@@ -1695,6 +1696,7 @@ MainFrame::MainFrame(wxWindow *parent) : TopFrame(parent, wxID_ANY, wxT("FreeDV 
     m_btnTogPTT->Bind(wxEVT_LEFT_DCLICK, &MainFrame::OnTogBtnPTTMouseDown, this);
     m_btnTogPTT->Bind(wxEVT_LEAVE_WINDOW, &MainFrame::OnTogBtnPTTMouseLeave, this);
 
+    m_choiceRadeMode->Bind(wxEVT_CHOICE, &MainFrame::OnRadeModeSelected, this);
     loadConfiguration_();
 
 #ifdef _USE_TIMER
@@ -1856,7 +1858,10 @@ MainFrame::MainFrame(wxWindow *parent) : TopFrame(parent, wxID_ANY, wxT("FreeDV 
         // silently first avoids popping up error dialogs (or the Easy Setup
         // dialog) at launch for users who haven't fully configured audio yet.
         CallAfter([&]() {
-            if (!validateSoundCardSetup(true)) return;
+            // Let the shared startup guard explain an unavailable mode even
+            // when audio has not been configured. Preserve V1's silent check.
+            if (RadeModes::CanStart(wxGetApp().appConfiguration.getSelectedRadeMode()) &&
+                !validateSoundCardSetup(true)) return;
 
             m_togBtnOnOff->SetValue(true);
             wxCommandEvent onEvent(wxEVT_COMMAND_TOGGLEBUTTON_CLICKED, m_togBtnOnOff->GetId());
@@ -3557,6 +3562,34 @@ void MainFrame::performFreeDVOff_()
     });
 }
 
+void MainFrame::updateRadeModeSelection_()
+{
+    const auto selected = wxGetApp().appConfiguration.getSelectedRadeMode();
+    for (size_t index = 0; index < RadeModes::selectable.size(); ++index)
+        if (RadeModes::selectable[index] == selected)
+            m_choiceRadeMode->SetSelection(static_cast<int>(index));
+}
+
+void MainFrame::OnRadeModeSelected(wxCommandEvent&)
+{
+    // Also reject queued/programmatic events during a session or transition.
+    if (m_RxRunning.load(std::memory_order_acquire) || !m_togBtnOnOff->IsEnabled())
+    {
+        updateRadeModeSelection_();
+        return;
+    }
+    const int index = m_choiceRadeMode->GetSelection();
+    if (index < 0 || static_cast<size_t>(index) >= RadeModes::selectable.size())
+    {
+        updateRadeModeSelection_();
+        return;
+    }
+    auto& config = wxGetApp().appConfiguration;
+    config.setSelectedRadeMode(RadeModes::selectable[index]);
+    config.save(pConfig);
+    pConfig->Flush();
+}
+
 //-------------------------------------------------------------------------
 // OnTogBtnOnOff()
 //-------------------------------------------------------------------------
@@ -3564,10 +3597,23 @@ void MainFrame::OnTogBtnOnOff(wxCommandEvent&)
 {
     if (!m_togBtnOnOff->IsEnabled()) return;
 
+    // All startup paths (including auto-start) enter here, before any worker,
+    // modem audio device or codec is started.
+    if (!m_RxRunning.load(std::memory_order_acquire) &&
+        !RadeModes::CanStart(wxGetApp().appConfiguration.getSelectedRadeMode()))
+    {
+        m_togBtnOnOff->SetValue(false);
+        wxMessageBox(_("RADEV2 is experimental and is not yet implemented.\n"
+                       "The modem has not been started. Select RADEV1 to use the modem."),
+                     _("RADEV2 not yet available"), wxOK | wxICON_INFORMATION, this);
+        return;
+    }
+
     m_togBtnOnOff->SetFocus();
 
     // Disable buttons while on/off is occurring
     m_togBtnOnOff->Enable(false);
+    m_choiceRadeMode->Enable(false);
     m_togBtnAnalog->Enable(false);
     m_togBtnVoiceKeyer->Enable(false);
     m_btnTogPTT->Enable(false);
@@ -3609,6 +3655,7 @@ void MainFrame::OnTogBtnOnOff(wxCommandEvent&)
                 }
                 m_togBtnOnOff->SetValue(m_RxRunning.load(std::memory_order_acquire));
                 m_togBtnOnOff->Enable(true);
+                m_choiceRadeMode->Enable(!m_RxRunning.load(std::memory_order_acquire));
 
                 // On some systems the Report Frequency box ends up getting
                 // focus after clicking on Start. This causes the frequency
@@ -3659,6 +3706,7 @@ void MainFrame::OnTogBtnOnOff(wxCommandEvent&)
                 m_togBtnOnOff->SetValue(m_RxRunning.load(std::memory_order_acquire));
                 m_togBtnOnOff->SetLabel(_("&Start Modem"));
                 m_togBtnOnOff->Enable(true);
+                m_choiceRadeMode->Enable(!m_RxRunning.load(std::memory_order_acquire));
 
                 if (terminating_)
                 {

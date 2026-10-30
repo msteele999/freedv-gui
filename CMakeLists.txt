@@ -79,6 +79,14 @@ set(FREEDV_VERSION_TAG "dev")
 add_definitions(-DUNOFFICIAL_RELEASE)
 endif(NOT DEFINED FREEDV_VERSION_TAG)
 
+# Optional source-tree identity. Shared version generation retains the existing
+# W2MWS convention when no override is supplied (e.g. on the stable branch).
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/BuildIdentity.cmake" OPTIONAL)
+set(FREEDV_DISPLAY_VERSION "${FreeDV_VERSION}-${FREEDV_VERSION_TAG}-W2MWS.${W2MWS_RELEASE_NUMBER}")
+if(FREEDV_BUILD_VERSION_OVERRIDE)
+    set(FREEDV_DISPLAY_VERSION "${FREEDV_BUILD_VERSION_OVERRIDE}")
+endif()
+
 # Prevent in-source builds to protect automake/autoconf config.
 # If an in-source build is attempted, you will still need to clean up a few
 # files manually.
@@ -794,6 +802,13 @@ if(WIN32)
 
     set(CPACK_WIN_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_VER_TWEAK}")
 
+    # Windows' fixed version fields must stay numeric. Its string fields may
+    # carry the full build identity without changing installer versioning.
+    set(FREEDV_RESOURCE_VERSION "${CPACK_WIN_VERSION}")
+    if(FREEDV_BUILD_VERSION_OVERRIDE)
+        set(FREEDV_RESOURCE_VERSION "${FREEDV_DISPLAY_VERSION}")
+    endif()
+
     string(TIMESTAMP COPYRIGHT_YEAR "%Y")
     set(CPACK_NSIS_DEFINES
         "${CPACK_NSIS_DEFINES}
@@ -936,7 +951,7 @@ endforeach(scenario)
 
 # These measure what FreeDV plays and records, so they're kept from running
 # alongside anything else.
-foreach(scenario transmit ptt_key ptt_key_elsewhere tx_level receive analog play_file play_file_loop voice_keyer voice_keyer_reply voice_keyer_files recording recording_options unwritable_files monitor_volume mouse_controls tune_level_per_band frequency_units time_out_timer voice_keyer_time_out ptt_key_time_out menus help_and_restore default_config config_migration_failure exit_menu reporting_without_callsign band_names appearance_change tab_layout heard_list window_geometry receive_reports test_tone exit_while_tuning old_settings bad_command_line)
+foreach(scenario transmit ptt_key ptt_key_elsewhere tx_level receive analog play_file play_file_loop voice_keyer voice_keyer_reply voice_keyer_files recording recording_options unwritable_files monitor_volume mouse_controls tune_level_per_band frequency_units time_out_timer voice_keyer_time_out ptt_key_time_out menus help_and_restore default_config config_migration_failure exit_menu reporting_without_callsign band_names appearance_change tab_layout heard_list window_geometry receive_reports test_tone exit_while_tuning old_settings bad_command_line rade_mode_selection rade_v2_start_blocked rade_mode_while_running)
     add_test(NAME gui_main_window_${scenario}
              COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/test/gui/test_main_window.py ${scenario})
     set_tests_properties(gui_main_window_${scenario} PROPERTIES LABELS gui RUN_SERIAL TRUE SKIP_RETURN_CODE 77)

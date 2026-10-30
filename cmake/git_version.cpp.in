@@ -20,7 +20,7 @@ const char *FREEDV_GIT_HASH = "@GIT_HASH@";
 
 std::string GetFreeDVVersion()
 {
-    return "@FreeDV_VERSION@-@FREEDV_VERSION_TAG@-W2MWS.@W2MWS_RELEASE_NUMBER@";
+    return "@FREEDV_DISPLAY_VERSION@";
 }
 
 std::string GetFreeDVVersionClean()

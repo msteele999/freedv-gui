@@ -80,6 +80,7 @@ function(CheckGitSetup)
         -DFreeDV_VERSION=${FreeDV_VERSION}
         -DFREEDV_VERSION_TAG=${FREEDV_VERSION_TAG}
         -DW2MWS_RELEASE_NUMBER=${W2MWS_RELEASE_NUMBER}
+        "-DFREEDV_DISPLAY_VERSION=${FREEDV_DISPLAY_VERSION}"
         -P ${CURRENT_LIST_DIR}/CheckGit.cmake
         BYPRODUCTS ${post_configure_file}
         )

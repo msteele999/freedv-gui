@@ -164,8 +164,19 @@ FreeDVConfiguration::FreeDVConfiguration()
         
     , showDecodeStats("/Debug/showDecodeStats", false)
     , autoStartOnLaunch("/Modem/autoStartOnLaunch", false)
+    , selectedRadeMode_("/Modem/SelectedRadeMode", static_cast<long>(RadeMode::RADEV1))
 {
     // empty
+}
+
+RadeMode FreeDVConfiguration::getSelectedRadeMode()
+{
+    return RadeModes::FromStoredValue(selectedRadeMode_.get());
+}
+
+void FreeDVConfiguration::setSelectedRadeMode(RadeMode mode)
+{
+    selectedRadeMode_ = static_cast<long>(RadeModes::FromStoredValue(static_cast<long>(mode)));
 }
 
 void FreeDVConfiguration::load(wxConfigBase* config)
@@ -335,6 +346,8 @@ void FreeDVConfiguration::load(wxConfigBase* config)
     
     load_(config, showDecodeStats);
     load_(config, autoStartOnLaunch);
+    load_(config, selectedRadeMode_);
+    setSelectedRadeMode(getSelectedRadeMode());
 
     load_(config, txAttenByBand);
     load_(config, tuneAttenByBand);
@@ -447,6 +460,7 @@ void FreeDVConfiguration::save(wxConfigBase* config)
     
     save_(config, showDecodeStats);
     save_(config, autoStartOnLaunch);
+    save_(config, selectedRadeMode_);
 
     save_(config, txAttenByBand);
     save_(config, tuneAttenByBand);

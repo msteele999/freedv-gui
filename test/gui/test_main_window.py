@@ -2668,7 +2668,75 @@ def test_bad_command_line():
         shutil.rmtree(folder, ignore_errors=True)
 
 
+def test_rade_mode_selection():
+    """The same selector follows the persisted selection in both workspaces."""
+    for independent in (False, True):
+        for stored, expected in ((None, 0), (1, 0), (2, 1), (99, 0), ("invalid", 0)):
+            config = settings(Windows__Independent__active=independent)
+            if stored is not None:
+                config["/Modem/SelectedRadeMode"] = stored
+            with freedvtest.start(settings=config) as app:
+                app.wait_for_window("main")
+                selector = app.get("main.choiceRadeMode")
+                check(selector["shown"] and selector["enabled"], "Mode selector unavailable")
+                check_equal(selector["selection"], expected, "Persisted mode selection")
+                check_equal(selector["value"], ("RADEV1", "RADEV2 (experimental)")[expected],
+                            "Mode selector label")
+                for index in (1, 0):
+                    app.set_value("main.choiceRadeMode", index=index)
+                    check_equal(app.state()["running"], False, "Selection started the modem")
+                    check_equal(freedvtest.read_config(app.config_path)["/Modem/SelectedRadeMode"],
+                                str(index + 1), "Saved selected mode")
+                quit_and_check_log(app)
+
+
+def test_rade_v2_start_blocked():
+    """Manual and automatic startup stop before modem audio/codec initialization."""
+    for independent in (False, True):
+        for auto_start in (False, True):
+            with freedvtest.start(settings=settings(
+                    Windows__Independent__active=independent,
+                    Modem__SelectedRadeMode=2, Modem__autoStartOnLaunch=auto_start)) as app:
+                app.wait_for_window("main")
+                if not auto_start:
+                    app.click("main.btnOnOff")
+                app.wait_until(lambda: bool(app.message_boxes()), description="RADEV2 explanation")
+                boxes = app.message_boxes(clear=True)
+                check_equal([box["caption"] for box in boxes], ["RADEV2 not yet available"],
+                            "RADEV2 startup message")
+                check("not yet implemented" in boxes[0]["message"], "Missing implementation explanation")
+                check_equal(app.state()["running"], False, "RADEV2 started the modem")
+                check_equal(app.state()["modemRunning"], False, "RADEV2 initialized a codec")
+                check_equal(app.get("main.btnOnOff")["value"], False, "Start toggle after rejection")
+                check_equal(app.get("main.choiceRadeMode")["selection"], 1, "Selected RADEV2 retained")
+                check(app.get("main.choiceRadeMode")["enabled"], "Selector disabled after rejection")
+                quit_and_check_log(app)
+
+
+def test_rade_mode_while_running():
+    """V1 runs as before; the selected mode stays locked for the session."""
+    with audio_devices():
+        for independent in (False, True):
+            with freedvtest.start(settings=settings(Windows__Independent__active=independent)) as app:
+                app.wait_for_window("main")
+                start_modem(app)
+                check_equal(app.get("main.choiceRadeMode")["enabled"], False, "Mode selector while running")
+                try:
+                    app.set_value("main.choiceRadeMode", index=1)
+                except freedvtest.FreeDVError as error:
+                    check("disabled" in str(error), "Unexpected mode selection error: %s" % error)
+                else:
+                    raise AssertionError("Mode selection allowed while running")
+                check_equal(app.get("main.choiceRadeMode")["selection"], 0, "Running mode selection")
+                stop_modem(app)
+                check(app.get("main.choiceRadeMode")["enabled"], "Mode selector disabled after stop")
+                quit_and_check_log(app)
+
+
 SCENARIOS = {
+    "rade_mode_selection": test_rade_mode_selection,
+    "rade_v2_start_blocked": test_rade_v2_start_blocked,
+    "rade_mode_while_running": test_rade_mode_while_running,
     "transmit": test_transmit,
     "ptt_key": test_ptt_key,
     "ptt_key_elsewhere": test_ptt_key_elsewhere,
