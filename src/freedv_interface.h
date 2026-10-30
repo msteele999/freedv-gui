@@ -56,10 +56,14 @@ extern "C"
 #include "freedv_sanitizers.h"
 #include "util/realtime_fp.h"
 #include "util/GenericFIFO.h"
+#include "config/RadeMode.h"
+#include "pipeline/radev2/rade_v2_text.h"
 
 class IPipelineStep;
 class RADETransmitStep;
 class RADEReceiveStep;
+class RADEV2TransmitStep;
+class RADEV2ReceiveStep;
 
 class FreeDVInterface
 {
@@ -67,7 +71,10 @@ public:
     FreeDVInterface();
     virtual ~FreeDVInterface();
     
-    void start(int fifoSizeMs, bool usingReliableText, bool verbose = false);
+    // False means invalid mode, already running, or codec initialization failed.
+    // No mode fallback is performed. Call only with the processing threads stopped.
+    bool start(int fifoSizeMs, bool usingReliableText, bool verbose = false,
+               RadeMode mode = RadeMode::RADEV1);
     void stop();
     bool isRunning() const { return rade_ != nullptr; }
     
@@ -143,15 +150,18 @@ private:
     FARGANState fargan_;
     LPCNetEncState *lpcnetEncState_; 
     RADETransmitStep *radeTxStep_;
+    RADEV2TransmitStep *radeV2TxStep_;
+    std::atomic<RadeMode> activeMode_;
     std::atomic<int> sync_;
     std::atomic<int> radeSnr_;
     std::atomic<float> rxFreqOffset_; // published by the RX thread for the GUI
     rade_text_t radeTextPtr_;
+    rade_v2_text_t radeV2TextPtr_;
     
     static constexpr int RELIABLE_TEXT_FIFO_SIZE = 64;
     GenericFIFO<char> reliableTextFifo_;
 
-    void radeSyncFn_(RADEReceiveStep* step) FREEDV_NONBLOCKING;
+    void publishRxState_(int sync, int snr) FREEDV_NONBLOCKING;
 };
 
 #endif // FREEDV_INTERFACE_H

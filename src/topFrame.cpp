@@ -869,7 +869,7 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
     m_choiceRadeMode->SetName("main.choiceRadeMode");
     for (const auto mode : RadeModes::selectable)
         m_choiceRadeMode->Append(wxGetTranslation(RadeModes::DisplayName(mode)));
-    m_choiceRadeMode->SetToolTip(_("Choose a mode while stopped. RADEV2 is experimental and is not yet implemented."));
+    m_choiceRadeMode->SetToolTip(_("Choose a mode while stopped. RADEV2 is experimental."));
     sbSizer5->Add(m_choiceRadeMode, 0, static_cast<int>(wxALL) | static_cast<int>(wxEXPAND), 5);
 
     //-------------------------------

@@ -64,14 +64,14 @@ std::atomic<float> g_rxFreqOffset(0.0f);
 class Interface
 {
 public:
-    explicit Interface(bool usingReliableText = false)
+    explicit Interface(bool usingReliableText = false, RadeMode mode = RadeMode::RADEV1)
     {
         g_rxState = 0;
         g_sigPwrAvg = 0.0f;
         g_rxFreqOffset = 0.0f;
         g_bwExpandEnabled = false;
 
-        dv.start(100, usingReliableText);
+        dv.start(100, usingReliableText, false, mode);
     }
 
     ~Interface()
@@ -287,6 +287,69 @@ bool reportsNamesAndSizes()
     result &= check("sync before receiving anything", iface.dv.getSync(), 0);
     result &= check("SNR without sync", iface.dv.getSNREstimate(), 0.0f);
     return result;
+}
+
+bool v2UsesItsOwnFrameSizesAndRestartsAsV1()
+{
+    FreeDVInterface dv;
+    if (!dv.start(100, false)) return false;
+    const int v1Speech = dv.getTxNumSpeechSamples();
+    const int v1Modem = dv.getTxNNomModemSamples();
+    dv.stop();
+    if (!dv.start(100, true, false, RadeMode::RADEV2)) return false;
+    bool result = checkText("V2 receive identity", dv.getCurrentModeStr(), "RADEV2") &&
+        checkText("V2 transmit identity", dv.getCurrentTxModeStr(), "RADEV2") &&
+        checkTrue("V2 speech frame differs", dv.getTxNumSpeechSamples() != v1Speech) &&
+        checkTrue("V2 modem frame differs", dv.getTxNNomModemSamples() != v1Modem) &&
+        check("V2 speech RX/TX sizes", dv.getRxNumSpeechSamples(), dv.getTxNumSpeechSamples());
+    dv.stop();
+    dv.stop(); // Failed-start cleanup and normal cleanup may both call stop().
+    result &= checkTrue("V1 restart", dv.start(100, true));
+    result &= checkText("V1 identity restored", dv.getCurrentModeStr(), "RADEV1");
+    result &= check("V1 speech frame restored", dv.getTxNumSpeechSamples(), v1Speech);
+    dv.stop();
+    result &= checkTrue("invalid mode rejected", !dv.start(100, false, false, static_cast<RadeMode>(-1)));
+    result &= checkTrue("invalid mode did not start", !dv.isRunning());
+    return result;
+}
+
+bool v2ReceivesAudioAndTextBeforeEndOfOver()
+{
+    Interface iface(true, RadeMode::RADEV2);
+    iface.dv.setReliableText("K6AQ");
+    auto tx = iface.transmitPipeline();
+    auto rx = iface.receivePipeline();
+    // One 112-bit codeword takes about 4.5 s; allow time for sync and
+    // repeated copies. Unlike V1, the callsign must arrive before EOO.
+    auto onAir = feed(*tx, noisyTone(RADE_SPEECH_RATE, 20.0));
+    bool everSynced = false;
+    auto heard = feed(*rx, onAir, [&]() { everSynced |= iface.dv.getSync() != 0; });
+    bool result = checkTrue("V2 acquired sync", everSynced) &&
+        checkTrue("V2 produced decoded speech", !heard.empty()) &&
+        checkText("V2 streaming callsign before EOO", waitForReliableText(iface.dv), "K6AQ");
+
+    iface.dv.restartTxVocoder();
+    short nothing[1] = {0};
+    int count = 0;
+    short* endOfOver = tx->execute(nothing, 0, &count);
+    result &= checkTrue("V2 emitted EOO", count > 0);
+    std::vector<short> tail(endOfOver, endOfOver + count);
+    tail.insert(tail.end(), MODEM_SAMPLE_RATE, 0);
+    feed(*rx, tail);
+    result &= check("V2 unsynced after EOO", iface.dv.getSync(), 0);
+    return result;
+}
+
+bool v2WithoutTextStillReceivesAudio()
+{
+    Interface iface(false, RadeMode::RADEV2);
+    iface.dv.setReliableText("K6AQ"); // No text object exists in this session.
+    auto tx = iface.transmitPipeline();
+    auto rx = iface.receivePipeline();
+    auto onAir = transmitOver(iface, *tx, 4.0);
+    auto heard = feed(*rx, onAir);
+    return checkTrue("V2 speech with reporting disabled", !heard.empty()) &&
+        checkText("V2 text stays disabled", takeReliableText(iface.dv), "");
 }
 
 bool receivesItsOwnTransmissionAndCallsign()
@@ -518,6 +581,9 @@ int main()
 {
     executeTestCase("notRunningUntilStarted", notRunningUntilStarted);
     executeTestCase("reportsNamesAndSizes", reportsNamesAndSizes);
+    executeTestCase("v2UsesItsOwnFrameSizesAndRestartsAsV1", v2UsesItsOwnFrameSizesAndRestartsAsV1);
+    executeTestCase("v2ReceivesAudioAndTextBeforeEndOfOver", v2ReceivesAudioAndTextBeforeEndOfOver);
+    executeTestCase("v2WithoutTextStillReceivesAudio", v2WithoutTextStillReceivesAudio);
     executeTestCase("receivesItsOwnTransmissionAndCallsign", receivesItsOwnTransmissionAndCallsign);
     executeTestCase("noCallsignIsReceivedUnlessReliableTextIsInUse", noCallsignIsReceivedUnlessReliableTextIsInUse);
     executeTestCase("staysUnsyncedWhenNothingIsReceived", staysUnsyncedWhenNothingIsReceived);

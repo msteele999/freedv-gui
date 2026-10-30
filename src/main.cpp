@@ -1858,8 +1858,7 @@ MainFrame::MainFrame(wxWindow *parent) : TopFrame(parent, wxID_ANY, wxT("FreeDV 
         // silently first avoids popping up error dialogs (or the Easy Setup
         // dialog) at launch for users who haven't fully configured audio yet.
         CallAfter([&]() {
-            // Let the shared startup guard explain an unavailable mode even
-            // when audio has not been configured. Preserve V1's silent check.
+            // Preserve the silent audio check for either operational mode.
             if (RadeModes::CanStart(wxGetApp().appConfiguration.getSelectedRadeMode()) &&
                 !validateSoundCardSetup(true)) return;
 
@@ -3174,6 +3173,7 @@ void MainFrame::performFreeDVOn_()
 
     vk_state = VK_IDLE;
 
+    bool codecStarted = false;
     // modify some button states when running
     executeOnUiThreadAndWait_([&]()
     {
@@ -3184,7 +3184,19 @@ void MainFrame::performFreeDVOn_()
         // sample rate will be determined when the .wav file is loaded.
         g_sfTxFs.store(FS, std::memory_order_release);
 
-        freedvInterface.start(wxGetApp().appConfiguration.fifoSizeMs, wxGetApp().appConfiguration.reportingConfiguration.reportingEnabled, wxGetApp().appConfiguration.debugVerbose);
+        const auto selectedMode = wxGetApp().appConfiguration.getSelectedRadeMode();
+        codecStarted = freedvInterface.start(wxGetApp().appConfiguration.fifoSizeMs,
+            wxGetApp().appConfiguration.reportingConfiguration.reportingEnabled,
+            wxGetApp().appConfiguration.debugVerbose, selectedMode);
+        if (!codecStarted)
+        {
+            wxMessageBox(_("The selected RADE codec could not be initialized.\n"
+                           "The modem has not been started. Check the installed RADE library and try again."),
+                         _("Unable to start modem"), wxOK | wxICON_ERROR, this);
+            return;
+        }
+        MODE_RADE_FORMAT_STR = wxString::Format(MODE_FORMAT_STR,
+            wxString::FromUTF8(freedvInterface.getCurrentModeStr()));
 
         // Text field/callsign callbacks.
         if (wxGetApp().appConfiguration.reportingConfiguration.reportingEnabled)
@@ -3192,8 +3204,19 @@ void MainFrame::performFreeDVOn_()
             char temp[9];
             memset(temp, 0, 9);
             strncpy(temp, wxGetApp().appConfiguration.reportingConfiguration.reportingCallsign->ToUTF8(), 8); // One less than the size of temp to ensure we don't overwrite the null.
-            log_info("Setting callsign to %s", temp);
-            freedvInterface.setReliableText(temp);
+            // Preserve V1's eight-character EOO payload. V2's independent
+            // streaming protocol can carry compound callsigns (up to 32 chars).
+            if (selectedMode == RadeMode::RADEV2)
+            {
+                const auto callsign = wxGetApp().appConfiguration.reportingConfiguration.reportingCallsign->ToUTF8();
+                log_info("Setting callsign to %s", callsign.data());
+                freedvInterface.setReliableText(callsign.data());
+            }
+            else
+            {
+                log_info("Setting callsign to %s", temp);
+                freedvInterface.setReliableText(temp);
+            }
 
             // Create logger object
             if (wxGetApp().appConfiguration.reportingConfiguration.udpReportingEnabled)
@@ -3219,6 +3242,7 @@ void MainFrame::performFreeDVOn_()
         m_panelSpectrum->setFreqScale(MODEM_STATS_NSPEC*((float)MAX_F_HZ/(freedvInterface.getTxModemSampleRate()/2)));
         m_panelWaterfall->setFs(freedvInterface.getTxModemSampleRate());
     });
+    if (!codecStarted) return;
 
     g_State.store(0, std::memory_order_release);
     g_prev_State.store(0, std::memory_order_release);
@@ -3536,6 +3560,8 @@ void MainFrame::performFreeDVOff_()
     // FreeDV clean up
     delete[] g_error_hist;
     delete[] g_error_histn;
+    g_error_hist = nullptr;
+    g_error_histn = nullptr;
     freedvInterface.stop();
 
     m_newMicInFilter.store(true, std::memory_order_release);
@@ -3603,9 +3629,9 @@ void MainFrame::OnTogBtnOnOff(wxCommandEvent&)
         !RadeModes::CanStart(wxGetApp().appConfiguration.getSelectedRadeMode()))
     {
         m_togBtnOnOff->SetValue(false);
-        wxMessageBox(_("RADEV2 is experimental and is not yet implemented.\n"
-                       "The modem has not been started. Select RADEV1 to use the modem."),
-                     _("RADEV2 not yet available"), wxOK | wxICON_INFORMATION, this);
+        wxMessageBox(_("The selected RADE mode is unavailable.\n"
+                       "The modem has not been started. Select RADEV1 and try again."),
+                     _("RADE mode unavailable"), wxOK | wxICON_INFORMATION, this);
         return;
     }
 

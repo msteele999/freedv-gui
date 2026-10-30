@@ -9,6 +9,11 @@ add_library(fdv_audio_pipeline_extra STATIC
     ResamplePlotStep.cpp
     TxRxThread.cpp
 
+    # Isolated RADEV2 implementation; the pinned backend continues to supply V1.
+    radev2/RADEV2ReceiveStep.cpp
+    radev2/RADEV2TransmitStep.cpp
+    radev2/rade_v2_text.cpp
+
     # For waterfall view
     modem_stats.c
     kiss_fft.c
@@ -18,6 +23,7 @@ add_library(fdv_audio_pipeline_extra STATIC
 target_compile_options(fdv_audio_pipeline_extra PRIVATE ${WARNINGS_AS_ERRORS_FLAGS})
 target_link_libraries(fdv_audio_pipeline_extra PUBLIC fdv_audio_pipeline fdv_util samplerate rnnoise_inc whisper)
 target_include_directories(fdv_audio_pipeline_extra PRIVATE ${CODEC2_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/.. ${CMAKE_CURRENT_BINARY_DIR}/..)
+target_include_directories(fdv_audio_pipeline_extra PRIVATE ${freedv_backend_SOURCE_DIR}/src)
 
 if(BOOTSTRAP_WXWIDGETS)
     add_dependencies(fdv_audio_pipeline_extra wx::core wx::base wx::aui wx::html wx::net wx::adv wx::propgrid)
@@ -39,6 +45,7 @@ DefinePipelineUnitTest(ComputeRfSpectrumStepTest)
 DefinePipelineUnitTest(MixStepTest)
 DefinePipelineUnitTest(PlaybackStepTest)
 DefinePipelineUnitTest(RecordStepTest)
+DefinePipelineUnitTest(RadeV2TextTest)
 
 DefinePipelineUnitTest(EqualizerStepTest)
 target_sources(EqualizerStepTest PRIVATE ../eq_design.cpp ../sox_biquad.c)

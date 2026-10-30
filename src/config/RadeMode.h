@@ -3,8 +3,8 @@
 
 #include <array>
 
-// User selection only. This must not be used as rade_open() flags or as
-// evidence of which codec is active (FreeDVInterface owns that information).
+// A mode identifier, not rade_open() flags. The persisted user selection and
+// FreeDVInterface's active session each own a separate value of this type.
 enum class RadeMode : long
 {
     RADEV1 = 1,
@@ -36,10 +36,20 @@ inline const char* DisplayName(RadeMode mode)
     return DisplayName(RadeMode::RADEV1);
 }
 
-// Phase 1: selection/persistence are available, but only V1 can start.
+// Protocol identity for status and reporting; UI annotations belong above.
+inline const char* ProtocolName(RadeMode mode)
+{
+    switch (mode)
+    {
+    case RadeMode::RADEV1: return "RADEV1";
+    case RadeMode::RADEV2: return "RADEV2";
+    }
+    return "unknown";
+}
+
 constexpr bool CanStart(RadeMode mode)
 {
-    return mode == RadeMode::RADEV1;
+    return IsValid(static_cast<long>(mode));
 }
 }
 

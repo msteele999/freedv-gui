@@ -39,7 +39,7 @@ bool radeModeDefaultsAndValidation()
     }
     settings.setSelectedRadeMode(static_cast<RadeMode>(-1));
     return settings.getSelectedRadeMode() == RadeMode::RADEV1 &&
-        RadeModes::CanStart(RadeMode::RADEV1) && !RadeModes::CanStart(RadeMode::RADEV2) &&
+        RadeModes::CanStart(RadeMode::RADEV1) && RadeModes::CanStart(RadeMode::RADEV2) &&
         !RadeModes::CanStart(static_cast<RadeMode>(-1)) &&
         check("V1 display", wxString(RadeModes::DisplayName(RadeMode::RADEV1)), "RADEV1") &&
         check("V2 display", wxString(RadeModes::DisplayName(RadeMode::RADEV2)), "RADEV2 (experimental)");

@@ -5,6 +5,8 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/freedv/freedv-backend
     # Pin the upstream v2.0-dev backend for reproducible builds.
     GIT_TAG 9922bba3aed07c4b3d13ef7a4b003f917f253ded
+    PATCH_COMMAND ${CMAKE_COMMAND} "-DBACKEND_SOURCE_DIR=<SOURCE_DIR>"
+        -P "${CMAKE_CURRENT_LIST_DIR}/PinRADE.cmake"
 )
 
 FetchContent_MakeAvailable(freedv_backend)

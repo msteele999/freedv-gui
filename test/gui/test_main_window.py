@@ -2690,44 +2690,49 @@ def test_rade_mode_selection():
                 quit_and_check_log(app)
 
 
-def test_rade_v2_start_blocked():
-    """Manual and automatic startup stop before modem audio/codec initialization."""
-    for independent in (False, True):
-        for auto_start in (False, True):
-            with freedvtest.start(settings=settings(
-                    Windows__Independent__active=independent,
-                    Modem__SelectedRadeMode=2, Modem__autoStartOnLaunch=auto_start)) as app:
-                app.wait_for_window("main")
-                if not auto_start:
-                    app.click("main.btnOnOff")
-                app.wait_until(lambda: bool(app.message_boxes()), description="RADEV2 explanation")
-                boxes = app.message_boxes(clear=True)
-                check_equal([box["caption"] for box in boxes], ["RADEV2 not yet available"],
-                            "RADEV2 startup message")
-                check("not yet implemented" in boxes[0]["message"], "Missing implementation explanation")
-                check_equal(app.state()["running"], False, "RADEV2 started the modem")
-                check_equal(app.state()["modemRunning"], False, "RADEV2 initialized a codec")
-                check_equal(app.get("main.btnOnOff")["value"], False, "Start toggle after rejection")
-                check_equal(app.get("main.choiceRadeMode")["selection"], 1, "Selected RADEV2 retained")
-                check(app.get("main.choiceRadeMode")["enabled"], "Selector disabled after rejection")
-                quit_and_check_log(app)
+def test_rade_mode_startup():
+    """Manual/automatic V2 startup and repeated V2/V1/V2 sessions in both workspaces."""
+    with audio_devices():
+        for independent in (False, True):
+            for auto_start in (False, True):
+                with freedvtest.start(settings=settings(
+                        Windows__Independent__active=independent,
+                        Modem__SelectedRadeMode=2, Modem__autoStartOnLaunch=auto_start)) as app:
+                    app.wait_for_window("main")
+                    if auto_start:
+                        app.wait_until(lambda: app.state()["running"] and app.get("main.btnOnOff")["enabled"],
+                                       description="automatic RADEV2 startup")
+                    else:
+                        start_modem(app)
+                    for index, mode in ((1, "RADEV2"), (0, "RADEV1"), (1, "RADEV2")):
+                        if app.get("main.choiceRadeMode")["selection"] != index:
+                            app.set_value("main.choiceRadeMode", index=index)
+                            start_modem(app)
+                        app.wait_until(lambda: label(app, "main.textCurrentDecodeMode") == "Mode: " + mode,
+                                       description="active codec label")
+                        check_equal(app.message_boxes(), [], "Startup errors")
+                        check_equal(app.get("main.choiceRadeMode")["enabled"], False, "Running selector")
+                        stop_modem(app)
+                        check(app.get("main.choiceRadeMode")["enabled"], "Selector after stop")
+                    quit_and_check_log(app)
 
 
 def test_rade_mode_while_running():
-    """V1 runs as before; the selected mode stays locked for the session."""
+    """Both modes keep the selected mode locked for the session."""
     with audio_devices():
-        for independent in (False, True):
-            with freedvtest.start(settings=settings(Windows__Independent__active=independent)) as app:
+        for independent, stored in ((False, 1), (True, 1), (False, 2), (True, 2)):
+            with freedvtest.start(settings=settings(Windows__Independent__active=independent,
+                                                   Modem__SelectedRadeMode=stored)) as app:
                 app.wait_for_window("main")
                 start_modem(app)
                 check_equal(app.get("main.choiceRadeMode")["enabled"], False, "Mode selector while running")
                 try:
-                    app.set_value("main.choiceRadeMode", index=1)
+                    app.set_value("main.choiceRadeMode", index=2 - stored)
                 except freedvtest.FreeDVError as error:
                     check("disabled" in str(error), "Unexpected mode selection error: %s" % error)
                 else:
                     raise AssertionError("Mode selection allowed while running")
-                check_equal(app.get("main.choiceRadeMode")["selection"], 0, "Running mode selection")
+                check_equal(app.get("main.choiceRadeMode")["selection"], stored - 1, "Running mode selection")
                 stop_modem(app)
                 check(app.get("main.choiceRadeMode")["enabled"], "Mode selector disabled after stop")
                 quit_and_check_log(app)
@@ -2735,7 +2740,7 @@ def test_rade_mode_while_running():
 
 SCENARIOS = {
     "rade_mode_selection": test_rade_mode_selection,
-    "rade_v2_start_blocked": test_rade_v2_start_blocked,
+    "rade_mode_startup": test_rade_mode_startup,
     "rade_mode_while_running": test_rade_mode_while_running,
     "transmit": test_transmit,
     "ptt_key": test_ptt_key,
