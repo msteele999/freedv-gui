@@ -67,7 +67,7 @@ class FreeDVReporterDialog : public wxFrame
                 long style = wxCAPTION | wxCLOSE_BOX | wxSYSTEM_MENU | wxMINIMIZE_BOX | wxRESIZE_BORDER);
         ~FreeDVReporterDialog();
         
-        void setReporter(std::shared_ptr<FreeDVReporter> const& reporter);
+        void setReporter(std::shared_ptr<FreeDVReporter> const& reporter, bool discardPending = false);
         void refreshQSYButtonState();
         void refreshLayout();
 
@@ -250,7 +250,7 @@ class FreeDVReporterDialog : public wxFrame
              FreeDVReporterDataModel(FreeDVReporterDialog* parent);
              virtual ~FreeDVReporterDataModel();
 
-             void setReporter(std::shared_ptr<FreeDVReporter> const& reporter);
+             void setReporter(std::shared_ptr<FreeDVReporter> const& reporter, bool discardPending = false);
              void setBandFilter(FilterFrequency freq);
              void refreshAllRows();
              void requestQSY(wxDataViewItem selectedItem, uint64_t frequency, wxString const& customText);
@@ -313,7 +313,7 @@ class FreeDVReporterDialog : public wxFrame
                  for (auto& kvp : allReporterData_)
                  {
                      auto reportData = kvp.second;
-                     if (reportData->callsign == callsign)
+                     if (!reportData->isPendingDelete && reportData->callsign == callsign)
                      {
                          return reportData->gridSquare;
                      }

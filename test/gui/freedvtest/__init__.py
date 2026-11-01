@@ -130,12 +130,14 @@ def write_config(path, settings):
       to be);
     - FreeDV doesn't connect to the public FreeDV Reporter server, which it
       otherwise does as soon as it's launched. It looks for one at
-      NO_REPORTER_SERVER instead (give "/Reporting/FreeDV/Hostname3.0" and
+      NO_REPORTER_SERVER instead (give "/Reporting/FreeDV/Hostname" or
+      "/Reporting/FreeDV/RADEV2/Hostname", plus
       "/Reporting/FreeDV/UseTls" for somewhere else)."""
     settings = dict(settings)
-    if "/Reporting/FreeDV/Hostname3.0" not in settings:
-        settings["/Reporting/FreeDV/Hostname3.0"] = NO_REPORTER_SERVER
+    if not any(key in settings for key in ("/Reporting/FreeDV/Hostname", "/Reporting/FreeDV/RADEV2/Hostname")):
         settings.setdefault("/Reporting/FreeDV/UseTls", False)
+    settings.setdefault("/Reporting/FreeDV/Hostname", NO_REPORTER_SERVER)
+    settings.setdefault("/Reporting/FreeDV/RADEV2/Hostname", NO_REPORTER_SERVER)
     groups = {"": {"FirstTimeUse": 0}}
     for name, value in settings.items():
         group, _, key = name.strip("/").rpartition("/")

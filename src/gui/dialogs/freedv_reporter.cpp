@@ -900,10 +900,15 @@ void FreeDVReporterDialog::updateFilterStatus_()
 #endif // wxCHECK_VERSION(3,1,3)
 }
 
-void FreeDVReporterDialog::setReporter(std::shared_ptr<FreeDVReporter> const& reporter)
+void FreeDVReporterDialog::setReporter(std::shared_ptr<FreeDVReporter> const& reporter, bool discardPending)
 {
     FreeDVReporterDataModel* model = (FreeDVReporterDataModel*)spotsDataModel_.get();
-    model->setReporter(reporter);
+    if (discardPending)
+    {
+        closeTooltip();
+        DeselectItem();
+    }
+    model->setReporter(reporter, discardPending);
     
     if (reporter)
     {
@@ -1174,7 +1179,8 @@ void FreeDVReporterDialog::OnSendQSY(wxCommandEvent&)
 
 void FreeDVReporterDialog::OnOpenWebsite(wxCommandEvent&)
 {
-    std::string url = std::string("https://") + (const char*)wxGetApp().appConfiguration.reportingConfiguration.freedvReporterHostname->utf8_str() + "/";
+    std::string url = std::string("https://") + wxGetApp().appConfiguration.reportingConfiguration.getFreeDVReporterHostname(
+        wxGetApp().appConfiguration.getSelectedRadeMode()).ToStdString() + "/";
     LaunchBrowser(url);
     DeselectItem();
 }
@@ -2916,7 +2922,7 @@ FreeDVReporterDialog::FreeDVReporterDataModel::~FreeDVReporterDataModel()
     allReporterData_.clear();
 }
 
-void FreeDVReporterDialog::FreeDVReporterDataModel::setReporter(std::shared_ptr<FreeDVReporter> const& reporter)
+void FreeDVReporterDialog::FreeDVReporterDataModel::setReporter(std::shared_ptr<FreeDVReporter> const& reporter, bool discardPending)
 {
     if (reporter_)
     {
@@ -2936,6 +2942,18 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::setReporter(std::shared_ptr<
         reporter_->setRecvEndFn(FreeDVReporter::RecvEndFn());
     }
     
+    if (discardPending)
+    {
+        // All old callbacks are detached above; no old-server events can follow.
+        {
+            std::unique_lock<std::mutex> lk(fnQueueMtx_);
+            fnQueue_.clear();
+        }
+        isConnected_ = false;
+        filterSelfMessageUpdates_ = false;
+        wxGetApp().appConfiguration.callsignWatchlist.Disconnect();
+        clearAllEntries_();
+    }
     auto isChanged = reporter_ != reporter;
     reporter_ = reporter;
     
@@ -2957,7 +2975,7 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::setReporter(std::shared_ptr<
             reporter_->setAboutToShowSelfFn(std::bind(&FreeDVReporterDialog::FreeDVReporterDataModel::onAboutToShowSelfFn_, this));
             reporter_->setRecvEndFn(std::bind(&FreeDVReporterDialog::FreeDVReporterDataModel::onRecvEndFn_, this));
         }
-        else
+        else if (!discardPending)
         {
             // Spot list no longer valid, delete the items currently on there.
             // In case there's anything else on the queue prior to this, let those

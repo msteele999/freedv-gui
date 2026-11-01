@@ -80,7 +80,7 @@ def reporter_settings(hostname, **settings):
         "/Reporting/ManualFrequencyReporting": True,
         "/Reporting/PSKReporter/Enable": False,
         "/Reporting/FreeDV/Enable": True,
-        "/Reporting/FreeDV/Hostname3.0": hostname,
+        "/Reporting/FreeDV/Hostname": hostname,
         "/Reporting/FreeDV/UseTls": False,
     }
     if freedvtest.audio.MACOS or freedvtest.audio.WINDOWS:
@@ -223,7 +223,7 @@ def test_live_view():
         print("Skipping: the public FreeDV Reporter server can't be reached (%s)" % e)
         sys.exit(SKIPPED)
 
-    public_server = {"/Reporting/FreeDV/Hostname3.0": "qso.freedv.org", "/Reporting/FreeDV/UseTls": True}
+    public_server = {"/Reporting/FreeDV/Hostname": "qso.freedv.org", "/Reporting/FreeDV/UseTls": True}
     with freedvtest.start(settings=public_server) as app:
         open_reporter(app)
         check_equal(app.get("reporter")["label"], "FreeDV Reporter (freedv.conf)", "Window title")
@@ -2530,7 +2530,81 @@ def test_frequency_in_khz():
 
             quit_and_check_log(app)
 
+def test_mode_specific_servers():
+    """Both startup modes and repeated switches isolate the window and socket."""
+    with ReporterServer() as v1, ReporterServer() as v2:
+        stations = [v1.station("K1ABC", "FN42"), v2.station("VK5DGR", "PF95")]
+        for station in stations:
+            station.set_frequency(FREQUENCY_OF_FREEDV)
+        for initial in (0, 1):
+            settings = reporter_settings(v1.hostname, **{
+                "/Reporting/FreeDV/RADEV2/Hostname": v2.hostname,
+                "/Modem/SelectedRadeMode": initial + 1,
+            })
+            with freedvtest.start(settings=settings) as app:
+                open_reporter(app)
+                wait_for_callsigns(app, [stations[initial].callsign])
+                for index in (1 - initial, initial, 1 - initial):
+                    previous_callsign = stations[1 - index].callsign
+                    stations[1 - index].set_message("Old server update before switching")
+                    app.set_value("main.choiceRadeMode", index=index)
+                    check(previous_callsign not in callsigns(app), "Old server's row survived the switch")
+                    wait_for_callsigns(app, [stations[index].callsign])
+                    expected_counts = (1, 0) if index == 0 else (0, 1)
+                    app.wait_until(lambda: (v1.freedv_connection_count, v2.freedv_connection_count) == expected_counts,
+                                   timeout=15, description="one connection to only the selected server")
+                    stations[1 - index].set_message("Old server update after switching")
+                    stations[index].set_message("Selected server update")
+                    wait_for_cell(app, stations[index].callsign, MESSAGE, "Selected server update")
+                    check_equal(callsigns(app), [stations[index].callsign], "Window data sources mixed")
+                    saved = freedvtest.read_config(app.config_path)
+                    check_equal(saved["/Reporting/FreeDV/Hostname"], v1.hostname, "V1 hostname changed")
+                    check_equal(saved["/Reporting/FreeDV/RADEV2/Hostname"], v2.hostname, "V2 hostname changed")
+                quit_and_check_log(app)
+            # No connection may outlive the app between startup cases.
+            deadline = time.monotonic() + 15
+            while (v1.freedv_connection_count or v2.freedv_connection_count) and time.monotonic() < deadline:
+                time.sleep(0.05)
+            check_equal((v1.freedv_connection_count, v2.freedv_connection_count), (0, 0), "Connections after quit")
+
+
+def test_mode_specific_reporting():
+    """Outbound reports follow the selected server across V1/V2/V1 sessions."""
+    with audio_devices(), ReporterServer() as v1, ReporterServer() as v2:
+        watchers = [v1.viewer(), v2.viewer()]
+        settings = reporter_settings(v1.hostname, **{
+            "/Reporting/FreeDV/RADEV2/Hostname": v2.hostname,
+            "/Modem/SelectedRadeMode": 1,
+        })
+        settings.update(audio_settings())
+        with freedvtest.start(settings=settings) as app:
+            open_reporter(app)
+            for step, index in enumerate((0, 1, 0)):
+                app.set_value("main.choiceRadeMode", index=index)
+                expected_counts = (1, 0) if index == 0 else (0, 1)
+                app.wait_until(lambda: (v1.freedv_connection_count, v2.freedv_connection_count) == expected_counts,
+                               timeout=15, description="old socket shutdown before reporting")
+                old_messages = list(watchers[1 - index].events("message_update", CALLSIGN_OF_FREEDV))
+                start_modem(app)
+                app.wait_until(lambda: CALLSIGN_OF_FREEDV in watchers[index].callsigns(), timeout=15,
+                               description="FreeDV to report to its mode's server")
+                check(CALLSIGN_OF_FREEDV not in watchers[1 - index].callsigns(), "Listed on both servers")
+                message = "Mode-specific report %d" % step
+                app.set_value("reporter.cbStatusMessage", message)
+                app.click("reporter.btnSend")
+                watchers[index].wait_for_event("message_update", CALLSIGN_OF_FREEDV,
+                                               lambda data: data["message"] == message)
+                check_equal(watchers[1 - index].events("message_update", CALLSIGN_OF_FREEDV), old_messages,
+                            "Report reached the previous server")
+                stop_modem(app)
+                app.wait_until(lambda: CALLSIGN_OF_FREEDV not in watchers[index].callsigns(), timeout=15,
+                               description="FreeDV to stop reporting before switching")
+            quit_and_check_log(app)
+
+
 SCENARIOS = {
+    "mode_specific_servers": test_mode_specific_servers,
+    "mode_specific_reporting": test_mode_specific_reporting,
     "live_view": test_live_view,
     "stations": test_stations,
     "sorting": test_sorting,

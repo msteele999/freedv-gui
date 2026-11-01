@@ -24,6 +24,7 @@
 
 #include "WxWidgetsConfigStore.h"
 #include "ConfigurationDataElement.h"
+#include "RadeMode.h"
 
 class ReportingConfiguration : public WxWidgetsConfigStore
 {
@@ -45,7 +46,10 @@ public:
     
     ConfigurationDataElement<bool> freedvReporterEnabled;
     ConfigurationDataElement<bool> freedvReporterForcedOff;
+    // V1 retains the original key so customized installations are preserved.
     ConfigurationDataElement<wxString> freedvReporterHostname;
+    ConfigurationDataElement<wxString> freedvReporterV2Hostname;
+    wxString getFreeDVReporterHostname(RadeMode mode);
     ConfigurationDataElement<bool> freedvReporterUseTls;
     ConfigurationDataElement<int> freedvReporterBandFilter;
     ConfigurationDataElement<bool> useMetricDistances;

@@ -456,24 +456,34 @@ OptionsDlg::OptionsDlg(wxWindow* parent, wxWindowID id, const wxString& title, c
     
     // FreeDV Reporter options that don't depend on Reporting checkboxes
     wxStaticBox* sbReportingFreeDV = new wxStaticBox(m_reportingTab, wxID_ANY, _("FreeDV Reporter"));
-    wxStaticBoxSizer* sbSizerReportingFreeDVNoCall = new wxStaticBoxSizer(sbReportingFreeDV, wxHORIZONTAL);
+    wxStaticBoxSizer* sbSizerReportingFreeDVNoCall = new wxStaticBoxSizer(sbReportingFreeDV, wxVERTICAL);
 
-    wxStaticText* labelFreeDVHostName = new wxStaticText(sbReportingFreeDV, wxID_ANY, _("Hostname:"), wxDefaultPosition, wxDefaultSize, 0);
-    m_freedvReporterHostname = new wxTextCtrl(sbReportingFreeDV, wxID_ANY,  wxEmptyString, wxDefaultPosition, wxSize(250, -1), 0);
-    sbSizerReportingFreeDVNoCall->Add(labelFreeDVHostName, 0,  static_cast<int>(wxALL) | wxALIGN_CENTER_VERTICAL, 5);
-    sbSizerReportingFreeDVNoCall->Add(m_freedvReporterHostname, 0,  static_cast<int>(wxALL) | wxALIGN_CENTER_VERTICAL, 5);
+    auto reporterServers = new wxBoxSizer(wxVERTICAL);
+    auto addReporterHostname = [&](const wxString& title, wxTextCtrl*& control) {
+        auto box = new wxStaticBox(sbReportingFreeDV, wxID_ANY, title);
+        auto row = new wxStaticBoxSizer(box, wxHORIZONTAL);
+        row->Add(new wxStaticText(box, wxID_ANY, _("Hostname:")), 0, static_cast<int>(wxALL) | wxALIGN_CENTER_VERTICAL, 5);
+        control = new wxTextCtrl(box, wxID_ANY, wxEmptyString, wxDefaultPosition, wxSize(250, -1));
+        row->Add(control, 1, static_cast<int>(wxALL) | wxALIGN_CENTER_VERTICAL, 5);
+        reporterServers->Add(row, 0, static_cast<int>(wxALL) | wxEXPAND, 5);
+    };
+    addReporterHostname(_("RADEV1 Reporter"), m_freedvReporterHostname);
+    addReporterHostname(_("RADEV2 Reporter"), m_freedvReporterV2Hostname);
+    sbSizerReportingFreeDVNoCall->Add(reporterServers, 0, wxEXPAND);
+    auto reporterCommonOptions = new wxBoxSizer(wxHORIZONTAL);
+    sbSizerReportingFreeDVNoCall->Add(reporterCommonOptions, 0, wxEXPAND);
 
     m_ckboxFreeDVReporterUseTls = new wxCheckBox(sbReportingFreeDV, wxID_ANY, _("Secure Connection"), wxDefaultPosition, wxDefaultSize, wxCHK_2STATE);
-    sbSizerReportingFreeDVNoCall->Add(m_ckboxFreeDVReporterUseTls, 0,  static_cast<int>(wxALL) | wxALIGN_CENTER_VERTICAL, 5);
+    reporterCommonOptions->Add(m_ckboxFreeDVReporterUseTls, 0,  static_cast<int>(wxALL) | wxALIGN_CENTER_VERTICAL, 5);
 
     m_useMetricDistances = new wxCheckBox(sbReportingFreeDV, wxID_ANY, _("Distances in km"), wxDefaultPosition, wxDefaultSize, wxCHK_2STATE);
-    sbSizerReportingFreeDVNoCall->Add(m_useMetricDistances, 0,  static_cast<int>(wxALL) | wxALIGN_CENTER_VERTICAL, 5);
+    reporterCommonOptions->Add(m_useMetricDistances, 0,  static_cast<int>(wxALL) | wxALIGN_CENTER_VERTICAL, 5);
 
     m_useCardinalDirections = new wxCheckBox(sbReportingFreeDV, wxID_ANY, _("Show cardinal directions"), wxDefaultPosition, wxDefaultSize, wxCHK_2STATE);
-    sbSizerReportingFreeDVNoCall->Add(m_useCardinalDirections, 0,  static_cast<int>(wxALL) | wxALIGN_CENTER_VERTICAL, 5);
+    reporterCommonOptions->Add(m_useCardinalDirections, 0,  static_cast<int>(wxALL) | wxALIGN_CENTER_VERTICAL, 5);
 
     m_ckboxFreeDVReporterForceReceiveOnly = new wxCheckBox(sbReportingFreeDV, wxID_ANY, _("Force RX Only reporting"), wxDefaultPosition, wxDefaultSize, wxCHK_2STATE);
-    sbSizerReportingFreeDVNoCall->Add(m_ckboxFreeDVReporterForceReceiveOnly, 0,  static_cast<int>(wxALL) | wxALIGN_CENTER_VERTICAL, 5);
+    reporterCommonOptions->Add(m_ckboxFreeDVReporterForceReceiveOnly, 0,  static_cast<int>(wxALL) | wxALIGN_CENTER_VERTICAL, 5);
     
     sizerReporting->Add(sbSizerReportingFreeDVNoCall, 0, static_cast<int>(wxALL) | static_cast<int>(wxEXPAND), 5);
 
@@ -1136,7 +1146,8 @@ OptionsDlg::OptionsDlg(wxWindow* parent, wxWindowID id, const wxString& title, c
     m_ckboxManualFrequencyReporting->MoveBeforeInTabOrder(m_ckboxPskReporterEnable);
     m_ckboxPskReporterEnable->MoveBeforeInTabOrder(m_ckboxFreeDVReporterEnable);
     m_ckboxFreeDVReporterEnable->MoveBeforeInTabOrder(m_freedvReporterHostname);
-    m_freedvReporterHostname->MoveBeforeInTabOrder(m_useMetricDistances);
+    m_freedvReporterHostname->MoveBeforeInTabOrder(m_freedvReporterV2Hostname);
+    m_freedvReporterV2Hostname->MoveBeforeInTabOrder(m_useMetricDistances);
     
     m_waterfallColorScheme1->MoveBeforeInTabOrder(m_waterfallColorScheme2);
     m_waterfallColorScheme2->MoveBeforeInTabOrder(m_waterfallColorScheme3);
@@ -1266,6 +1277,7 @@ OptionsDlg::OptionsDlg(wxWindow* parent, wxWindowID id, const wxString& title, c
     m_ckboxPskReporterEnable->SetName("settings.ckboxPskReporterEnable");
     m_ckboxFreeDVReporterEnable->SetName("settings.ckboxFreeDVReporterEnable");
     m_freedvReporterHostname->SetName("settings.freedvReporterHostname");
+    m_freedvReporterV2Hostname->SetName("settings.freedvReporterV2Hostname");
     m_ckboxFreeDVReporterUseTls->SetName("settings.ckboxFreeDVReporterUseTls");
     m_useMetricDistances->SetName("settings.useMetricDistances");
     m_useCardinalDirections->SetName("settings.useCardinalDirections");
@@ -1632,6 +1644,7 @@ void OptionsDlg::ExchangeData(int inout, bool storePersistent)
         // FreeDV Reporter options
         m_ckboxFreeDVReporterEnable->SetValue(wxGetApp().appConfiguration.reportingConfiguration.freedvReporterEnabled);
         m_freedvReporterHostname->SetValue(wxGetApp().appConfiguration.reportingConfiguration.freedvReporterHostname);
+        m_freedvReporterV2Hostname->SetValue(wxGetApp().appConfiguration.reportingConfiguration.freedvReporterV2Hostname);
         m_ckboxFreeDVReporterUseTls->SetValue(wxGetApp().appConfiguration.reportingConfiguration.freedvReporterUseTls);
         m_useMetricDistances->SetValue(wxGetApp().appConfiguration.reportingConfiguration.useMetricDistances);
         m_useCardinalDirections->SetValue(wxGetApp().appConfiguration.reportingConfiguration.reportingDirectionAsCardinal);
@@ -1883,6 +1896,7 @@ void OptionsDlg::ExchangeData(int inout, bool storePersistent)
         // FreeDV Reporter options
         wxGetApp().appConfiguration.reportingConfiguration.freedvReporterEnabled = m_ckboxFreeDVReporterEnable->GetValue();
         wxGetApp().appConfiguration.reportingConfiguration.freedvReporterHostname = m_freedvReporterHostname->GetValue();
+        wxGetApp().appConfiguration.reportingConfiguration.freedvReporterV2Hostname = m_freedvReporterV2Hostname->GetValue();
         wxGetApp().appConfiguration.reportingConfiguration.freedvReporterUseTls = m_ckboxFreeDVReporterUseTls->GetValue();
         wxGetApp().appConfiguration.reportingConfiguration.useMetricDistances = m_useMetricDistances->GetValue();
         wxGetApp().appConfiguration.reportingConfiguration.freedvReporterForceReceiveOnly = m_ckboxFreeDVReporterForceReceiveOnly->GetValue();
@@ -2188,6 +2202,7 @@ void OptionsDlg::updateReportingState()
         m_ckboxReportingEnable->Enable(true);
         m_useMetricDistances->Enable(true);
         m_freedvReporterHostname->Enable(true);
+        m_freedvReporterV2Hostname->Enable(true);
         m_ckboxFreeDVReporterUseTls->Enable(true);
 
         if (m_ckboxReportingEnable->GetValue())
@@ -2253,6 +2268,7 @@ void OptionsDlg::updateReportingState()
         m_ckboxFreeDVReporterEnable->Enable(false);
         m_useMetricDistances->Enable(false);
         m_freedvReporterHostname->Enable(false);
+        m_freedvReporterV2Hostname->Enable(false);
         m_ckboxFreeDVReporterUseTls->Enable(false);
         m_ckboxFreeDVReporterForceReceiveOnly->Enable(false);
         m_useCardinalDirections->Enable(false);

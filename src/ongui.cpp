@@ -143,7 +143,8 @@ void MainFrame::OnToolsFreeDVReporter(wxCommandEvent&)
 //-------------------------------------------------------------------------
 void MainFrame::OnToolsFreeDVReporterUI(wxUpdateUIEvent& event)
 {
-    event.Enable(wxGetApp().appConfiguration.reportingConfiguration.freedvReporterHostname->ToStdString() != "");
+    event.Enable(!wxGetApp().appConfiguration.reportingConfiguration.getFreeDVReporterHostname(
+        wxGetApp().appConfiguration.getSelectedRadeMode()).IsEmpty());
 }
 
 //-------------------------------------------------------------------------

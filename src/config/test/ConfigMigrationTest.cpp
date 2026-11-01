@@ -261,6 +261,37 @@ bool reportingCurrentSettingsTakePrecedence()
     return result;
 }
 
+bool reporterHostsAreIndependent()
+{
+    auto config = makeTestConfig("[Reporting/FreeDV]\nHostname=custom-v1.example\nUseTls=0\n");
+    ReportingConfiguration reporting;
+    reporting.load(config.get());
+    bool result = true;
+    result &= check("legacy V1 hostname", reporting.getFreeDVReporterHostname(RadeMode::RADEV1), "custom-v1.example");
+    result &= check("default V2 hostname", reporting.getFreeDVReporterHostname(RadeMode::RADEV2), "reporter-radev2.k6aq.net");
+    result &= check("legacy TLS", reporting.freedvReporterUseTls.get(), false);
+    reporting.freedvReporterV2Hostname = "custom-v2.example";
+    reporting.freedvReporterEnabled = false;
+    reporting.freedvReporterForcedOff = true;
+    reporting.save(config.get());
+    auto disk = reload(*config);
+    ReportingConfiguration after;
+    after.load(disk.get());
+    result &= check("saved V1 hostname", disk->Read("/Reporting/FreeDV/Hostname", ""), "custom-v1.example");
+    result &= check("saved V2 hostname", disk->Read("/Reporting/FreeDV/RADEV2/Hostname", ""), "custom-v2.example");
+    for (const auto mode : {RadeMode::RADEV2, RadeMode::RADEV1, RadeMode::RADEV2})
+    {
+        result &= check("routing after reload", after.getFreeDVReporterHostname(mode),
+            mode == RadeMode::RADEV2 ? "custom-v2.example" : "custom-v1.example");
+    }
+    after.freedvReporterHostname = "changed-v1.example";
+    result &= check("editing V1 preserves V2", after.freedvReporterV2Hostname.get(), "custom-v2.example");
+    result &= check("TLS preserved", after.freedvReporterUseTls.get(), false);
+    result &= check("global Reporter disabled", after.freedvReporterEnabled.get(), false);
+    result &= check("global Reporter hidden", after.freedvReporterForcedOff.get(), true);
+    return result;
+}
+
 bool reportingDefaultsWithNothingConfigured()
 {
     auto config = makeTestConfig();
@@ -273,6 +304,9 @@ bool reportingDefaultsWithNothingConfigured()
     result &= check("grid square", reporting.reportingGridSquare.get(), "");
     result &= check("frequency", reporting.reportingFrequency.get(), (uint64_t)0);
     result &= check("CSV log path", reporting.csvLogFilePath.get(), "/nonexistent/freedv_rx_log.csv");
+    result &= check("default V1 hostname", reporting.getFreeDVReporterHostname(RadeMode::RADEV1), "qso.freedv.org");
+    result &= check("default V2 hostname", reporting.getFreeDVReporterHostname(RadeMode::RADEV2), "reporter-radev2.k6aq.net");
+    result &= check("default TLS", reporting.freedvReporterUseTls.get(), true);
     return result;
 }
 
@@ -675,6 +709,7 @@ int main()
     executeTestCase("equalizerSettingsSurviveRestart", equalizerSettingsSurviveRestart);
     executeTestCase("reportingMigratesFromPskReporterSettings", reportingMigratesFromPskReporterSettings);
     executeTestCase("reportingCurrentSettingsTakePrecedence", reportingCurrentSettingsTakePrecedence);
+    executeTestCase("reporterHostsAreIndependent", reporterHostsAreIndependent);
     executeTestCase("reportingDefaultsWithNothingConfigured", reportingDefaultsWithNothingConfigured);
 #if defined(__linux__)
     executeTestCase("csvLogPathDefaultsToXdgDataHome", csvLogPathDefaultsToXdgDataHome);

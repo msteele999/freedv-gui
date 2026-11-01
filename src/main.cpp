@@ -2742,7 +2742,8 @@ void MainFrame::OnTimer(wxTimerEvent &evt)
         // b) We detect a valid format callsign in the text (see https://en.wikipedia.org/wiki/Amateur_radio_call_signs).
         // c) We don't currently have a pending report to add to the outbound list for the active callsign.
         // When the above is true, capture the callsign and current SNR and add to the PSK Reporter object's outbound list.
-        std::string lastReportedCallsign = (const char*)m_cboLastReportedCallsigns->GetValue().ToUTF8();
+        std::string lastReportedCallsign = reporterHasReceivedCallsign_
+            ? m_cboLastReportedCallsigns->GetValue().ToStdString() : std::string();
         if (wxGetApp().m_reporters.size() > 0 && wxGetApp().appConfiguration.reportingConfiguration.reportingEnabled)
         {
             const char* text = freedvInterface.getReliableText();
@@ -2763,6 +2764,7 @@ void MainFrame::OnTimer(wxTimerEvent &evt)
                 {
                     wxString rxCallsign = callsignFormat.GetMatch(wxCallsign, 1);
                     std::string pendingCallsign = rxCallsign.ToStdString();
+                    reporterHasReceivedCallsign_ = true;
 
                     wxString freqString;
                     if (wxGetApp().appConfiguration.reportingConfiguration.reportingFrequencyAsKhz)
@@ -3638,7 +3640,9 @@ void MainFrame::OnRadeModeSelected(wxCommandEvent&)
         return;
     }
     auto& config = wxGetApp().appConfiguration;
+    if (config.getSelectedRadeMode() == RadeModes::selectable[index]) return;
     config.setSelectedRadeMode(RadeModes::selectable[index]);
+    initializeFreeDVReporter_();
     config.save(pConfig);
     pConfig->Flush();
 }
@@ -4677,11 +4681,27 @@ void MainFrame::ShowCallsignWatchlist()
 void MainFrame::initializeFreeDVReporter_()
 {
     bool receiveOnly = isReceiveOnly();
+    reporterHasReceivedCallsign_ = false;
 
     auto oldReporterObject = wxGetApp().m_sharedReporterObject;
+    bool wasReporting = false;
+    if (oldReporterObject)
+    {
+        // Detach UI callbacks and discard events queued by the previous server.
+        if (m_reporterDialog) m_reporterDialog->setReporter(nullptr, true);
+        oldReporterObject->setOnQSYRequestFn(FreeDVReporter::QsyRequestFn());
+        auto& reporters = wxGetApp().m_reporters;
+        const auto previousSize = reporters.size();
+        reporters.erase(std::remove(reporters.begin(), reporters.end(), oldReporterObject), reporters.end());
+        wasReporting = reporters.size() != previousSize;
+        wxGetApp().m_sharedReporterObject.reset();
+        // The destructor waits for socket shutdown, including queued sends.
+        oldReporterObject.reset();
+    }
     wxGetApp().m_sharedReporterObject =
         std::make_shared<FreeDVReporter>(
-            wxGetApp().appConfiguration.reportingConfiguration.freedvReporterHostname->ToStdString(),
+            wxGetApp().appConfiguration.reportingConfiguration.getFreeDVReporterHostname(
+                wxGetApp().appConfiguration.getSelectedRadeMode()).ToStdString(),
             wxGetApp().appConfiguration.reportingConfiguration.reportingCallsign->ToStdString(),
             wxGetApp().appConfiguration.reportingConfiguration.reportingGridSquare->ToStdString(),
             std::string("FreeDV ") + GetFreeDVVersion(),
@@ -4690,18 +4710,9 @@ void MainFrame::initializeFreeDVReporter_()
             wxGetApp().appConfiguration.reportingConfiguration.freedvReporterUseTls);
     assert(wxGetApp().m_sharedReporterObject);
 
-    // If we're running, remove any existing reporter object.
-    if (oldReporterObject != nullptr)
+    if (wasReporting)
     {
-        for (auto& ptr : wxGetApp().m_reporters)
-        {
-            if (ptr == oldReporterObject)
-            {
-                oldReporterObject = nullptr;
-                ptr = wxGetApp().m_sharedReporterObject;
-                break;
-            }
-        }
+        wxGetApp().m_reporters.push_back(wxGetApp().m_sharedReporterObject);
     }
 
     // Make built in FreeDV Reporter client available.
@@ -4715,7 +4726,8 @@ void MainFrame::initializeFreeDVReporter_()
     m_reporterDialog->refreshLayout();
 
     // Set up QSY request handler
-    wxGetApp().m_sharedReporterObject->setOnQSYRequestFn(std::bind(&MainFrame::onQsyRequest_, this, _1, _2, _3));
+    wxGetApp().m_sharedReporterObject->setOnQSYRequestFn(std::bind(&MainFrame::onQsyRequest_, this,
+        std::weak_ptr<FreeDVReporter>(wxGetApp().m_sharedReporterObject), _1, _2, _3));
 
     auto txStatus = g_tx.load(std::memory_order_acquire);
     if (!freedvInterface.isRunning())
@@ -4730,7 +4742,7 @@ void MainFrame::initializeFreeDVReporter_()
     wxGetApp().m_sharedReporterObject->connect();
 }
 
-void MainFrame::onQsyRequest_(std::string callsign, uint64_t freqHz, std::string message)
+void MainFrame::onQsyRequest_(std::weak_ptr<FreeDVReporter> reporter, std::string callsign, uint64_t freqHz, std::string message)
 {
     // A separate object needs to be created here since wxWidgets doesn't support more
     // than two arguments for CallAfter().
@@ -4740,7 +4752,14 @@ void MainFrame::onQsyRequest_(std::string callsign, uint64_t freqHz, std::string
     args->freqHz = freqHz;
     args->message = std::move(message);
 
-    CallAfter(&MainFrame::onQsyRequestUIThread_, args);
+    CallAfter([this, reporter, args]() {
+        if (reporter.expired() || reporter.lock() != wxGetApp().m_sharedReporterObject)
+        {
+            delete args;
+            return;
+        }
+        onQsyRequestUIThread_(args);
+    });
 }
 
 void MainFrame::onQsyRequestUIThread_(QsyRequestArgs* args)

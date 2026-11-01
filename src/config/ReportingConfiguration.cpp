@@ -45,6 +45,7 @@ ReportingConfiguration::ReportingConfiguration()
     , freedvReporterEnabled("/Reporting/FreeDV/Enable", true)
     , freedvReporterForcedOff("/Reporting/FreeDV/ForcedOff", false)
     , freedvReporterHostname("/Reporting/FreeDV/Hostname", wxT(FREEDV_REPORTER_DEFAULT_HOSTNAME))
+    , freedvReporterV2Hostname("/Reporting/FreeDV/RADEV2/Hostname", wxT("reporter-radev2.k6aq.net"))
     , freedvReporterUseTls("/Reporting/FreeDV/UseTls", true)
     , freedvReporterBandFilter("/Reporting/FreeDV/CurrentBandFilter", 0)
     , useMetricDistances("/Reporting/FreeDV/UseMetricDistances", true)
@@ -196,6 +197,7 @@ void ReportingConfiguration::load(wxConfigBase* config)
     load_(config, freedvReporterEnabled);
     load_(config, freedvReporterForcedOff);
     load_(config, freedvReporterHostname);
+    load_(config, freedvReporterV2Hostname);
     load_(config, freedvReporterUseTls);
     load_(config, freedvReporterBandFilter);
     load_(config, useMetricDistances);
@@ -289,6 +291,7 @@ void ReportingConfiguration::save(wxConfigBase* config)
     save_(config, freedvReporterEnabled);
     save_(config, freedvReporterForcedOff);
     save_(config, freedvReporterHostname);
+    save_(config, freedvReporterV2Hostname);
     save_(config, freedvReporterUseTls);
     save_(config, freedvReporterBandFilter);
     save_(config, useMetricDistances);
@@ -352,4 +355,9 @@ size_t ReportingConfiguration::SortedFrequencyIndex(std::vector<wxString> const&
         }
     }
     return index;
+}
+
+wxString ReportingConfiguration::getFreeDVReporterHostname(RadeMode mode)
+{
+    return mode == RadeMode::RADEV2 ? freedvReporterV2Hostname.get() : freedvReporterHostname.get();
 }

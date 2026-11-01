@@ -112,6 +112,11 @@ class _Relay:
             pass
         connection.close()
 
+    @property
+    def connection_count(self):
+        with self._lock:
+            return len(self._sockets) // 2
+
     def cut(self):
         with self._lock:
             connections = list(self._sockets)
@@ -142,6 +147,11 @@ class ReporterServer:
     def hostname(self):
         """What to set FreeDV's FreeDV Reporter hostname to."""
         return "127.0.0.1:%d" % self._relay.port
+
+    @property
+    def freedv_connection_count(self):
+        """Active app connections through the relay, excluding test stations."""
+        return self._relay.connection_count
 
     def interrupt_freedv(self):
         """Cuts FreeDV's connection to the server, as a network problem

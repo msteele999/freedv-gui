@@ -1078,7 +1078,7 @@ def test_reporting():
     needs_reporting = ["txt_callsign", "txt_grid_square", "ckboxManualFrequencyReporting", "ckboxPskReporterEnable",
                        "ckboxFreeDVReporterEnable", "ckboxUDPReportingEnable", "ckboxUDPBroadcastEnable"]
 
-    with freedvtest.start(settings={"/Reporting/FreeDV/Hostname3.0": NOWHERE, "/Reporting/FreeDV/UseTls": False}) as app:
+    with freedvtest.start(settings={"/Reporting/FreeDV/Hostname": NOWHERE, "/Reporting/FreeDV/UseTls": False}) as app:
         app.wait_for_window("main")
 
         # Without reporting, the main window just has somewhere to show the
@@ -1089,13 +1089,14 @@ def test_reporting():
 
         open_settings(app, "Reporting")
         check_values(app, {"ckboxReportingEnable": False, "txt_callsign": "", "txt_grid_square": "",
-                           "freedvReporterHostname": NOWHERE, "ckboxFreeDVReporterUseTls": False,
+                           "freedvReporterHostname": NOWHERE, "freedvReporterV2Hostname": freedvtest.NO_REPORTER_SERVER,
+                           "ckboxFreeDVReporterUseTls": False,
                            "udpHostname": "127.0.0.1", "udpPort": "2237",
                            "udpBroadcastAddress": "224.0.0.1", "udpBroadcastPort": "7177"})
         check_enabled(app, needs_reporting + ["udpHostname", "udpPort", "udpBroadcastAddress", "udpBroadcastPort"],
                       False)
         # These don't depend on reporting being enabled.
-        check_enabled(app, ["freedvReporterHostname", "ckboxFreeDVReporterUseTls", "useMetricDistances",
+        check_enabled(app, ["freedvReporterHostname", "freedvReporterV2Hostname", "ckboxFreeDVReporterUseTls", "useMetricDistances",
                             "useCardinalDirections", "ckbox_use_utc_time"], True)
 
         set_value(app, "ckboxReportingEnable", True)
@@ -1110,6 +1111,8 @@ def test_reporting():
         check_enabled(app, ["udpHostname", "udpPort"], False)
         set_value(app, "ckboxUDPReportingEnable", True)
 
+        set_value(app, "freedvReporterHostname", "v1.example.invalid")
+        set_value(app, "freedvReporterV2Hostname", "v2.example.invalid")
         set_value(app, "txt_callsign", "AA1ZZZ")
         set_value(app, "txt_grid_square", "DM12")
         set_value(app, "ckboxManualFrequencyReporting", True)
@@ -1137,7 +1140,8 @@ def test_reporting():
         check_saved(app, {
             "/Reporting/Enable": 1, "/Reporting/Callsign": "AA1ZZZ", "/Reporting/GridSquare": "DM12",
             "/Reporting/ManualFrequencyReporting": 1, "/Reporting/PSKReporter/Enable": 0,
-            "/Reporting/FreeDV/Enable": 1, "/Reporting/FreeDV/Hostname3.0": NOWHERE, "/Reporting/FreeDV/UseTls": 0,
+            "/Reporting/FreeDV/Enable": 1, "/Reporting/FreeDV/Hostname": "v1.example.invalid",
+            "/Reporting/FreeDV/RADEV2/Hostname": "v2.example.invalid", "/Reporting/FreeDV/UseTls": 0,
             "/Reporting/FreeDV/UseMetricDistances": 0, "/Reporting/DirectionAsCardinal": 1,
             "/Reporting/FreeDV/ForceReceiveOnly": 1, "/Reporting/UDP/Enable": 1,
             "/Reporting/UDP/Hostname": "192.0.2.1", "/Reporting/UDP/Port": 2238,
@@ -1164,6 +1168,7 @@ def test_reporting():
         open_settings(app, "Reporting")
         check_values(app, {
             "ckboxReportingEnable": True, "txt_callsign": "AA1ZZZ", "txt_grid_square": "DM12",
+            "freedvReporterHostname": "v1.example.invalid", "freedvReporterV2Hostname": "v2.example.invalid",
             "ckboxManualFrequencyReporting": True, "ckboxPskReporterEnable": False,
             "ckboxFreeDVReporterEnable": True, "ckboxUDPReportingEnable": True, "udpHostname": "192.0.2.1",
             "udpPort": "2238", "ckboxUDPBroadcastEnable": True, "udpBroadcastAddress": "224.0.0.2",
@@ -1416,7 +1421,7 @@ def test_auto_start():
         config = os.path.join(config_dir, "freedv.conf")
         # (Once running, FreeDV looks for its FreeDV Reporter server; keep it
         # away from the public one.)
-        freedvtest.write_config(config, dict(audio_settings(), **{"/Reporting/FreeDV/Hostname3.0": NOWHERE,
+        freedvtest.write_config(config, dict(audio_settings(), **{"/Reporting/FreeDV/Hostname": NOWHERE,
                                                                   "/Reporting/FreeDV/UseTls": False}))
         with audio_devices():
             with freedvtest.start(config=config) as app:
@@ -1458,7 +1463,7 @@ def test_while_running():
     """Some settings can't be changed while FreeDV is running."""
     reporting = ["ckboxReportingEnable", "txt_callsign", "txt_grid_square", "ckboxManualFrequencyReporting",
                  "ckboxPskReporterEnable", "ckboxFreeDVReporterEnable", "useMetricDistances",
-                 "freedvReporterHostname", "ckboxFreeDVReporterUseTls", "ckboxFreeDVReporterForceReceiveOnly",
+                 "freedvReporterHostname", "freedvReporterV2Hostname", "ckboxFreeDVReporterUseTls", "ckboxFreeDVReporterForceReceiveOnly",
                  "useCardinalDirections", "ckboxUDPReportingEnable", "ckboxUDPBroadcastEnable",
                  "ckbox_use_utc_time"]
     rig_control = ["ckboxEnableFreqModeChanges", "ckboxEnableFreqChangesOnly", "ckboxNoFreqModeChanges",
@@ -1468,7 +1473,7 @@ def test_while_running():
     settings = audio_settings()
     settings.update({
         "/Reporting/Enable": True, "/Reporting/Callsign": "AA1ZZZ", "/Reporting/GridSquare": "DM12",
-        "/Reporting/PSKReporter/Enable": False, "/Reporting/FreeDV/Hostname3.0": NOWHERE,
+        "/Reporting/PSKReporter/Enable": False, "/Reporting/FreeDV/Hostname": NOWHERE,
         "/Reporting/FreeDV/UseTls": False,
     })
     with audio_devices():
