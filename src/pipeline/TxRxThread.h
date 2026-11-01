@@ -110,7 +110,7 @@ public:
         , helper_(std::move(helper))
         , deferReset_(false)
         , reachedMinimumTxInput_(false)
-    { 
+    {
         assert(inputSampleRate_ > 0);
         assert(outputSampleRate_ > 0);
 

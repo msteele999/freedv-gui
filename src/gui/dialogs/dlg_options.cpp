@@ -112,6 +112,8 @@ extern std::atomic<int>    g_infifo1_full;
 extern std::atomic<int>    g_outfifo1_empty;
 extern std::atomic<int>    g_infifo2_full;
 extern std::atomic<int>    g_outfifo2_empty;
+extern std::atomic<int>    g_infifo1_empty;
+extern std::atomic<int>    g_infifo2_empty;
 extern std::atomic<int>    g_AEstatus1[4];
 extern std::atomic<int>    g_AEstatus2[4];
 extern wxDatagramSocket    *g_sock;
@@ -376,7 +378,10 @@ OptionsDlg::OptionsDlg(wxWindow* parent, wxWindowID id, const wxString& title, c
     wxStaticText* labelPskCallsign = new wxStaticText(sbReporting, wxID_ANY, _("Callsign:"), wxDefaultPosition, wxDefaultSize, 0);
     sbSizerReportingGeneral->Add(labelPskCallsign, 0,  static_cast<int>(wxALL) | wxALIGN_CENTER_VERTICAL, 5);
     
-    m_txt_callsign = new wxTextCtrl(sbReporting, wxID_ANY,  wxEmptyString, wxDefaultPosition, wxSize(180,-1), 0, wxTextValidator(wxFILTER_ALPHANUMERIC));
+    wxTextValidator callsignValidator(wxFILTER_INCLUDE_CHAR_LIST);
+    callsignValidator.SetCharIncludes(wxT("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789/"));
+    m_txt_callsign = new wxTextCtrl(sbReporting, wxID_ANY,  wxEmptyString, wxDefaultPosition, wxSize(180,-1), 0, callsignValidator);
+    m_txt_callsign->SetMaxLength(REPORTING_CALLSIGN_MAX_LENGTH);
     sbSizerReportingGeneral->Add(m_txt_callsign, 0, static_cast<int>(wxALL) | wxALIGN_CENTER_VERTICAL, 5);
     
     wxStaticText* labelPskGridSquare = new wxStaticText(sbReporting, wxID_ANY, _("Grid Square/Locator:"), wxDefaultPosition, wxDefaultSize, 0);
@@ -2167,6 +2172,8 @@ void OptionsDlg::OnFifoReset(wxCommandEvent&)
     g_outfifo1_empty.store(0, std::memory_order_relaxed);
     g_infifo2_full.store(0, std::memory_order_relaxed);
     g_outfifo2_empty.store(0, std::memory_order_relaxed);
+    g_infifo1_empty.store(0, std::memory_order_relaxed);
+    g_infifo2_empty.store(0, std::memory_order_relaxed);
     for (int i=0; i<4; i++) {
         g_AEstatus1[i].store(0, std::memory_order_relaxed);
         g_AEstatus2[i].store(0, std::memory_order_relaxed);
@@ -2390,7 +2397,7 @@ void OptionsDlg::exitPTTCaptureMode_(bool accept, int keyCode)
 void OptionsDlg::DisplayFifoPACounters() {
     if (IsShownOnScreen())
     {
-        wxString fifo_counters = wxString::Format(wxT("Fifos: infull1: %d outempty1: %d infull2: %d outempty2: %d"), g_infifo1_full.load(std::memory_order_relaxed), g_outfifo1_empty.load(std::memory_order_relaxed), g_infifo2_full.load(std::memory_order_relaxed), g_outfifo2_empty.load(std::memory_order_relaxed));
+        wxString fifo_counters = wxString::Format(wxT("Fifos: infull1: %d outempty1: %d infull2: %d outempty2: %d inempty1: %d inempty2: %d"), g_infifo1_full.load(std::memory_order_relaxed), g_outfifo1_empty.load(std::memory_order_relaxed), g_infifo2_full.load(std::memory_order_relaxed), g_outfifo2_empty.load(std::memory_order_relaxed), g_infifo1_empty.load(std::memory_order_relaxed), g_infifo2_empty.load(std::memory_order_relaxed));
         m_textFifos->SetLabel(fifo_counters);
 
         // input: underflow overflow output: underflow overflow

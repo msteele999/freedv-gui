@@ -59,6 +59,11 @@ function Test-FreeDV {
 
     $current_loc = Get-Location
 
+    # Clone radae repo (contains the test audio and the loss.py comparison tool) if not already present.
+    if (-not (Test-Path "$current_loc\rade_src")) {
+        & git.exe clone -b main https://github.com/drowe67/radae.git "$current_loc\rade_src"
+    }
+
     # Generate new conf 
     $conf_tmpl = Get-Content "$current_loc\freedv-ctest-reporting.conf.tmpl"
     $conf_tmpl = $conf_tmpl.Replace("@FREEDV_RADIO_TO_COMPUTER_DEVICE@", $RadioToComputerDevice)
@@ -67,7 +72,7 @@ function Test-FreeDV {
     $conf_tmpl = $conf_tmpl.Replace("@FREEDV_COMPUTER_TO_SPEAKER_DEVICE@", $ComputerToSpeakerDevice)
     $tmp_file = New-TemporaryFile
     $conf_tmpl | Set-Content -Path $tmp_file.FullName
-    
+
     # Start SoX
     $soxPsi = New-Object System.Diagnostics.ProcessStartInfo
     $soxPsi.CreateNoWindow = $true
@@ -77,34 +82,11 @@ function Test-FreeDV {
     $soxPsi.FileName = "sox.exe"
     $soxPsi.WorkingDirectory = $current_loc
     $quoted_device = "`"" + $RadioToComputerDevice + "`""
-    $soxPsi.Arguments = @("-t waveaudio $quoted_device -c 1 -r 48000 -t wav `"$current_loc\test.wav`"")
-    
+    $soxPsi.Arguments = @("-t waveaudio $quoted_device -c 1 -r 48000 -t wav -e signed-integer -b 16 `"$current_loc\test.wav`"")
+
     $soxProcess = New-Object System.Diagnostics.Process
     $soxProcess.StartInfo = $soxPsi
     [void]$soxProcess.Start()
-    
-    # Start mock rigctld
-    $rigctlPsi = New-Object System.Diagnostics.ProcessStartInfo
-    $rigctlPsi.CreateNoWindow = $true
-    $rigctlPsi.UseShellExecute = $false
-    $rigctlPsi.RedirectStandardError = $true
-    $rigctlPsi.RedirectStandardOutput = $true
-    $rigctlPsi.FileName = "python.exe"
-    $rigctlPsi.WorkingDirectory = $current_loc
-    $quoted_tmp_filename = "`"" + "hamlibserver.py" + "`""
-    $rigctlPsi.Arguments = @("$quoted_tmp_filename " + $soxProcess.Id)
-    
-    $rigctlProcess = New-Object System.Diagnostics.Process
-    $rigctlProcess.StartInfo = $rigctlPsi
-    [void]$rigctlProcess.Start()
-
-    # Wait for hamlibserver.py to open its listen socket before starting FreeDV,
-    # because Python startup on slow CI machines can take several seconds.
-    $deadline = (Get-Date).AddSeconds(30)
-    while ((Get-Date) -lt $deadline) {
-        if (Get-NetTCPConnection -LocalPort 4575 -State Listen -ErrorAction SilentlyContinue) { break }
-        Start-Sleep -Milliseconds 250
-    }
 
     # Start freedv.exe
     $psi = New-Object System.Diagnostics.ProcessStartInfo
@@ -115,7 +97,7 @@ function Test-FreeDV {
     $psi.FileName = "$current_loc\freedv.exe"
     $psi.WorkingDirectory = $current_loc
     $quoted_tmp_filename = "`"" + $tmp_file.FullName + "`""
-    $psi.Arguments = @("/f $quoted_tmp_filename /ut tx /utmode RADEV1 /txtime 5")
+    $psi.Arguments = @("/f $quoted_tmp_filename /ut tx /utmode RADEV2 /txtime 30 /txattempts 1 /txfile `"$current_loc\rade_src\wav\all.wav`"")
 
     $process = New-Object System.Diagnostics.Process
     $process.StartInfo = $psi
@@ -128,6 +110,7 @@ function Test-FreeDV {
     $process.WaitForExit()
 
     Write-Host "$err_output"
+    Write-Host "$output"
 
     # Stop recording audio
     try {
@@ -137,32 +120,43 @@ function Test-FreeDV {
     }
     $soxProcess.WaitForExit()
 
+    # Workaround/performance improvement: strip silence at beginning and end of recording
+    # As well as reducing the amount of audio that needs to be played back, it also helps
+    # ensure we don't accidentally run into a potential RADEV2 bug (https://github.com/freedv/rade_c/issues/8)
+    # Note: commands adapted from https://digitalcardboard.com/blog/2009/08/25/the-sox-of-silence/
+    $soxPsi.Arguments = @("test.wav test_stripped.wav silence 1 0.1 1% reverse")
+    $stripProcess = New-Object System.Diagnostics.Process
+    $stripProcess.StartInfo = $soxPsi
+    [void]$stripProcess.Start()
+    $stripProcess.WaitForExit()
+
+    $soxPsi.Arguments = @("test_stripped.wav test.wav silence 1 0.1 1% reverse")
+    $stripProcess = New-Object System.Diagnostics.Process
+    $stripProcess.StartInfo = $soxPsi
+    [void]$stripProcess.Start()
+    $stripProcess.WaitForExit()
+
     # Restart FreeDV in RX mode
-    $psi.Arguments = @("/f $quoted_tmp_filename /ut rx /utmode RADEV1 /rxfile `"$current_loc\test.wav`"")
+    $psi.Arguments = @("/f $quoted_tmp_filename /ut rx /utmode RADEV2 /rxfile `"$current_loc\test.wav`"")
 
     $process = New-Object System.Diagnostics.Process
     $process.StartInfo = $psi
     [void]$process.Start()
     $process.PriorityClass = [System.Diagnostics.ProcessPriorityClass]::AboveNormal
-    
+
     # Read output from second FreeDV run
     $err_output_fdv = $process.StandardError.ReadToEnd()
     $output = $process.StandardOutput.ReadToEnd()
     $process.WaitForExit()
 
     Write-Host "$err_output_fdv"
-    
-    # Kill mock rigctld
-    $rigctlProcess.Kill()
-    $err_output = $rigctlProcess.StandardError.ReadToEnd()
-    $output = $rigctlProcess.StandardOutput.ReadToEnd()
-    $rigctlProcess.WaitForExit()
+    Write-Host "$output"
 
-    Write-Host "$err_output"
-
-    # Check for RX callsign
+    # Check for RX callsign. RX plays back the whole recording rather than stopping at the
+    # first decode, so a re-sync partway through can legitimately decode the callsign more
+    # than once -- that's still a pass, not a failure.
     $syncs = ($err_output_fdv -split "`r?`n") | Where { $_.Contains("Reporting callsign ZZ0ZZZ @ SNR") }
-    if (($process.ExitCode -eq 0) -and ($syncs.Count -eq 1)) {
+    if (($process.ExitCode -eq 0) -and ($syncs.Count -ge 1)) {
         return $true
     }
     return $false
@@ -185,7 +179,7 @@ else
     $fails++
 }
 
-Write-Host "Mode: RADEV1, Passed: $passes, Failures: $fails"
+Write-Host "Mode: RADEV2, Passed: $passes, Failures: $fails"
 
 if ($fails -gt 0) {
     throw "Test failed"

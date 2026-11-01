@@ -115,6 +115,8 @@ std::string decodedSpeechModelPath(const wxString& modelName)
 // External globals
 // TBD -- work on fully removing the need for these.
 extern paCallBackData* g_rxUserdata;
+extern std::atomic<int> g_infifo1_empty;
+extern std::atomic<int> g_infifo2_empty;
 extern std::atomic<int> g_analog;
 extern std::atomic<int> g_nSoundCards;
 extern std::atomic<bool> g_half_duplex;
@@ -927,6 +929,14 @@ void TxRxThread::txProcessing_(IRealtimeHelper* helper) FREEDV_NONBLOCKING
 
         int             nout;
 
+        // Tracks whether this wake cycle managed to read *any* real mic
+        // audio at all. Running dry after successfully draining what was
+        // buffered is the loop's normal, designed exit condition (it happens
+        // on effectively every wake cycle) -- that's not starvation. Getting
+        // zero frames of new mic data for the *entire* wake cycle is the
+        // actual anomaly worth counting.
+        bool gotAnyMicData = false;
+
         while(!helper->mustStopWork() && (unsigned)cbData->outfifo1->numFree() >= nsam_one_modem_frame) {
             // OK to generate a frame of modem output samples we need
             // an input frame of speech samples from the microphone.
@@ -1011,9 +1021,20 @@ void TxRxThread::txProcessing_(IRealtimeHelper* helper) FREEDV_NONBLOCKING
 
             if (nread != 0)
             {
+                // Less than a frame from the microphone so far: wait for the
+                // rest of it rather than sending silence in its place, which
+                // would go out as a gap in what's being said. (Enough is
+                // made ready before the radio's sound card is given any of a
+                // transmission for it not to go short meanwhile: see
+                // TxOutputStart.h.)
+#if defined(ENABLE_PROCESSING_STATS)
+                processingStats_.end();
+#endif // defined(ENABLE_PROCESSING_STATS)
                 break;
             }
 
+            // FIFO read() returns 0 on success; failed reads break above.
+            gotAnyMicData = true;
             auto outputSamples = pipeline_->execute(inputPtr, nsam_in_48, &nout);
 
             // For the AGC gain plot (polled by the GUI thread).
@@ -1041,6 +1062,14 @@ void TxRxThread::txProcessing_(IRealtimeHelper* helper) FREEDV_NONBLOCKING
 #if defined(ENABLE_PROCESSING_STATS)
             processingStats_.end();
 #endif // defined(ENABLE_PROCESSING_STATS)
+        }
+
+        // A quiet mic during the deliberate end-of-transmission tail is
+        // expected, not starvation -- only count it when we were otherwise
+        // expecting a steady stream of mic audio.
+        if (!gotAnyMicData && !endingTx.load(std::memory_order_acquire))
+        {
+            g_infifo2_empty.fetch_add(1, std::memory_order_relaxed);
         }
     }
     else
@@ -1079,6 +1108,15 @@ void TxRxThread::rxProcessing_(IRealtimeHelper* helper) FREEDV_NONBLOCKING
     int nsam_one_speech_frame = (freedvInterface.getRxNumSpeechSamples() * outputSampleRate_) / freedvInterface.getRxSpeechSampleRate();
     auto outFifo = (g_nSoundCards.load(std::memory_order_acquire) == 1) ? cbData->outfifo1 : cbData->outfifo2;
 
+    // Tracks whether this wake cycle managed to read *any* new receive
+    // samples at all. Running dry after successfully draining what was
+    // buffered is the loop's normal, designed exit condition (it happens on
+    // effectively every wake cycle) -- that's not starvation. Getting zero
+    // frames of new RF-in audio for the *entire* wake cycle is the actual
+    // anomaly worth counting, since it means the demodulator went hungry
+    // long enough to potentially cost it sync.
+    bool gotAnyRxData = false;
+
     // while we have enough space in the output FIFO ...
     while (!helper->mustStopWork() && outFifo->numFree() >= nsam_one_speech_frame) {
         // ... and enough input samples are available.
@@ -1086,6 +1124,7 @@ void TxRxThread::rxProcessing_(IRealtimeHelper* helper) FREEDV_NONBLOCKING
         {
             break;
         }
+        gotAnyRxData = true;
 
 #if defined(ENABLE_PROCESSING_STATS)
         processingStats_.start();
@@ -1106,5 +1145,10 @@ void TxRxThread::rxProcessing_(IRealtimeHelper* helper) FREEDV_NONBLOCKING
 #if defined(ENABLE_PROCESSING_STATS)
         processingStats_.end();
 #endif // defined(ENABLE_PROCESSING_STATS)
+    }
+
+    if (!gotAnyRxData)
+    {
+        g_infifo1_empty.fetch_add(1, std::memory_order_relaxed);
     }
 }

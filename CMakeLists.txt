@@ -59,6 +59,28 @@ if(APPLE)
     endif(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 15.0.0.0)
 endif(APPLE)
 
+if(MINGW AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    # Extra runtime libraries Ubuntu's gcc-mingw-w64 toolchain needs (see
+    # cross-compile/freedv-mingw-gcc-x86_64.cmake for why each is there)
+    # must be appended here, in CMakeLists.txt after project(), rather
+    # than in the toolchain file itself: CMake's Windows-GNU platform
+    # file unconditionally (re)populates CMAKE_C_STANDARD_LIBRARIES /
+    # CMAKE_CXX_STANDARD_LIBRARIES (e.g. with "-lkernel32 -luser32 ...")
+    # during language enablement, which happens *after* the toolchain
+    # file runs and clobbers whatever it set there. Setting it here
+    # instead appends to the now-already-populated platform default.
+    #
+    # This also propagates correctly to plain add_subdirectory()/
+    # FetchContent-based subprojects (a nested project() call for an
+    # already-enabled language doesn't re-trigger platform-default
+    # population), but NOT to genuinely separate nested `cmake`
+    # invocations like ExternalProject_Add(build_rade ...) in
+    # freedv-backend's BuildRADE.cmake -- that one explicitly forwards
+    # these same two variables via its own CMAKE_ARGS instead.
+    set(CMAKE_C_STANDARD_LIBRARIES "${CMAKE_C_STANDARD_LIBRARIES} -lssp")
+    set(CMAKE_CXX_STANDARD_LIBRARIES "${CMAKE_CXX_STANDARD_LIBRARIES} -lssp")
+endif()
+
 if(NOT DEFINED LINUX)
     string(FIND ${CMAKE_SYSTEM_NAME} "Linux" LINUX_LOC)
     if((${LINUX_LOC} GREATER 0) OR (${LINUX_LOC} EQUAL 0))
@@ -745,13 +767,15 @@ install(
     DESTINATION share/freedv-gui
 )    
 
-if(WIN32)
-    # Install pdb files.
+if(WIN32 AND FREEDV_USING_LLVM_MINGW)
+    # Install pdb files. Only llvm-mingw's lld produces one (via
+    # -Wl,--pdb= in the toolchain file); gcc-mingw-w64 emits DWARF debug
+    # info embedded in the binary instead, so there's nothing to install.
     install(
-        FILES ${CMAKE_CURRENT_BINARY_DIR}/src/freedv.pdb 
+        FILES ${CMAKE_CURRENT_BINARY_DIR}/src/freedv.pdb
         DESTINATION bin
     )
-endif(WIN32)
+endif(WIN32 AND FREEDV_USING_LLVM_MINGW)
 
 if(WIN32)
     #
@@ -837,9 +861,9 @@ VIAddVersionKey \\\"GitHash\\\" \\\"${GIT_HASH}\\\"
     string(REPLACE "." "," VERSION_AS_RC ${CPACK_WIN_VERSION})
     configure_file(${CMAKE_SOURCE_DIR}/contrib/freedv.rc.in ${CMAKE_BINARY_DIR}/freedv.rc)
 
-    if (FREEDV_USING_LLVM_MINGW)
-        set(CPACK_PACKAGE_FILE_NAME "FreeDV-${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}-windows-${CMAKE_SYSTEM_PROCESSOR}")
-    endif (FREEDV_USING_LLVM_MINGW)
+    # Already inside the if(WIN32) packaging block above, so this applies
+    # to any MinGW flavor cross-compiling for Windows, not just llvm-mingw.
+    set(CPACK_PACKAGE_FILE_NAME "FreeDV-${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}-windows-${CMAKE_SYSTEM_PROCESSOR}")
 
     if(SIGN_WINDOWS_BINARIES)
         # Add finalize command for NSIS so the installer/uninstaller can be
@@ -897,18 +921,21 @@ macro(DefineAudioTest utName)
 endmacro()
 
 DefineAudioTest(RADEV1)
+DefineAudioTest(RADEV2)
 
 # The -txfile/-txoutfile and -rxfile/-rxoutfile unit-test options.
 add_test(NAME ut_file_recording
          COMMAND sh -c "${CMAKE_CURRENT_SOURCE_DIR}/test/test_ut_recording.sh")
 freedv_set_test_pass_criteria(ut_file_recording "PASS: file input and output")
 
-if(NOT ENABLE_RTSAN)
 # Note: loading/saving feature files is currently not RT-safe
 add_test(NAME rade_loss
          COMMAND sh -c "${CMAKE_CURRENT_SOURCE_DIR}/test/test_rade_loss.sh")
+
+# For sanitizers, we're just seeing if there are any errors from the sanitizer.
+if(NOT SANITIZERS_ENABLED)
 freedv_set_test_pass_criteria(rade_loss "PASS")
-endif(NOT ENABLE_RTSAN)
+endif(NOT SANITIZERS_ENABLED)
 
 add_test(NAME rade_reporting_clean COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test/test_rade_reporting.sh)
 freedv_set_test_pass_criteria(rade_reporting_clean "Reporting callsign ZZ0ZZZ @ SNR")

@@ -364,7 +364,7 @@ bool receivesItsOwnTransmissionAndCallsign()
     result &= checkText("callsign before receiving anything", takeReliableText(iface.dv), "");
 
     bool endOfOverProduced = false;
-    auto onAir = transmitOver(iface, *tx, 4.0, &endOfOverProduced);
+    auto onAir = transmitOver(iface, *tx, 10.0, &endOfOverProduced);
     result &= checkTrue("no end of over was produced", endOfOverProduced);
 
     bool everSynced = false;

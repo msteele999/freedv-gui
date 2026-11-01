@@ -1574,14 +1574,18 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::updateHighlights()
 
                         wxDataViewItem dvi(reportData);
                         itemsChanged.Add(dvi);
+
+                        if (isHighlightUpdated)
+                        {
+                            columnsNeedAutosize_ = true;
+                        }
                     }
                 }
             }
         }
-            
+
         if (itemsChanged.size() > 0)
         {
-            setColumnAutosize_(false);
             ItemsChanged(itemsChanged);
         }
         

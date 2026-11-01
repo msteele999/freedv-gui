@@ -346,7 +346,6 @@ if(APPLE)
         set(SANITIZER_LIB_NAME libclang_rt.asan_osx_dynamic.dylib)
     endif()
 
-    # Get folder containing libasan so we don't need to enter it to macdylibbundler.
     execute_process(
         COMMAND ${CMAKE_C_COMPILER} -print-file-name=${SANITIZER_LIB_NAME}
         OUTPUT_VARIABLE CLANG_SANITIZER_FILE

@@ -18,6 +18,7 @@
 #include <cstring>
 #include <memory>
 #include <mutex>
+#include <map>
 #include <random>
 #include <string>
 #include <thread>
@@ -31,6 +32,8 @@
 
 #include "../TxRxThread.h"
 #include "pipeline/LinkStep.h"
+#include "pipeline/RADEReceiveStep.h"
+#include "pipeline/RADETransmitStep.h"
 #include "pipeline/ResampleStep.h"
 #include "pipeline/test/SpeechSample.h"
 #include "../../freedv_interface.h"
@@ -111,6 +114,9 @@ std::atomic<SNDFILE*> g_sfRecDecoderFile(nullptr);
 std::atomic<bool> g_recFileFromRadio(false);
 std::atomic<bool> g_recFileFromDecoder(false);
 std::atomic<unsigned int> g_recFromRadioSamples(0);
+
+std::atomic<int>    g_infifo1_empty;
+std::atomic<int>    g_infifo2_empty;
 
 namespace {
 
@@ -703,19 +709,29 @@ double frameLoss(const float* sent, const float* received)
         (1.0 / 18.0) * correlationError * correlationError;
 }
 
-// The loss between everything sent and everything received, lined up
-// wherever within a second either way makes it smallest, as loss.py does:
-// the receiver doesn't start at the first frame. A negative result means
-// there was nothing to compare.
-double featureLoss(std::vector<float> const& sent, std::vector<float> const& received, int* startFrame = nullptr)
+// How much of what's received the rade_loss test leaves out of its measure
+// of loss (loss.py's --clip_start and --clip_end): the first second, while
+// the receiver's finding the signal, and the last three, as it ends.
+constexpr int LOSS_CLIP_START_FRAMES = 100;
+constexpr int LOSS_CLIP_END_FRAMES = 300;
+
+// The loss between everything sent and everything received (less clipStart
+// frames from the start of what's received and clipEnd from its end), lined
+// up wherever within a second either way makes it smallest, as loss.py does:
+// the receiver doesn't start at the first frame. startFrame is where the
+// first frame received (clipped or not) lines up with what was sent. A
+// negative result means there was nothing to compare.
+double featureLoss(std::vector<float> const& sent, std::vector<float> const& received, int* startFrame = nullptr,
+                   int clipStart = 0, int clipEnd = 0)
 {
     constexpr int PAD_FRAMES = 100;
     int sentFrames = (int)(sent.size() / FEATURES_PER_FRAME) + 2 * PAD_FRAMES;
-    int receivedFrames = (int)(received.size() / FEATURES_PER_FRAME);
-    if (receivedFrames == 0 || receivedFrames >= sentFrames)
+    int receivedFrames = (int)(received.size() / FEATURES_PER_FRAME) - clipStart - clipEnd;
+    if (receivedFrames <= 0 || receivedFrames >= sentFrames)
     {
         return -1.0;
     }
+    const float* firstReceived = &received[(size_t)clipStart * FEATURES_PER_FRAME];
 
     std::vector<float> padded((size_t)sentFrames * FEATURES_PER_FRAME, 0.0f);
     std::copy(sent.begin(), sent.end(), padded.begin() + PAD_FRAMES * FEATURES_PER_FRAME);
@@ -727,16 +743,114 @@ double featureLoss(std::vector<float> const& sent, std::vector<float> const& rec
         for (int frame = 0; frame < receivedFrames; frame++)
         {
             total += frameLoss(&padded[(size_t)(start + frame) * FEATURES_PER_FRAME],
-                               &received[(size_t)frame * FEATURES_PER_FRAME]);
+                               &firstReceived[(size_t)frame * FEATURES_PER_FRAME]);
         }
         double loss = total / receivedFrames;
         if (best < 0.0 || loss < best)
         {
             best = loss;
-            if (startFrame != nullptr) *startFrame = start - PAD_FRAMES;
+            if (startFrame != nullptr) *startFrame = start - PAD_FRAMES - clipStart;
         }
     }
     return best;
+}
+
+// RADE V2 on its own, with no TX/RX threads, sound cards or FIFOs: the
+// speech as the encoder gets it at sampleRate (resampled to 16 kHz, as FreeDV
+// does), encoded, modulated, demodulated and decoded, and the loss between
+// the features sent and received measured as the rade_loss test does. That
+// test's software-only baseline (rade_tx_wav/rade_rx_wav --v2), done
+// in-process. Worked out once for each sample rate and length.
+double radeBaselineLoss(int sampleRate, double seconds)
+{
+    static std::map<std::pair<int, double>, double> baselines;
+    auto found = baselines.find({sampleRate, seconds});
+    if (found != baselines.end())
+    {
+        return found->second;
+    }
+
+    std::vector<short> speech = speechAt(sampleRate, seconds);
+    if (sampleRate != 16000 && !speech.empty())
+    {
+        ResampleStep resampler(sampleRate, 16000);
+        std::vector<short> atSpeechRate;
+        int block = sampleRate / 100;
+        for (size_t offset = 0; offset < speech.size(); offset += block)
+        {
+            int numOut = 0;
+            auto out = resampler.execute(&speech[offset], (int)std::min<size_t>(block, speech.size() - offset), &numOut);
+            if (out != nullptr && numOut > 0)
+            {
+                atSpeechRate.insert(atSpeechRate.end(), out, out + numOut);
+            }
+        }
+        speech = atSpeechRate;
+    }
+    if (speech.empty())
+    {
+        return -1.0;
+    }
+
+    std::string txFeatures = unitTestTempPath("TxRxThreadTest", "-baseline-tx-features.f32");
+    std::string rxFeatures = unitTestTempPath("TxRxThreadTest", "-baseline-rx-features.f32");
+    std::string oldTxFeatureFile = utTxFeatureFile;
+    std::string oldRxFeatureFile = utRxFeatureFile;
+    utTxFeatureFile = txFeatures;
+    utRxFeatureFile = rxFeatures;
+    {
+        char modelFile[1] = {0};
+        struct rade* dv = rade_open(modelFile, RADE_USE_C_ENCODER | RADE_USE_C_DECODER | RADE_VERBOSE_0);
+        assert(dv != nullptr);
+        LPCNetEncState* encState = lpcnet_encoder_create();
+        assert(encState != nullptr);
+        FARGANState fargan;
+        float zeros[320] = {0};
+        float inFeatures[5 * NB_TOTAL_FEATURES] = {0};
+        fargan_init(&fargan);
+        fargan_cont(&fargan, zeros, inFeatures);
+
+        {
+            RADETransmitStep tx(dv, encState);
+            RADEReceiveStep rx(
+                dv, &fargan, nullptr,
+                +[](RADEReceiveStep*) FREEDV_NONBLOCKING {},
+                +[]() FREEDV_NONBLOCKING { return 0.0f; });
+
+            // 20 ms at a time each way, with a second of nothing after the
+            // signal for the receiver to finish with it.
+            constexpr int SPEECH_BLOCK = RADE_SPEECH_SAMPLE_RATE / 50;
+            constexpr int MODEM_BLOCK = RADE_MODEM_SAMPLE_RATE / 50;
+            std::vector<short> modem;
+            for (size_t pos = 0; pos + SPEECH_BLOCK <= speech.size(); pos += SPEECH_BLOCK)
+            {
+                int numOut = 0;
+                short* out = tx.execute(&speech[pos], SPEECH_BLOCK, &numOut);
+                if (out != nullptr && numOut > 0)
+                {
+                    modem.insert(modem.end(), out, out + numOut);
+                }
+            }
+            modem.insert(modem.end(), RADE_MODEM_SAMPLE_RATE, 0);
+            for (size_t pos = 0; pos + MODEM_BLOCK <= modem.size(); pos += MODEM_BLOCK)
+            {
+                int numOut = 0;
+                rx.execute(&modem[pos], MODEM_BLOCK, &numOut);
+            }
+        }
+
+        lpcnet_encoder_destroy(encState);
+        rade_close(dv);
+    }
+    utTxFeatureFile = oldTxFeatureFile;
+    utRxFeatureFile = oldRxFeatureFile;
+
+    double loss = featureLoss(loadFeatures(txFeatures), loadFeatures(rxFeatures), nullptr,
+                              LOSS_CLIP_START_FRAMES, LOSS_CLIP_END_FRAMES);
+    remove(txFeatures.c_str());
+    remove(rxFeatures.c_str());
+    baselines[{sampleRate, seconds}] = loss;
+    return loss;
 }
 
 // Hands out how many samples a sound card delivers or asks for next: always
@@ -2073,7 +2187,8 @@ public:
         bool ran = false;           // false if there was no speech to send
         double secondsToSync = -1;  // of signal received before sync was found
         int syncLosses = 0;         // times sync went away before the signal ended
-        double loss = -1;           // between the features sent and received
+        double loss = -1;           // between the features sent and received (clipped as rade_loss does)
+        double baselineLoss = -1;   // RADE V2 on its own with the same speech, measured the same way
         double lossOnceGoing = -1;  // ...leaving out the first two seconds received
         int framesSent = 0;
         int framesReceived = 0;
@@ -2207,7 +2322,7 @@ public:
                     }, result.tx);
                 // Shortfalls while the thread is still priming just mean the
                 // card's ask ran ahead of the production backlog; after that,
-                // only ones big enough to put a hole in the signal count —
+                // only ones big enough to put a hole in the signal count â€”
                 // a sound card's callback can arrive a few samples early in
                 // real life, and main.cpp pads those every day.
                 long shortBy = result.tx.outputShortfallSamples - shortfallBefore;
@@ -2343,7 +2458,8 @@ public:
         result.framesSent = (int)(sentFeatures.size() / FEATURES_PER_FRAME);
         result.framesReceived = (int)(receivedFeatures.size() / FEATURES_PER_FRAME);
         int startFrame = 0;
-        result.loss = featureLoss(sentFeatures, receivedFeatures, &startFrame);
+        result.loss = featureLoss(sentFeatures, receivedFeatures, &startFrame, LOSS_CLIP_START_FRAMES, LOSS_CLIP_END_FRAMES);
+        result.baselineLoss = radeBaselineLoss(sampleRate, seconds);
         if (result.loss >= 0)
         {
             // Second by second, for seeing where any loss is.
@@ -2374,9 +2490,12 @@ public:
         return result;
     }
 
-    // mostLoss is what's allowed between what was sent and what came back:
-    // rade_loss allows 0.15.
-    static bool checkRoundTrip(const char* what, RoundTrip const& roundTrip, double mostLoss = 0.15)
+    // What's allowed between what was sent and what came back: within 10%
+    // either way of RADE V1's software-only loss with the same speech. (Much
+    // better than RADE on its own would be as suspect as much worse.)
+    static constexpr double LOSS_TOLERANCE = 0.10;
+
+    static bool checkRoundTrip(const char* what, RoundTrip const& roundTrip)
     {
         if (!roundTrip.ran)
         {
@@ -2389,6 +2508,7 @@ public:
             std::cout << std::endl << "    " << what << ": sync after " << roundTrip.secondsToSync << " s, lost "
                       << roundTrip.syncLosses << " times; " << roundTrip.framesOfSpeech << " frames of speech, "
                       << roundTrip.framesSent << " sent, " << roundTrip.framesReceived << " received; loss " << roundTrip.loss
+                      << " (baseline " << roundTrip.baselineLoss << ")"
                       << " (" << roundTrip.lossOnceGoing << " once going); " << roundTrip.silentSamplesSent
                       << " silent samples in the signal (last at " << roundTrip.lastSilenceAt << " s); tx in/out " << roundTrip.tx.inputOverflows << "/"
                       << roundTrip.tx.outputUnderruns << ", rx in/out " << roundTrip.rx.inputOverflows << "/"
@@ -2420,12 +2540,18 @@ public:
 
         // Most of what was sent comes back (the receiver takes a moment to
         // find the signal), and stays that good from then on: the overall
-        // figure carries the demodulator's lock-on — a good second of
+        // figure carries the demodulator's lock-on â€” a good second of
         // rough frames right after sync, wherever the cards happen to put
-        // it — so mostLoss is the bar for the once-going measure.
+        // it â€” so mostLoss is the bar for the once-going measure.
         if (roundTrip.framesReceived < roundTrip.framesOfSpeech - 300) fail() << roundTrip.framesReceived << " frames received of " << roundTrip.framesOfSpeech << " of speech] ";
-        if (roundTrip.lossOnceGoing < 0 || roundTrip.lossOnceGoing > mostLoss) fail() << "loss " << roundTrip.lossOnceGoing << " once going, expected " << mostLoss << " at most] ";
-        if (roundTrip.loss < 0 || roundTrip.loss > mostLoss + 0.05) fail() << "loss " << roundTrip.loss << " overall, expected " << mostLoss + 0.05 << " at most] ";
+        double leastLoss = roundTrip.baselineLoss * (1.0 - LOSS_TOLERANCE);
+        double mostLoss = roundTrip.baselineLoss * (1.0 + LOSS_TOLERANCE);
+        if (roundTrip.baselineLoss <= 0) fail() << "no baseline loss to compare with (" << roundTrip.baselineLoss << ")] ";
+        else if (roundTrip.loss < leastLoss || roundTrip.loss > mostLoss)
+        {
+            fail() << "loss " << roundTrip.loss << ", expected " << leastLoss << " to " << mostLoss
+                   << " (baseline " << roundTrip.baselineLoss << ", within " << (int)(LOSS_TOLERANCE * 100) << "%)] ";
+        }
         return result;
     }
 
@@ -2450,8 +2576,9 @@ public:
         result &= checkRoundTrip("44.1 kHz, uneven blocks both ways", sendAndReceiveSpeech(44100, ROUND_TRIP_SECONDS, 5, 6, false, false));
         // (Sound cards that only do telephone quality cost some of the speech
         // before FreeDV sees it, and what's sent is that much further from
-        // what the vocoder was made for.)
-        result &= checkRoundTrip("8 kHz, uneven blocks both ways", sendAndReceiveSpeech(8000, ROUND_TRIP_SECONDS, 7, 8, false, false), 0.3);
+        // what the vocoder was made for: the baseline's worked out from the
+        // same telephone-quality speech.)
+        result &= checkRoundTrip("8 kHz, uneven blocks both ways", sendAndReceiveSpeech(8000, ROUND_TRIP_SECONDS, 7, 8, false, false));
         return result;
     }
 

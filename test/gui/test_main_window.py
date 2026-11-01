@@ -30,8 +30,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import freedvtest
 import freedvtest.audio
-from freedvtest.audio import (Loopback, Tone, VirtualAudioDevices, device, file_level, play, record, record_level,
-                              tone_share, write_tone)
+from freedvtest.audio import (Loopback, Speech, Tone, VirtualAudioDevices, device, file_level, play, record,
+                              record_level, tone_share, write_tone)
 
 RADIO_RX = device("FreeDVGuiTest_Radio_To_Computer")
 RADIO_TX = device("FreeDVGuiTest_Computer_To_Radio")
@@ -91,7 +91,7 @@ def settings(**extra):
     result["/Filter/speexpp_enable"] = False
     result["/Filter/agcEnable"] = False
     # Keep FreeDV off the public FreeDV Reporter server.
-    result["/Reporting/FreeDV/Hostname"] = NOWHERE
+    result["/Reporting/FreeDV/Hostname3.0"] = NOWHERE
     result["/Reporting/FreeDV/UseTls"] = False
     result["/Reporting/PSKReporter/Enable"] = False
     for name, value in extra.items():
@@ -491,7 +491,7 @@ def test_receive():
             except freedvtest.FreeDVError:
                 check(False, "SNR of a clean signal is " + label(app, "main.textSNR"))
             check(app.get("main.gaugeSNR")["value"] > 0, "The SNR gauge isn't showing anything")
-            check_equal(label(app, "main.textCurrentDecodeMode"), "Mode: RADEV1", "Mode while receiving")
+            check_equal(label(app, "main.textCurrentDecodeMode"), "Mode: RADEV2", "Mode while receiving")
             time.sleep(3)
             check_equal(app.state()["sync"], 1, "Sync a few seconds on")
 
@@ -500,12 +500,21 @@ def test_receive():
             app.click("main.btnCenterRx")
             app.click("main.btnBerReset")
 
-            # The callsign arrives as the transmission ends.
+            # Sync is lost at the end of the transmission (its end-of-over).
+            # Full duplex, FreeDV carries on sending what the microphone
+            # hears (here, nothing) once PTT is released, and the receiver
+            # finds that again within a second or so, so it's watched for
+            # from the moment PTT is released, and more often than usual.
             app.click("main.btnPTT")
+            deadline = time.monotonic() + 10
+            while app.state()["sync"] != 0:
+                check(time.monotonic() < deadline, "Sync wasn't lost at the end of the transmission")
+                time.sleep(0.02)
             wait_for_transmit(app, False)
+
+            # The callsign comes with the signal (RADE V2 sends it all the way through).
             app.wait_until(lambda: app.get("main.cboLastReportedCallsigns")["value"] == CALLSIGN, timeout=15,
                            description="the callsign to be received")
-            app.wait_until(lambda: app.state()["sync"] == 0, timeout=15, description="sync to be lost")
 
             app.click("main.btnCallSignReset")
             check_equal(app.get("main.cboLastReportedCallsigns")["value"], "", "Last callsign after clearing")
@@ -797,7 +806,9 @@ def test_voice_keyer_reply():
                 start_modem(app)
 
                 # Someone to answer: FreeDV's own transmission, kept for later.
-                with Tone(MICROPHONE):
+                # (Speech, not a tone: a tone isn't something RADE carries,
+                # and its receiver can take one for the end of an over.)
+                with Speech(MICROPHONE):
                     app.click("main.btnPTT")
                     wait_for_transmit(app)
                     time.sleep(1)
@@ -1158,8 +1169,8 @@ def test_recording_options():
             f.write("date,time,callsign,mode,frequency_hz,snr_db\n")
             # The last one written is the one on top: FreeDV puts each
             # heard station at the top of the list.
-            f.write("2026-03-03,04:05:06,vk5dgr/p,RADEV1,14236000,6\n")
-            f.write("2026-03-04,05:06:07,K1ABC/P,RADEV1,14236000,7\n")
+            f.write("2026-03-03,04:05:06,vk5dgr/p,RADEV2,14236000,6\n")
+            f.write("2026-03-04,05:06:07,K1ABC/P,RADEV2,14236000,7\n")
 
         extra = dict(QuickRecord__SavePath=raw_folder, QuickRecord__SaveDecodedPath=decoded_folder,
                      Reporting__Enable=True, Reporting__Callsign=CALLSIGN, Reporting__GridSquare="DM12",
@@ -1488,7 +1499,7 @@ def test_mouse_controls():
         csv_log = os.path.join(folder, "heard.csv")
         with open(csv_log, "w") as f:
             f.write("date,time,callsign,mode,frequency_hz,snr_db\n")
-            f.write("2026-03-04,05:06:07,K1ABC,RADEV1,14236000,7\n")
+            f.write("2026-03-04,05:06:07,K1ABC,RADEV2,14236000,7\n")
         extra = dict(Reporting__Enable=True, Reporting__Callsign=CALLSIGN, Reporting__GridSquare="DM12",
                      Reporting__CSV__LogFilePath=csv_log)
 
@@ -1613,7 +1624,7 @@ def test_play_file_loop():
 def test_help_and_restore():
     """The Help menu's web pages and Tools > Restore defaults."""
     start = {"/Reporting/Callsign": CALLSIGN, "/Reporting/GridSquare": "DM12",
-             "/Reporting/FreeDV/Hostname": NOWHERE, "/Reporting/FreeDV/UseTls": False}
+             "/Reporting/FreeDV/Hostname3.0": NOWHERE, "/Reporting/FreeDV/UseTls": False}
     with freedvtest.start(settings=start) as app:
         app.wait_for_window("main")
 
@@ -1794,8 +1805,8 @@ def test_frequency_units():
         csv_log = os.path.join(folder, "heard.csv")
         with open(csv_log, "w") as f:
             f.write("date,time,callsign,mode,frequency_hz,snr_db\n")
-            f.write("2026-03-04,05:06:07,K1ABC,RADEV1,14236000,7\n")
-            f.write("2026-03-04,05:16:07,VK5DGR,RADEV1,7177500,3\n")
+            f.write("2026-03-04,05:06:07,K1ABC,RADEV2,14236000,7\n")
+            f.write("2026-03-04,05:16:07,VK5DGR,RADEV2,7177500,3\n")
         extra = dict(Reporting__Enable=True, Reporting__Callsign=CALLSIGN, Reporting__GridSquare="DM12",
                      Reporting__CSV__LogFilePath=csv_log, Reporting__Frequency=14236000)
 
@@ -1837,7 +1848,7 @@ def test_default_config():
     home = tempfile.mkdtemp(prefix="freedvtest-home-")
     try:
         other = os.path.join(home, "other.conf")
-        quiet = {"/Reporting/FreeDV/Hostname": NOWHERE, "/Reporting/FreeDV/UseTls": False}
+        quiet = {"/Reporting/FreeDV/Hostname3.0": NOWHERE, "/Reporting/FreeDV/UseTls": False}
         freedvtest.write_config(freedvtest.default_config_path(home), dict(quiet, **{"/Reporting/Callsign": "K1ABC"}))
         freedvtest.write_config(other, dict(quiet, **{"/Reporting/Callsign": "VK5DGR"}))
 
@@ -2206,7 +2217,7 @@ def test_menus():
         open(empty, "w").close()
 
         start = {"/Reporting/Callsign": CALLSIGN, "/Reporting/GridSquare": "DM12",
-                 "/Reporting/FreeDV/Hostname": NOWHERE, "/Reporting/FreeDV/UseTls": False}
+                 "/Reporting/FreeDV/Hostname3.0": NOWHERE, "/Reporting/FreeDV/UseTls": False}
         with freedvtest.start(settings=start) as app:
             app.wait_for_window("main")
             title = app.get("main")["label"]
@@ -2357,18 +2368,18 @@ def test_heard_list():
         with open(csv_log, "w") as f:
             f.write("date,time,callsign,mode,frequency_hz,snr_db\n")
             for n, callsign in enumerate(callsigns):
-                f.write("2026-03-04,05:%02d:%02d,%s,RADEV1,%d,%d\n"
+                f.write("2026-03-04,05:%02d:%02d,%s,RADEV2,%d,%d\n"
                         % (n // 60, n % 60, callsign, 14236000 + n * 500, n % 20))
                 if n == 110:
                     # Things that aren't stations heard are passed over.
                     f.write("\n")
                     f.write("2026-03-04,06:00:00,NOFREQ\n")
-                    f.write("2026-03-04,06:00:01,BADFREQ,RADEV1,somewhere,3\n")
+                    f.write("2026-03-04,06:00:01,BADFREQ,RADEV2,somewhere,3\n")
                     f.write("2026-03-04\n")
                     f.write("2026-03-04,06:00:02\n")
-                    f.write("2026-03-04,06:00:03,NOFREQ,RADEV1\n")
-                    f.write("2026-03-04,06:00:04,NOSNR,RADEV1,14236000\n")
-                    f.write("2026-03-04,06:00:05,BADSNR,RADEV1,14236000,loud\n")
+                    f.write("2026-03-04,06:00:03,NOFREQ,RADEV2\n")
+                    f.write("2026-03-04,06:00:04,NOSNR,RADEV2,14236000\n")
+                    f.write("2026-03-04,06:00:05,BADSNR,RADEV2,14236000,loud\n")
 
         def heard(app):
             return [(item["columns"][0], item["columns"][1].replace(",", ""))
@@ -2483,14 +2494,14 @@ def test_receive_reports():
                 except socket.timeout:
                     check(False, "Nothing was sent to other programs about the callsign received")
                 check_equal((told.get("type"), told.get("callsign"), told.get("mode"), told.get("frequency_hz")),
-                            ("fdv_callsign", CALLSIGN, "RADEV1", 14236000), "What other programs were told")
+                            ("fdv_callsign", CALLSIGN, "RADEV2", 14236000), "What other programs were told")
 
                 # ...and it's logged.
                 stop_modem(app)
                 quit_and_check_log(app)
                 with open(csv_log, "r") as f:
                     logged = [line.strip().split(",") for line in f if line.strip()]
-                check(len(logged) >= 2 and logged[-1][2:5] == [CALLSIGN, "RADEV1", "14236000"],
+                check(len(logged) >= 2 and logged[-1][2:5] == [CALLSIGN, "RADEV2", "14236000"],
                       "The log of stations heard is %r" % logged)
 
                 # Which is where the list comes from the next time.

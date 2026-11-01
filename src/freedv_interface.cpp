@@ -28,6 +28,8 @@
 #include <future>
 #include <atomic>
 #include <new>
+#include <memory>
+#include <vector>
 
 #include "main.h"
 #include "lpcnet.h"
@@ -148,6 +150,21 @@ bool FreeDVInterface::start(int, bool usingReliableText, bool verbose, RadeMode 
             // Refuse an incompatible implementation; never fall back to V1.
             stop();
             return false;
+        }
+
+        // Page in the model weights before real-time processing starts. Use a
+        // separate instance so dummy inference cannot alter the live sync state.
+        auto warmupRade = std::unique_ptr<struct rade, decltype(&rade_close)>(
+            rade_open(modelFile, flags | RADE_VERBOSE_0), &rade_close);
+        if (warmupRade)
+        {
+            std::vector<float> features(rade_n_features_in_out(warmupRade.get()), 0.0f);
+            std::vector<RADE_COMP> txOut(rade_n_tx_out(warmupRade.get()));
+            rade_tx(warmupRade.get(), txOut.data(), features.data());
+
+            std::vector<RADE_COMP> rxIn(rade_nin_max(warmupRade.get()));
+            int hasEoo = 0;
+            rade_rx(warmupRade.get(), features.data(), &hasEoo, nullptr, rxIn.data());
         }
 
         if (usingReliableText)
@@ -328,14 +345,10 @@ void FreeDVInterface::setReliableText(const char* callsign)
     if (rade_ != nullptr && radeTextPtr_ != nullptr)
     {
         log_info("generating RADE text string");
-        int nsyms = rade_n_eoo_bits(rade_);
-        float* eooSyms = new float[nsyms];
-        assert(eooSyms);
-
-        rade_text_generate_tx_string(radeTextPtr_, callsign, strlen(callsign), eooSyms, nsyms);
-        rade_tx_set_eoo_bits(rade_, eooSyms);
-
-        delete[] eooSyms;
+        const int nsyms = rade_n_eoo_bits(rade_);
+        std::vector<float> eooSyms(nsyms);
+        rade_text_generate_tx_string(radeTextPtr_, callsign, strlen(callsign), eooSyms.data(), nsyms);
+        rade_tx_set_eoo_bits(rade_, eooSyms.data());
     }
 }
 

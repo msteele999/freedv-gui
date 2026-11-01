@@ -364,6 +364,9 @@ jobs:
         mkdir gui_tests
         cp -r _CPack_Packages/*/NSIS/FreeDV-*/bin _CPack_Packages/*/NSIS/FreeDV-*/share gui_tests/
         cp external/dist/bin/rigctld.exe gui_tests/bin/
+        # Speech for the tests that need something RADE can carry (see
+        # speech_file() in test/gui/freedvtest/audio.py).
+        cp _deps/freedv_backend-build/rade_src/wav/all.wav gui_tests/
 
     - name: Stash for gui-tests job
       if: ${{ matrix.variant == 'plain' && matrix.arch == 'x86_64' }}
@@ -422,6 +425,7 @@ jobs:
       FREEDVTEST_AUDIO_DEVICES: "Line 1 (Virtual Audio Cable),Line 1 (Virtual Audio Cable),Speakers (VB-Audio Virtual Cable),Speakers (VB-Audio Virtual Cable)"
       FREEDV_BINARY: ${{github.workspace}}\gui_tests\bin\freedv.exe
       RIGCTLD: ${{github.workspace}}\gui_tests\bin\rigctld.exe
+      FREEDVTEST_SPEECH: ${{github.workspace}}\gui_tests\all.wav
       PYTHONIOENCODING: utf-8
 
     steps:
@@ -510,9 +514,10 @@ jobs:
 
           TOOLS="$PWD/rade_c/build/src"
           # rade_tx_wav requires 16 kHz mono 16-bit PCM (all.wav already is).
+          # --v2: FreeDV opens RADE with RADE_MODE_V2 unconditionally on this branch.
           sox rade_src/wav/all.wav -r 16000 -c 1 -b 16 -e signed-integer baseline_in.wav
-          LD_LIBRARY_PATH="$TOOLS" "$TOOLS/rade_tx_wav" -f baseline_txfeatures.f32 baseline_in.wav baseline_tx.wav
-          LD_LIBRARY_PATH="$TOOLS" "$TOOLS/rade_rx_wav" -f baseline_rxfeatures.f32 baseline_tx.wav baseline_decoded.wav
+          LD_LIBRARY_PATH="$TOOLS" "$TOOLS/rade_tx_wav" --v2 -f baseline_txfeatures.f32 baseline_in.wav baseline_tx.wav
+          LD_LIBRARY_PATH="$TOOLS" "$TOOLS/rade_rx_wav" --v2 -f baseline_rxfeatures.f32 baseline_tx.wav baseline_decoded.wav
 
           BASELINE_OUTPUT=$(PYTHONPATH="$PWD/rade_src" python3 rade_src/loss.py \
               baseline_txfeatures.f32 baseline_rxfeatures.f32 --clip_start 100 --clip_end 300)
@@ -739,7 +744,11 @@ jobs:
     with:
       matrix-json: >-
         ${{ needs.scope.outputs.tier == 'full' && '[{"runner": "windows-2022", "arch": "x86_64"}, {"runner": "windows-11-arm", "arch": "aarch64"}]' || '[{"runner": "windows-2022", "arch": "x86_64"}]' }}
+      mode-to-test: RADEV2
       loss-threshold: ${{ needs.rade-loss-baseline.outputs.threshold }}
+      loss-baseline: ${{ needs.rade-loss-baseline.outputs.baseline }}
+      rade-c-commit: ${{ needs.rade-loss-baseline.outputs.rade_c_commit }}
+      radae-commit: ${{ needs.rade-loss-baseline.outputs.radae_commit }}
 
   # Runs the same test suite as `test`, but against the sanitizer-instrumented
   # builds from `build-sanitizer`. These builds are slower and less reliable
@@ -761,4 +770,5 @@ jobs:
           {"sanitizer_name": "ASAN", "arch": "x86_64", "runner": "windows-2022"}
         ]
       sanitizer-mode: true
+      mode-to-test: RADEV2
       loss-threshold: ${{ needs.rade-loss-baseline.outputs.threshold }}

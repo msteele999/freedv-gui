@@ -111,6 +111,10 @@ Because this fork includes additional dependencies for decoded-speech transcript
 
 Upstream localization also requires gettext to compile translation catalogs. Install `gettext` with the build dependencies on Linux and macOS (using apt, dnf, MacPorts, or Homebrew), and include it in Windows cross-compilation environments. macOS application bundles package translations alongside the speech models.
 
+## Testing
+
+The `wav` directory contains modulated audio test files for FreeDV (see the [User Manual](USER_MANUAL.md)).
+
 ## Releases
 
 ### Stable W2MWS
