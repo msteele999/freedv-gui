@@ -113,6 +113,19 @@ Upstream localization also requires gettext to compile translation catalogs. Ins
 
 ## Releases
 
+### Stable W2MWS
+
+[Download the latest stable W2MWS release](https://github.com/msteele999/freedv-gui/releases/latest)
+
+### Experimental RADEV2
+
+**RADEV2 is experimental and intended for testing.** Receive-audio intelligibility and other issues are still under investigation.
+
+[Find the latest RADEV2 test release](https://github.com/msteele999/freedv-gui/releases?q=radev2&expanded=true)
+
+The RADEV2 link displays matching releases. Select the highest numbered RADEV2 version and download its test ZIP.
+
+
 Tagged releases from this repository represent tested snapshots of this enhanced fork.
 
 They should not be confused with official FreeDV releases distributed by the FreeDV project.
