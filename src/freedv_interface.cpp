@@ -137,15 +137,16 @@ bool FreeDVInterface::start(int, bool usingReliableText, bool verbose, RadeMode 
         modelFile[0] = 0;
         const int flags = RADE_USE_C_ENCODER | RADE_USE_C_DECODER |
             (mode == RadeMode::RADEV2 ? RADE_MODE_V2 : 0) | (verbose ? 0 : RADE_VERBOSE_0);
-        rade_ = rade_open(modelFile, flags);
-        if (rade_ == nullptr)
+        auto rade = rade_open(modelFile, flags);
+        rade_.store(rade);
+        if (rade == nullptr)
         {
             stop();
             return false;
         }
         if (mode == RadeMode::RADEV2 &&
-            (rade_n_eoo_bits(rade_) != 0 || rade_n_features_in_out(rade_) <= 0 ||
-             rade_n_tx_out(rade_) <= 0 || rade_nin_max(rade_) <= 0))
+            (rade_n_eoo_bits(rade) != 0 || rade_n_features_in_out(rade) <= 0 ||
+             rade_n_tx_out(rade) <= 0 || rade_nin_max(rade) <= 0))
         {
             // Refuse an incompatible implementation; never fall back to V1.
             stop();
@@ -223,12 +224,16 @@ bool FreeDVInterface::start(int, bool usingReliableText, bool verbose, RadeMode 
 
 void FreeDVInterface::stop()
 {
+    // Reachable twice on a shutdown race between a Stop click's
+    // "TurningOff" thread and OnExit() (both serialize on stoppingMutex;
+    // this function is also idempotent as a backstop so the second call
+    // is a no-op instead of closing handles that are already gone).
     if (modemStatsList_ != nullptr)
     {
         modem_stats_close(&modemStatsList_[0]);
         delete[] modemStatsList_;
+        modemStatsList_ = nullptr;
     }
-    modemStatsList_ = nullptr;
     
     if (radeTextPtr_ != nullptr)
     {
@@ -241,11 +246,13 @@ void FreeDVInterface::stop()
         rade_v2_text_destroy(radeV2TextPtr_);
         radeV2TextPtr_ = nullptr;
     }
-    if (rade_ != nullptr)
+    // Clear rade_ before closing so isRunning() is false (and the getters
+    // see nullptr) before the handle goes away.
+    auto rade = rade_.exchange(nullptr);
+    if (rade != nullptr)
     {
-        rade_close(rade_);
+        rade_close(rade);
     }
-    rade_ = nullptr;
 
     if (lpcnetEncState_ != nullptr)
     {
@@ -301,7 +308,7 @@ int FreeDVInterface::getTxSpeechSampleRate() const
 
 int FreeDVInterface::getTxNumSpeechSamples() const
 {
-    return rade_n_features_in_out(rade_) * LPCNET_FRAME_SIZE / NB_TOTAL_FEATURES;
+    return rade_n_features_in_out(rade_.load()) * LPCNET_FRAME_SIZE / NB_TOTAL_FEATURES;
 }
 
 int FreeDVInterface::getTxNNomModemSamples() const FREEDV_NONBLOCKING
@@ -309,9 +316,10 @@ int FreeDVInterface::getTxNNomModemSamples() const FREEDV_NONBLOCKING
     // Verified that rade_api.c from librade has no unbounded operations
     // as of 2025-10-03.
     FREEDV_BEGIN_VERIFIED_SAFE
+    auto rade = rade_.load();
     if (radeV2TxStep_ != nullptr)
-        return std::max(rade_n_tx_out(rade_), radeV2TxStep_->eooLengthInSamples());
-    return std::max(rade_n_tx_out(rade_), radeTxStep_ != nullptr ? radeTxStep_->eooLengthInSamples() : rade_n_tx_eoo_out(rade_));
+        return std::max(rade_n_tx_out(rade), radeV2TxStep_->eooLengthInSamples());
+    return std::max(rade_n_tx_out(rade), radeTxStep_ != nullptr ? radeTxStep_->eooLengthInSamples() : rade_n_tx_eoo_out(rade));
     FREEDV_END_VERIFIED_SAFE
 }
 
@@ -322,12 +330,12 @@ int FreeDVInterface::getRxModemSampleRate() const
 
 int FreeDVInterface::getRxNumModemSamples() const
 {
-    return rade_nin_max(rade_);
+    return rade_nin_max(rade_.load());
 }
 
 int FreeDVInterface::getRxNumSpeechSamples() const FREEDV_NONBLOCKING
 {
-    return rade_n_features_in_out(rade_) * LPCNET_FRAME_SIZE / NB_TOTAL_FEATURES;
+    return rade_n_features_in_out(rade_.load()) * LPCNET_FRAME_SIZE / NB_TOTAL_FEATURES;
 }
 
 int FreeDVInterface::getRxSpeechSampleRate() const FREEDV_NONBLOCKING
@@ -337,18 +345,19 @@ int FreeDVInterface::getRxSpeechSampleRate() const FREEDV_NONBLOCKING
 
 void FreeDVInterface::setReliableText(const char* callsign)
 {
-    if (rade_ != nullptr && radeV2TextPtr_ != nullptr)
+    auto rade = rade_.load();
+    if (rade != nullptr && radeV2TextPtr_ != nullptr)
     {
         rade_v2_text_generate_tx_string(radeV2TextPtr_, callsign, strlen(callsign));
         return;
     }
-    if (rade_ != nullptr && radeTextPtr_ != nullptr)
+    if (rade != nullptr && radeTextPtr_ != nullptr)
     {
         log_info("generating RADE text string");
-        const int nsyms = rade_n_eoo_bits(rade_);
+        const int nsyms = rade_n_eoo_bits(rade);
         std::vector<float> eooSyms(nsyms);
         rade_text_generate_tx_string(radeTextPtr_, callsign, strlen(callsign), eooSyms.data(), nsyms);
-        rade_tx_set_eoo_bits(rade_, eooSyms.data());
+        rade_tx_set_eoo_bits(rade, eooSyms.data());
     }
 }
 
@@ -374,12 +383,12 @@ IPipelineStep* FreeDVInterface::createTransmitPipeline(
     auto pipeline = new AudioPipeline(inputSampleRate, outputSampleRate);
     if (activeMode_.load(std::memory_order_acquire) == RadeMode::RADEV2)
     {
-        radeV2TxStep_ = new RADEV2TransmitStep(rade_, lpcnetEncState_, radeV2TextPtr_);
+        radeV2TxStep_ = new RADEV2TransmitStep(rade_.load(), lpcnetEncState_, radeV2TextPtr_);
         pipeline->appendPipelineStep(radeV2TxStep_);
     }
     else
     {
-        radeTxStep_ = new RADETransmitStep(rade_, lpcnetEncState_);
+        radeTxStep_ = new RADETransmitStep(rade_.load(), lpcnetEncState_);
         pipeline->appendPipelineStep(radeTxStep_);
     }
     return pipeline;
@@ -401,7 +410,7 @@ IPipelineStep* FreeDVInterface::createReceivePipeline(
     IPipelineStep* rxStep = nullptr;
     if (activeMode_.load(std::memory_order_acquire) == RadeMode::RADEV2)
     {
-        auto v2Step = new RADEV2ReceiveStep(rade_, &fargan_, radeV2TextPtr_, +[](RADEV2ReceiveStep* step) FREEDV_NONBLOCKING {
+        auto v2Step = new RADEV2ReceiveStep(rade_.load(), &fargan_, radeV2TextPtr_, +[](RADEV2ReceiveStep* step) FREEDV_NONBLOCKING {
             FreeDVInterface* state = (FreeDVInterface*)step->getStateObj();
             (*step->getRxStateFn()()).store(step->getSync(), std::memory_order_release);
             state->publishRxState_(step->getSync(), step->getSnr());
@@ -412,7 +421,7 @@ IPipelineStep* FreeDVInterface::createReceivePipeline(
     }
     else
     {
-        auto v1Step = new RADEReceiveStep(rade_, &fargan_, radeTextPtr_, +[](RADEReceiveStep* step) FREEDV_NONBLOCKING {
+        auto v1Step = new RADEReceiveStep(rade_.load(), &fargan_, radeTextPtr_, +[](RADEReceiveStep* step) FREEDV_NONBLOCKING {
             FreeDVInterface* state = (FreeDVInterface*)step->getStateObj();
             auto finalSync = step->getSync();
             (*step->getRxStateFn()()).store(finalSync, std::memory_order_release);
@@ -451,6 +460,6 @@ void FreeDVInterface::publishRxState_(int sync, int snr) FREEDV_NONBLOCKING
     radeSnr_.store(snr, std::memory_order_release);
     // rade_freq_offset() dispatches to a simple getter for either mode.
     FREEDV_BEGIN_VERIFIED_SAFE
-    rxFreqOffset_.store(rade_freq_offset(rade_), std::memory_order_release);
+    rxFreqOffset_.store(rade_freq_offset(rade_.load()), std::memory_order_release);
     FREEDV_END_VERIFIED_SAFE
 }

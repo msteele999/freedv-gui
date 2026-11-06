@@ -883,6 +883,7 @@ LDPC | Low Density Parity Check Codes - a family of powerful FEC codes
     * Improved ease of use when adjusting predefined frequencies. (PR #1570, #1581) - thanks @barjac!
     * Improved Level metering and AGC for easier input level adjustment. (PR #1532, #1599, #1604) - thanks @barjac!
     * Hamlib/OmniRig: add option to disable saving and restoring the radio's frequency on start and stop. (PR #1600)
+    * RADE: fill in the missing high frequencies when transmitting with an 8 kHz mic (e.g. a Bluetooth headset). (PR #1614)
 2. Bugfixes:
     * Fix silence being mixed into the first half second of each transmission, and holes in the signal at its start. (PR #1562)
 3. Build system:
@@ -897,6 +898,7 @@ LDPC | Low Density Parity Check Codes - a family of powerful FEC codes
     * Remove unused plot, main window and FreeDV Reporter code. (PR #1556)
     * Settings: play back audio input tests through the speaker/headphones instead of the radio. (PR #1548)
     * Add tests of whole transmissions through the TX/RX threads without sound cards, and diagnostics for rade_loss test failures. (PR #1562)
+    * Additional data race cleanup. (PR #1616)
 
 *Note: Legacy FreeDV modes (700D/700E/1600) have been removed due to low use. FreeDV 2.4.x is still available if one wishes to operate these modes.*
 

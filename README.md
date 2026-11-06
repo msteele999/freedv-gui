@@ -6,6 +6,12 @@ It is based on the upstream FreeDV `v3.0-dev` development branch and retains the
 
 > **Important:** This is an independent fork and is not an official FreeDV release. For official FreeDV software, documentation, downloads, and support, visit [freedv.org](https://freedv.org/) and the [official FreeDV GUI repository](https://github.com/drowe67/freedv-gui).
 
+## Community & Support
+
+Join the [FreeDV W2MWS Groups.io community](https://groups.io/g/FreeDV-W2MWS) for release announcements, testing feedback, questions, and discussion about this fork.
+
+Download the latest builds from [GitHub Releases](https://github.com/msteele999/freedv-gui/releases).
+
 ## What's Different in This Fork?
 
 The integrated version combines two major areas of development: a modernized user interface and real-time decoded speech transcription.
@@ -57,6 +63,8 @@ Enhancements include:
 - Compatibility handling for multiple wxWidgets versions
 
 The goal is to make FreeDV more comfortable to use on modern desktops without fundamentally changing how an experienced FreeDV operator uses the application.
+
+The `wav` directory contains test files of modulated audio that you can use to test FreeDV (see the [USER_MANUAL](USER_MANUAL.md)).
 
 ### Decoded Speech Transcription
 

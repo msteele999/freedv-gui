@@ -239,6 +239,10 @@ wxMutex g_mutexProtectingCallbackData(wxMUTEX_RECURSIVE);
 // g_mutexProtectingCallbackData first.
 std::mutex g_mutexProtectingPlayFiles;
 
+// The rig controller and sound device handles are guarded by the mutexes
+// behind the accessors declared at the end of main.h (defined in util.cpp,
+// so the unit-test targets that link util.cpp also get them).
+
 // End of TX state control
 std::atomic<bool> endingTx;
 extern std::atomic<bool> g_eoo_enqueued;
@@ -555,10 +559,20 @@ void MainApp::UnitTest_()
             std::this_thread::sleep_for(5s + std::chrono::milliseconds(distrib(gen)));
         }
 
-        if (g_sfRecFileFromModulator)
+        // Null out the handle (under the same mutex RecordStep's drain
+        // takes around sf_write_short) before closing it, so no pending
+        // drain can write into a closed SNDFILE.
+        g_mutexProtectingCallbackData.Lock();
+        g_recFileFromModulator = false;
+        auto modulatorRecFile = g_sfRecFileFromModulator.exchange(NULL, std::memory_order_acq_rel);
+        if (g_sfRecFile.load(std::memory_order_acquire) == modulatorRecFile)
         {
-            g_recFileFromModulator = false;
-            sf_close(g_sfRecFileFromModulator);
+            g_sfRecFile.store(NULL, std::memory_order_release);
+        }
+        g_mutexProtectingCallbackData.Unlock();
+        if (modulatorRecFile != NULL)
+        {
+            sf_close(modulatorRecFile);
         }
     }
     else
@@ -614,10 +628,14 @@ void MainApp::UnitTest_()
             }
         }
 
-        if (g_recFileFromDecoder.load(std::memory_order_acquire))
+        // Same drain-safe close as the modulator record file above.
+        g_mutexProtectingCallbackData.Lock();
+        g_recFileFromDecoder.store(false, std::memory_order_release);
+        auto decoderRecFile = g_sfRecDecoderFile.exchange(NULL, std::memory_order_acq_rel);
+        g_mutexProtectingCallbackData.Unlock();
+        if (decoderRecFile != NULL)
         {
-            g_recFileFromDecoder.store(false, std::memory_order_release);
-            sf_close(g_sfRecDecoderFile.load(std::memory_order_acquire));
+            sf_close(decoderRecFile);
         }
     }
 
@@ -1294,7 +1312,7 @@ void MainFrame::loadConfiguration_()
     }
     else
     {
-        wxGetApp().m_intHamlibRig = HamlibRigController::RigNameToIndex(std::string(wxGetApp().appConfiguration.rigControlConfiguration.hamlibRigName->ToUTF8()));
+        wxGetApp().m_intHamlibRig = HamlibRigController::RigNameToIndex(std::string(wxGetApp().appConfiguration.rigControlConfiguration.hamlibRigName.get().ToUTF8()));
     }
 
     // -----------------------------------------------------------------------
@@ -2378,19 +2396,11 @@ MainFrame::~MainFrame()
     // disconnecting on the threads started by performFreeDVOff_(), and will
     // call back into this object when it's done. Give that a bounded chance
     // to finish first, as OnTogBtnOnOff() does when closing while running.
-    auto rigDisconnectDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
-    if (rigPttDisconnectFuture_.valid())
-    {
-        rigPttDisconnectFuture_.wait_until(rigDisconnectDeadline);
-    }
-    if (rigFreqDisconnectFuture_.valid())
-    {
-        rigFreqDisconnectFuture_.wait_until(rigDisconnectDeadline);
-    }
+    waitForRigDisconnect_();
 
-    wxGetApp().rigPttController = nullptr;
-    wxGetApp().rigFrequencyController = nullptr;
-    wxGetApp().m_pttInSerialPort = nullptr;
+    takeRigPttController();
+    takeRigFrequencyController();
+    takePTTInSerialPort();
 
     exportConfiguration_(pConfig);
 
@@ -2462,8 +2472,8 @@ MainFrame::~MainFrame()
         optionsDlg = NULL;
     }
 
-    wxGetApp().rigFrequencyController = nullptr;
-    wxGetApp().rigPttController = nullptr;
+    takeRigFrequencyController();
+    takeRigPttController();
     wxGetApp().m_reporters.clear();
 
     // Clean up RADE.
@@ -2541,10 +2551,11 @@ void MainFrame::OnTimer(wxTimerEvent &evt)
     else if (timerId == ID_TIMER_UPD_FREQ)
     {
         // show freq. and mode [UP]
-        if (wxGetApp().rigFrequencyController && wxGetApp().rigFrequencyController->isConnected())
+        auto rigController = snapshotRigFrequencyController();
+        if (rigController && rigController->isConnected())
         {
             log_debug("update freq and mode ....");
-            wxGetApp().rigFrequencyController->requestCurrentFrequencyMode();
+            rigController->requestCurrentFrequencyMode();
         }
      }
      else if (timerId == ID_TIMER_WATERFALL)
@@ -2816,7 +2827,11 @@ void MainFrame::OnTimer(wxTimerEvent &evt)
 
                     if (wxGetApp().appConfiguration.rigControlConfiguration.hamlibUseForPTT)
                     {
-                        wxGetApp().rigFrequencyController->requestCurrentFrequencyMode();
+                        auto rigController = snapshotRigFrequencyController();
+                        if (rigController != nullptr)
+                        {
+                            rigController->requestCurrentFrequencyMode();
+                        }
                     }
 
                     int64_t freq = wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency;
@@ -3182,6 +3197,11 @@ void MainFrame::performFreeDVOn_()
         g_levelMeterTxRawFifo.reset();
         g_plotSpeechInFifoAfterAGC.reset();
 
+        // m_callsign/m_pcallsign are also written by UI handlers (callsign
+        // clear/edit controls stay live while this worker runs), so reset
+        // them here, on the UI thread.
+        memset(m_callsign, 0, sizeof(m_callsign));
+        m_pcallsign = m_callsign;
         m_txtCtrlCallSign->SetValue(wxT(""));
         m_lastReportedCallsignListView->DeleteAllItems();
         restoreCallsignListFromCsv_();
@@ -3190,9 +3210,6 @@ void MainFrame::performFreeDVOn_()
 
         m_logQSO->Disable();
     });
-
-    memset(m_callsign, 0, MAX_CALLSIGN);
-    m_pcallsign = m_callsign;
 
     freedvInterface.resetReliableText();
 
@@ -3232,12 +3249,12 @@ void MainFrame::performFreeDVOn_()
         {
             char temp[9];
             memset(temp, 0, 9);
-            strncpy(temp, wxGetApp().appConfiguration.reportingConfiguration.reportingCallsign->ToUTF8(), 8); // One less than the size of temp to ensure we don't overwrite the null.
+            strncpy(temp, wxGetApp().appConfiguration.reportingConfiguration.reportingCallsign.get().ToUTF8(), 8); // One less than the size of temp to ensure we don't overwrite the null.
             // Preserve V1's eight-character EOO payload. V2's independent
             // streaming protocol can carry compound callsigns (up to 32 chars).
             if (selectedMode == RadeMode::RADEV2)
             {
-                const auto callsign = wxGetApp().appConfiguration.reportingConfiguration.reportingCallsign->ToUTF8();
+                const auto callsign = wxGetApp().appConfiguration.reportingConfiguration.reportingCallsign.get().ToUTF8();
                 log_info("Setting callsign to %s", callsign.data());
                 freedvInterface.setReliableText(callsign.data());
             }
@@ -3251,7 +3268,7 @@ void MainFrame::performFreeDVOn_()
             if (wxGetApp().appConfiguration.reportingConfiguration.udpReportingEnabled)
             {
                 wxGetApp().logger = std::make_shared<WSJTXNetworkLogger>(
-                    (const char*)wxGetApp().appConfiguration.reportingConfiguration.udpReportingHostname->ToUTF8(),
+                    (const char*)wxGetApp().appConfiguration.reportingConfiguration.udpReportingHostname.get().ToUTF8(),
                     wxGetApp().appConfiguration.reportingConfiguration.udpReportingPort);
             }
         }
@@ -3277,9 +3294,6 @@ void MainFrame::performFreeDVOn_()
     g_prev_State.store(0, std::memory_order_release);
     g_snr = 0.0;
     g_half_duplex.store(wxGetApp().appConfiguration.halfDuplexMode, std::memory_order_release);
-
-    m_pcallsign = m_callsign;
-    memset(m_callsign, 0, sizeof(m_callsign));
 
     m_maxLevel = 0;
     m_maxLevelDbTx = -LEVEL_GAUGE_MIN_DB;
@@ -3332,6 +3346,11 @@ void MainFrame::performFreeDVOn_()
                     });
                 }
 
+                // A quick Stop then Start can get here while the last
+                // session's rig is still disconnecting (see
+                // performFreeDVOff_()), and still holding its serial port.
+                waitForRigDisconnect_();
+
                 // attempt to start PTT ......
                 if (wxGetApp().appConfiguration.rigControlConfiguration.hamlibUseForPTT)
                 {
@@ -3343,7 +3362,7 @@ void MainFrame::performFreeDVOn_()
                 }
                 else
                 {
-                    wxGetApp().rigPttController = nullptr;
+                    publishRigPttController(nullptr);
                 }
 
     #if defined(WIN32)
@@ -3360,25 +3379,26 @@ void MainFrame::performFreeDVOn_()
                 // If the user doesn't want frequencies saved and restored, the radio
                 // keeps its current frequency (and FreeDV picks it up from the radio).
                 bool saveRestoreFrequency = wxGetApp().appConfiguration.rigControlConfiguration.hamlibSaveRestoreFrequency;
-                if (wxGetApp().rigFrequencyController &&
+                auto rigController = snapshotRigFrequencyController();
+                if (rigController &&
                     (wxGetApp().appConfiguration.rigControlConfiguration.hamlibEnableFreqModeChanges || wxGetApp().appConfiguration.rigControlConfiguration.hamlibEnableFreqChangesOnly) &&
                     (!saveRestoreFrequency || wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency > 0))
                 {
                     if (saveRestoreFrequency)
                     {
-                        wxGetApp().rigFrequencyController->setFrequency(wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency);
+                        rigController->setFrequency(wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency);
                     }
 
                     if (wxGetApp().appConfiguration.rigControlConfiguration.hamlibEnableFreqModeChanges)
                     {
-                        wxGetApp().rigFrequencyController->setMode(getCurrentMode_());
+                        rigController->setMode(getCurrentMode_());
                     }
                 }
 
                 // Initialize PSK Reporter reporting.
                 if (wxGetApp().appConfiguration.reportingConfiguration.reportingEnabled)
                 {
-                    if (wxGetApp().appConfiguration.reportingConfiguration.reportingCallsign->ToStdString() == "" || wxGetApp().appConfiguration.reportingConfiguration.reportingGridSquare->ToStdString() == "")
+                    if (wxGetApp().appConfiguration.reportingConfiguration.reportingCallsign.get().ToStdString() == "" || wxGetApp().appConfiguration.reportingConfiguration.reportingGridSquare.get().ToStdString() == "")
                     {
                         executeOnUiThreadAndWait_([&]()
                         {
@@ -3395,8 +3415,8 @@ void MainFrame::performFreeDVOn_()
                         {
                             auto pskReporter =
                                 std::make_shared<PskReporter>(
-                                    wxGetApp().appConfiguration.reportingConfiguration.reportingCallsign->ToStdString(),
-                                    wxGetApp().appConfiguration.reportingConfiguration.reportingGridSquare->ToStdString(),
+                                    wxGetApp().appConfiguration.reportingConfiguration.reportingCallsign.get().ToStdString(),
+                                    wxGetApp().appConfiguration.reportingConfiguration.reportingGridSquare.get().ToStdString(),
                                     std::string("FreeDV ") + GetFreeDVVersion());
                             assert(pskReporter != nullptr);
                             reporters.push_back(pskReporter);
@@ -3405,7 +3425,7 @@ void MainFrame::performFreeDVOn_()
                         if (wxGetApp().appConfiguration.reportingConfiguration.udpBroadcastEnabled)
                         {
                             auto udpBroadcastReporter = std::make_shared<UdpReporter>(
-                                wxGetApp().appConfiguration.reportingConfiguration.udpBroadcastAddress->ToStdString(),
+                                wxGetApp().appConfiguration.reportingConfiguration.udpBroadcastAddress.get().ToStdString(),
                                 wxGetApp().appConfiguration.reportingConfiguration.udpBroadcastPort);
                             reporters.push_back(udpBroadcastReporter);
                         }
@@ -3524,12 +3544,27 @@ void MainFrame::performFreeDVOff_()
     });
 #endif // _USE_TIMER
 
-    // always end with PTT in rx state
-    if (wxGetApp().rigPttController != nullptr && wxGetApp().rigPttController->isConnected())
+    // Always end with PTT in rx state. Move both rig handles out of
+    // wxGetApp() under the handle lock first: UI reads (togglePTT() etc.)
+    // then either see the handle or its absence, never a half-updated one,
+    // and these threads hold the only remaining references.
+    std::shared_ptr<IRigPttController> pttControllerToClose = takeRigPttController();
+    std::shared_ptr<IRigFrequencyController> freqControllerToClose = takeRigFrequencyController();
+
+    // Queue PTT off and the disconnects here, before the audio is shut
+    // down below: these only enqueue onto each controller's own thread, so
+    // they don't block, and the radio is told to unkey before it stops
+    // getting audio.
+    if (pttControllerToClose != nullptr && pttControllerToClose->isConnected())
     {
-        wxGetApp().rigPttController->ptt(false);
-        wxGetApp().rigPttController->disconnect();
+        pttControllerToClose->ptt(false);
+        pttControllerToClose->disconnect();
     }
+    if (freqControllerToClose != nullptr && freqControllerToClose->isConnected())
+    {
+        freqControllerToClose->disconnect();
+    }
+
     // Dropping the last shared_ptr reference below runs the controller's
     // destructor, which blocks until the rig actually finishes
     // disconnecting. Against an unresponsive radio (e.g. powered off, via
@@ -3544,20 +3579,16 @@ void MainFrame::performFreeDVOff_()
     // before the process exits out from under the thread.
     std::promise<void> pttDisconnectProm;
     rigPttDisconnectFuture_ = pttDisconnectProm.get_future();
-    std::thread([ptr = std::move(wxGetApp().rigPttController), prom = std::move(pttDisconnectProm)]() mutable
+    std::thread([ptr = std::move(pttControllerToClose), prom = std::move(pttDisconnectProm)]() mutable
     {
         SetThreadName("RigPttDisconnect");
         ptr = nullptr;
         prom.set_value();
     }).detach();
 
-    if (wxGetApp().rigFrequencyController != nullptr && wxGetApp().rigFrequencyController->isConnected())
-    {
-        wxGetApp().rigFrequencyController->disconnect();
-    }
     std::promise<void> freqDisconnectProm;
     rigFreqDisconnectFuture_ = freqDisconnectProm.get_future();
-    std::thread([ptr = std::move(wxGetApp().rigFrequencyController), prom = std::move(freqDisconnectProm)]() mutable
+    std::thread([ptr = std::move(freqControllerToClose), prom = std::move(freqDisconnectProm)]() mutable
     {
         SetThreadName("RigFreqDisconnect");
         ptr = nullptr;
@@ -3584,19 +3615,27 @@ void MainFrame::performFreeDVOff_()
         {
             wxGetApp().m_sharedReporterObject->hideFromView();
         }
+        // The Log QSO dialog copies this handle on the UI thread; null it
+        // there too so the copy can't race with the reset (and run the
+        // logger's destructor under a reader's feet).
+        wxGetApp().logger = nullptr;
     });
 
-    // FreeDV clean up
+    // FreeDV clean up. stop() is also reachable from OnExit() while this
+    // worker is mid-shutdown; serialize with the same mutex OnExit uses so
+    // only one of them actually runs it (stop() itself is idempotent as a
+    // backstop).
     delete[] g_error_hist;
-    delete[] g_error_histn;
     g_error_hist = nullptr;
+    delete[] g_error_histn;
     g_error_histn = nullptr;
-    freedvInterface.stop();
+    {
+        std::unique_lock<std::recursive_mutex> lk(stoppingMutex);
+        freedvInterface.stop();
+    }
 
     m_newMicInFilter.store(true, std::memory_order_release);
     m_newSpkOutFilter.store(true, std::memory_order_release);
-
-    wxGetApp().logger = nullptr;
 
     executeOnUiThreadAndWait_([&]()
     {
@@ -3740,15 +3779,7 @@ void MainFrame::OnTogBtnOnOff(wxCommandEvent&)
                 // might never reach the radio. Give them a bounded chance to
                 // finish first; an unresponsive rig still can't hang shutdown
                 // indefinitely, it just gets abandoned after the grace period.
-                auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
-                if (rigPttDisconnectFuture_.valid())
-                {
-                    rigPttDisconnectFuture_.wait_until(deadline);
-                }
-                if (rigFreqDisconnectFuture_.valid())
-                {
-                    rigFreqDisconnectFuture_.wait_until(deadline);
-                }
+                waitForRigDisconnect_();
             }
 
             // On/Off actions complete, re-enable button.
@@ -3792,16 +3823,20 @@ void MainFrame::stopRxStream()
         {
             m_txThread->stop();
 
-            if (txInSoundDevice)
             {
-                txInSoundDevice->stop();
-                txInSoundDevice.reset();
-            }
+                // Out from under the lock before stopping: stop() can block
+                // for a while, and togglePTT() on the UI thread takes it.
+                auto txIn = takeSoundDevice(txInSoundDevice);
+                auto txOut = takeSoundDevice(txOutSoundDevice);
+                if (txIn)
+                {
+                    txIn->stop();
+                }
 
-            if (txOutSoundDevice)
-            {
-                txOutSoundDevice->stop();
-                txOutSoundDevice.reset();
+                if (txOut)
+                {
+                    txOut->stop();
+                }
             }
 
             m_txThread = nullptr;
@@ -3831,16 +3866,19 @@ void MainFrame::stopRxStream()
         {
             m_rxThread->stop();
 
-            if (rxInSoundDevice)
             {
-                rxInSoundDevice->stop();
-                rxInSoundDevice.reset();
-            }
+                // As for the TX devices above.
+                auto rxIn = takeSoundDevice(rxInSoundDevice);
+                auto rxOut = takeSoundDevice(rxOutSoundDevice);
+                if (rxIn)
+                {
+                    rxIn->stop();
+                }
 
-            if (rxOutSoundDevice)
-            {
-                rxOutSoundDevice->stop();
-                rxOutSoundDevice.reset();
+                if (rxOut)
+                {
+                    rxOut->stop();
+                }
             }
 
             m_rxThread = nullptr;
@@ -3854,11 +3892,33 @@ void MainFrame::stopRxStream()
         m_newSpkOutFilter.store(true, std::memory_order_relaxed);
         deleteEQFilters(g_rxUserdata);
         delete g_rxUserdata;
+        g_rxUserdata = nullptr;
 
         auto engine = AudioEngineFactory::GetAudioEngine();
         engine->stop();
         engine->setOnEngineError(nullptr, nullptr);
     }
+}
+
+void MainFrame::waitForRigDisconnect_()
+{
+    auto rigDisconnectDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    if (rigPttDisconnectFuture_.valid())
+    {
+        rigPttDisconnectFuture_.wait_until(rigDisconnectDeadline);
+    }
+    if (rigFreqDisconnectFuture_.valid())
+    {
+        rigFreqDisconnectFuture_.wait_until(rigDisconnectDeadline);
+    }
+}
+
+void MainFrame::releaseSoundDevices_()
+{
+    auto rxIn = takeSoundDevice(rxInSoundDevice);
+    auto rxOut = takeSoundDevice(rxOutSoundDevice);
+    auto txIn = takeSoundDevice(txInSoundDevice);
+    auto txOut = takeSoundDevice(txOutSoundDevice);
 }
 
 void MainFrame::destroy_fifos(void)
@@ -4037,14 +4097,15 @@ void MainFrame::startRxStream()
             engine->stop();
             engine->setOnEngineError(nullptr, nullptr);
             delete g_rxUserdata;
+            g_rxUserdata = nullptr;
             return;
         }
         else if (g_nSoundCards.load(std::memory_order_acquire) == 1)
         {
             // RX-only setup.
             // Note: we assume 2 channels, but IAudioEngine will automatically downgrade to 1 channel if needed.
-            rxInSoundDevice = engine->getAudioDevice(wxGetApp().appConfiguration.audioConfiguration.soundCard1In.deviceName, IAudioEngine::AUDIO_ENGINE_IN, wxGetApp().appConfiguration.audioConfiguration.soundCard1In.sampleRate, 2);
-            rxOutSoundDevice = engine->getAudioDevice(wxGetApp().appConfiguration.audioConfiguration.soundCard1Out.deviceName, IAudioEngine::AUDIO_ENGINE_OUT, wxGetApp().appConfiguration.audioConfiguration.soundCard1Out.sampleRate, 2);
+            publishSoundDevice(rxInSoundDevice, engine->getAudioDevice(wxGetApp().appConfiguration.audioConfiguration.soundCard1In.deviceName, IAudioEngine::AUDIO_ENGINE_IN, wxGetApp().appConfiguration.audioConfiguration.soundCard1In.sampleRate, 2));
+            publishSoundDevice(rxOutSoundDevice, engine->getAudioDevice(wxGetApp().appConfiguration.audioConfiguration.soundCard1Out.deviceName, IAudioEngine::AUDIO_ENGINE_OUT, wxGetApp().appConfiguration.audioConfiguration.soundCard1Out.sampleRate, 2));
 
             bool failed = false;
             if (!rxInSoundDevice)
@@ -4081,21 +4142,14 @@ void MainFrame::startRxStream()
 
             if (failed)
             {
-                if (rxInSoundDevice)
-                {
-                    rxInSoundDevice.reset();
-                }
-
-                if (rxOutSoundDevice)
-                {
-                    rxOutSoundDevice.reset();
-                }
+                releaseSoundDevices_();
 
                 m_RxRunning.store(false, std::memory_order_release);
 
                 engine->stop();
                 engine->setOnEngineError(nullptr, nullptr);
                 delete g_rxUserdata;
+                g_rxUserdata = nullptr;
                 return;
             }
             else
@@ -4113,7 +4167,7 @@ void MainFrame::startRxStream()
             // Note: TX devices are started here as RX device sample rates could change as a result (e.g. Bluetooth on macOS).
             bool failed = false;
 
-            txInSoundDevice = engine->getAudioDevice(wxGetApp().appConfiguration.audioConfiguration.soundCard2In.deviceName, IAudioEngine::AUDIO_ENGINE_IN, wxGetApp().appConfiguration.audioConfiguration.soundCard2In.sampleRate, 2);
+            publishSoundDevice(txInSoundDevice, engine->getAudioDevice(wxGetApp().appConfiguration.audioConfiguration.soundCard2In.deviceName, IAudioEngine::AUDIO_ENGINE_IN, wxGetApp().appConfiguration.audioConfiguration.soundCard2In.sampleRate, 2));
 
             if (!txInSoundDevice)
             {
@@ -4145,7 +4199,7 @@ void MainFrame::startRxStream()
                 txInSoundDevice->start();
             }
 
-            txOutSoundDevice = engine->getAudioDevice(wxGetApp().appConfiguration.audioConfiguration.soundCard1Out.deviceName, IAudioEngine::AUDIO_ENGINE_OUT, wxGetApp().appConfiguration.audioConfiguration.soundCard1Out.sampleRate, 2);
+            publishSoundDevice(txOutSoundDevice, engine->getAudioDevice(wxGetApp().appConfiguration.audioConfiguration.soundCard1Out.deviceName, IAudioEngine::AUDIO_ENGINE_OUT, wxGetApp().appConfiguration.audioConfiguration.soundCard1Out.sampleRate, 2));
 
             if (!txOutSoundDevice && !failed)
             {
@@ -4177,9 +4231,9 @@ void MainFrame::startRxStream()
                 txOutSoundDevice->start();
             }
 
-            rxInSoundDevice = engine->getAudioDevice(wxGetApp().appConfiguration.audioConfiguration.soundCard1In.deviceName, IAudioEngine::AUDIO_ENGINE_IN, wxGetApp().appConfiguration.audioConfiguration.soundCard1In.sampleRate, 2);
+            publishSoundDevice(rxInSoundDevice, engine->getAudioDevice(wxGetApp().appConfiguration.audioConfiguration.soundCard1In.deviceName, IAudioEngine::AUDIO_ENGINE_IN, wxGetApp().appConfiguration.audioConfiguration.soundCard1In.sampleRate, 2));
 
-            rxOutSoundDevice = engine->getAudioDevice(wxGetApp().appConfiguration.audioConfiguration.soundCard2Out.deviceName, IAudioEngine::AUDIO_ENGINE_OUT, wxGetApp().appConfiguration.audioConfiguration.soundCard2Out.sampleRate, 2);
+            publishSoundDevice(rxOutSoundDevice, engine->getAudioDevice(wxGetApp().appConfiguration.audioConfiguration.soundCard2Out.deviceName, IAudioEngine::AUDIO_ENGINE_OUT, wxGetApp().appConfiguration.audioConfiguration.soundCard2Out.sampleRate, 2));
 
             if (!rxInSoundDevice && !failed)
             {
@@ -4215,33 +4269,23 @@ void MainFrame::startRxStream()
 
             if (failed)
             {
-                if (rxInSoundDevice)
-                {
-                    rxInSoundDevice.reset();
-                }
-
-                if (rxOutSoundDevice)
-                {
-                    rxOutSoundDevice.reset();
-                }
-
                 if (txInSoundDevice)
                 {
                     txInSoundDevice->stop();
-                    txInSoundDevice.reset();
                 }
 
                 if (txOutSoundDevice)
                 {
                     txOutSoundDevice->stop();
-                    txOutSoundDevice.reset();
                 }
+                releaseSoundDevices_();
 
                 m_RxRunning.store(false, std::memory_order_release);
 
                 engine->stop();
                 engine->setOnEngineError(nullptr, nullptr);
                 delete g_rxUserdata;
+                g_rxUserdata = nullptr;
                 return;
             }
             else
@@ -4321,7 +4365,6 @@ void MainFrame::startRxStream()
         // optional tone in left channel to reliably trigger vox
 
         g_rxUserdata->leftChannelVoxTone = wxGetApp().appConfiguration.rigControlConfiguration.leftChannelVoxTone;
-        g_rxUserdata->voxTonePhase = 0;
 
         // Set sound card callbacks
         rxInSoundDevice->setOnAudioData(&OnRxInAudioData_, g_rxUserdata);
@@ -4412,10 +4455,7 @@ void MainFrame::startRxStream()
 
             if (!txInSoundDevice->isRunning())
             {
-                rxInSoundDevice.reset();
-                rxOutSoundDevice.reset();
-                txInSoundDevice.reset();
-                txOutSoundDevice.reset();
+                releaseSoundDevices_();
                 m_RxRunning.store(false, std::memory_order_release);
                 return;
             }
@@ -4424,10 +4464,7 @@ void MainFrame::startRxStream()
             {
                 txInSoundDevice->stop();
 
-                rxInSoundDevice.reset();
-                rxOutSoundDevice.reset();
-                txInSoundDevice.reset();
-                txOutSoundDevice.reset();
+                releaseSoundDevices_();
                 m_RxRunning.store(false, std::memory_order_release);
                 return;
             }
@@ -4441,10 +4478,7 @@ void MainFrame::startRxStream()
             if (txInSoundDevice) txInSoundDevice->stop();
             if (txOutSoundDevice) txOutSoundDevice->stop();
 
-            rxInSoundDevice.reset();
-            rxOutSoundDevice.reset();
-            txInSoundDevice.reset();
-            txOutSoundDevice.reset();
+            releaseSoundDevices_();
             m_RxRunning.store(false, std::memory_order_release);
             return;
         }
@@ -4456,10 +4490,7 @@ void MainFrame::startRxStream()
             if (txOutSoundDevice) txOutSoundDevice->stop();
             rxInSoundDevice->stop();
 
-            rxInSoundDevice.reset();
-            rxOutSoundDevice.reset();
-            txInSoundDevice.reset();
-            txOutSoundDevice.reset();
+            releaseSoundDevices_();
             m_RxRunning.store(false, std::memory_order_release);
             return;
         }
@@ -4702,8 +4733,8 @@ void MainFrame::initializeFreeDVReporter_()
         std::make_shared<FreeDVReporter>(
             wxGetApp().appConfiguration.reportingConfiguration.getFreeDVReporterHostname(
                 wxGetApp().appConfiguration.getSelectedRadeMode()).ToStdString(),
-            wxGetApp().appConfiguration.reportingConfiguration.reportingCallsign->ToStdString(),
-            wxGetApp().appConfiguration.reportingConfiguration.reportingGridSquare->ToStdString(),
+            wxGetApp().appConfiguration.reportingConfiguration.reportingCallsign.get().ToStdString(),
+            wxGetApp().appConfiguration.reportingConfiguration.reportingGridSquare.get().ToStdString(),
             std::string("FreeDV ") + GetFreeDVVersion(),
             receiveOnly,
             false,
@@ -4795,7 +4826,8 @@ void MainFrame::onQsyRequestUIThread_(QsyRequestArgs* args)
     wxString fullMessage = wxString::Format(fmtMsg, callsign, freqString);
     int dialogStyle = wxOK | wxICON_INFORMATION | wxCENTRE;
 
-    if (wxGetApp().rigFrequencyController != nullptr &&
+    auto rigController = snapshotRigFrequencyController();
+    if (rigController != nullptr &&
         (wxGetApp().appConfiguration.rigControlConfiguration.hamlibEnableFreqModeChanges || wxGetApp().appConfiguration.rigControlConfiguration.hamlibEnableFreqChangesOnly))
     {
         // TRANSLATORS: %s is the QSY request message.

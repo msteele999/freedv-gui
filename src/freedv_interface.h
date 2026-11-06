@@ -76,7 +76,7 @@ public:
     bool start(int fifoSizeMs, bool usingReliableText, bool verbose = false,
                RadeMode mode = RadeMode::RADEV1);
     void stop();
-    bool isRunning() const { return rade_ != nullptr; }
+    bool isRunning() const { return rade_.load() != nullptr; }
     
     const char* getCurrentModeStr() const;
     const char* getCurrentTxModeStr() const;
@@ -146,7 +146,10 @@ private:
     std::string receivedReliableText_;
     std::mutex reliableTextMutex_;
   
-    struct rade* rade_;
+    // Atomic because isRunning() is read from the UI (e.g. the reporter
+    // dialog's queued actions) while start()/stop() run on the
+    // Start/Stop worker threads.
+    std::atomic<struct rade*> rade_;
     FARGANState fargan_;
     LPCNetEncState *lpcnetEncState_; 
     RADETransmitStep *radeTxStep_;
