@@ -64,6 +64,8 @@ Enhancements include:
 
 The goal is to make FreeDV more comfortable to use on modern desktops without fundamentally changing how an experienced FreeDV operator uses the application.
 
+The `wav` directory contains test files of modulated audio that you can use to test FreeDV (see the [USER_MANUAL](USER_MANUAL.md)).
+
 ### Decoded Speech Transcription
 
 This fork adds an experimental decoded-speech transcription pipeline using [whisper.cpp](https://github.com/ggml-org/whisper.cpp).
