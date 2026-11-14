@@ -167,7 +167,7 @@ public:
             //
             for (int i = 0; i < M; i++) {
                 const auto& ce = checkEdges_[i];
-                const int   nd = (int)ce.size();
+                const int   edgeCount = (int)ce.size();
 
                 // phi(|v|) is needed once per edge to build the sum below, and
                 // again per edge afterward as part of phi(sum - phi(|v|)) --
@@ -175,14 +175,14 @@ public:
                 float phi_v[N];
                 int sign = 1;
                 float sum = 0;
-                for (int k = 0; k < nd; k++) {
+                for (int k = 0; k < edgeCount; k++) {
                     const float v = mVC_[ce[k]];
                     sign *= (v >= 0.0f) ? 1 : -1;
                     phi_v[k] = std::max(0.0f, phi_(std::abs(v)));
                     sum += phi_v[k];
                 }
 
-                for (int k = 0; k < nd; k++) {
+                for (int k = 0; k < edgeCount; k++) {
                     const float v = mVC_[ce[k]];
                     int inv_sign = (v >= 0.0f) ? 1 : -1;
                     mCV_[ce[k]] = std::clamp(inv_sign * sign * std::max(0.0f, phi_(sum - phi_v[k])), -LLR_MAX, LLR_MAX);
