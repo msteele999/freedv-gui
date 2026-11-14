@@ -4902,7 +4902,7 @@ void MainFrame::initializeFreeDVReporter_()
     wxGetApp().m_sharedReporterObject->connect();
 }
 
-void MainFrame::onQsyRequest_(std::weak_ptr<FreeDVReporter> reporter, std::string callsign, uint64_t freqHz, std::string message)
+void MainFrame::onQsyRequest_(const std::weak_ptr<FreeDVReporter>& reporter, std::string callsign, uint64_t freqHz, std::string message)
 {
     // A separate object needs to be created here since wxWidgets doesn't support more
     // than two arguments for CallAfter().

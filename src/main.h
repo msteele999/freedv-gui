@@ -742,7 +742,7 @@ class MainFrame : public TopFrame
             std::string message;
         };
 
-        void onQsyRequest_(std::weak_ptr<FreeDVReporter> reporter, std::string callsign, uint64_t freqHz, std::string message);
+        void onQsyRequest_(const std::weak_ptr<FreeDVReporter>& reporter, std::string callsign, uint64_t freqHz, std::string message);
         void onQsyRequestUIThread_(QsyRequestArgs* args);
         
         bool isFrequencyControlEnabled_()
