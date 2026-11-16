@@ -461,6 +461,11 @@ FreeDV supports integration with external logging utilities that support the WSJ
 the "Enable QSO Logging" option. By default, it sends packets to "localhost" (127.0.0.1) port 2237, but this
 can be changed if the logging computer is elsewhere on the network.
 
+As WSJT-X does, FreeDV sends each logged contact both as a "QSO Logged" message and as a "Logged ADIF" message
+(an ADIF record of the contact, with mode DIGITALVOICE and submode FREEDV). Some logging programs, such as
+Log4OM, save contacts from the latter: in Log4OM, make sure that the option to import QSOs from WSJT-X's
+ADIF message (JT message #12) is enabled for the UDP connection that FreeDV sends to.
+
 Once FreeDV decodes a callsign, it will appear in the drop-down list on the bottom of the main window. To log
 this contact (or any other contact received by the application), simply choose that callsign from the list and
 click the "Log QSO" button on the left side of the window. You will then see a dialog box that will let you 
@@ -884,6 +889,7 @@ LDPC | Low Density Parity Check Codes - a family of powerful FEC codes
     * Improved Level metering and AGC for easier input level adjustment. (PR #1532, #1599, #1604) - thanks @barjac!
     * Hamlib/OmniRig: add option to disable saving and restoring the radio's frequency on start and stop. (PR #1600)
     * RADE: fill in the missing high frequencies when transmitting with an 8 kHz mic (e.g. a Bluetooth headset). (PR #1614)
+    * Settings: apply half duplex and the VOX tone immediately while running, allow changing the PTT key and TX/RX delay, and note which settings take effect the next time FreeDV starts. (PR #1631)
 2. Bugfixes:
     * Fix silence being mixed into the first half second of each transmission, and holes in the signal at its start. (PR #1562)
 3. Build system:
@@ -900,6 +906,7 @@ LDPC | Low Density Parity Check Codes - a family of powerful FEC codes
     * Add tests of whole transmissions through the TX/RX threads without sound cards, and diagnostics for rade_loss test failures. (PR #1562)
     * Add translations for Swedish, Brazilian Portuguese and Latvian. (PR #1615)
     * Additional data race cleanup. (PR #1616)
+    * Add tests of audio device and engine thread safety, re-recording a voice keyer message, and Settings' Test PTT. (PR #1625)
 
 *Note: Legacy FreeDV modes (700D/700E/1600) have been removed due to low use. FreeDV 2.4.x is still available if one wishes to operate these modes.*
 
@@ -911,8 +918,19 @@ LDPC | Low Density Parity Check Codes - a family of powerful FEC codes
     * Windows: stop busy-waiting in the audio threads, which increased CPU usage in 2.4.1. (PR #1617)
     * Let the radio's audio finish before releasing PTT in modes other than RADE, and don't play what's left into the radio after it returns to receive. (PR #1622)
     * Fix various audio thread races and teardown gaps. (PR #1620)
+    * Send WSJT-X's Logged ADIF message when a QSO is logged, so that logging programs which save contacts from it (e.g. Log4OM) log FreeDV contacts automatically. (PR #1624)
+    * Fix memory corruption in the waterfall after a mode change, and in the RF spectrum with large audio blocks. (PR #1626)
+    * Fix races between audio engine error reports and FreeDV starting, stopping or exiting. (PR #1626)
+    * Fix a voice keyer recording being left unreadable when a new one is started before it's stopped, or corrupted when the new one is to the same file. (PR #1626)
+    * Fix the PTT dialog's Test button leaving a radio connection running after each test. (PR #1626)
+    * Cover a briefly late microphone with silence rather than leaving a gap in the transmitted signal. (PR #1621)
+    * Fix intermittent dropouts drawn in the Frm Radio, Frm Mic and Frm Decoder plots, and their traces falling behind the audio. (PR #1628)
+    * Hamlib: fix rigctld sometimes dropping FreeDV's connection when Test PTT is clicked again, Start follows Stop quickly, or another program disconnects from rigctld, just as FreeDV connects. (PR #1634)
+    * Fix Test PTT becoming usable again before the radio was unkeyed and the serial port closed, when using serial port or OmniRig PTT. (PR #1636)
 2. Documentation:
     * User manual: Update reference to Experimental Features section. (PR #1613)
+3. Build system:
+    * Build the macOS DMG as ULFO. (PR #1639)
 
 ## V2.4.1 October 2026
 
