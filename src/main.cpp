@@ -924,6 +924,11 @@ bool MainApp::OnCmdLineParsed(wxCmdLineParser& parser)
         log_info("Executing test %s", (const char*)testName.ToUTF8());
         if (parser.Found("utmode", &utFreeDVMode))
         {
+            if (utFreeDVMode != "RADEV1" && utFreeDVMode != "RADEV2")
+            {
+                log_error("Unknown test mode %s; expected RADEV1 or RADEV2", (const char*)utFreeDVMode.ToUTF8());
+                return false;
+            }
             log_info("Using mode %s for tests", (const char*)utFreeDVMode.ToUTF8());
         }
 
@@ -1194,6 +1199,12 @@ void MainFrame::loadConfiguration_()
     SetIndependentControlPresentation(false);
     updateDisplayVisibilityControls_();
     wxGetApp().appConfiguration.load(pConfig);
+    // Apply the explicit test mode after loading the persisted selection and
+    // before the selector, auto-start or UnitTest_ can start the modem.
+    if (utFreeDVMode == "RADEV1")
+        wxGetApp().appConfiguration.setSelectedRadeMode(RadeMode::RADEV1);
+    else if (utFreeDVMode == "RADEV2")
+        wxGetApp().appConfiguration.setSelectedRadeMode(RadeMode::RADEV2);
     updateRadeModeSelection_();
     watchlistWindow_->RestoreGeometry();
     watchlistWindow_->RefreshAppearance();

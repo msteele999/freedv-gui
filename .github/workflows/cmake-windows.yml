@@ -495,7 +495,11 @@ jobs:
       working-directory: ${{github.workspace}}
       run: |
           set -eux
-          git clone -b dr-tx-bpf --depth 1 https://github.com/freedv/rade_c rade_c
+          # Match the GUI's existing dependency pin in cmake/PinRADE.cmake.
+          git init rade_c
+          git -C rade_c remote add origin https://github.com/freedv/rade_c
+          git -C rade_c fetch --depth 1 origin a225de306ed016b508111e8d51b32ae141c012ea
+          git -C rade_c checkout --detach FETCH_HEAD
           cmake -S rade_c -B rade_c/build -DCMAKE_BUILD_TYPE=Release \
               -DOPUS_URL=https://github.com/xiph/opus/archive/940d4e5af64351ca8ba8390df3f555484c567fbb.zip
           cmake --build rade_c/build -j$(nproc)
@@ -514,7 +518,7 @@ jobs:
 
           TOOLS="$PWD/rade_c/build/src"
           # rade_tx_wav requires 16 kHz mono 16-bit PCM (all.wav already is).
-          # --v2: FreeDV opens RADE with RADE_MODE_V2 unconditionally on this branch.
+          # Match the explicit -utmode RADEV2 used by the GUI loss test.
           sox rade_src/wav/all.wav -r 16000 -c 1 -b 16 -e signed-integer baseline_in.wav
           LD_LIBRARY_PATH="$TOOLS" "$TOOLS/rade_tx_wav" --v2 -f baseline_txfeatures.f32 baseline_in.wav baseline_tx.wav
           LD_LIBRARY_PATH="$TOOLS" "$TOOLS/rade_rx_wav" --v2 -f baseline_rxfeatures.f32 baseline_tx.wav baseline_decoded.wav

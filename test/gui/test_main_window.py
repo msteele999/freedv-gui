@@ -2848,8 +2848,25 @@ def test_rade_mode_selection():
 
 
 def test_rade_mode_startup():
-    """Manual/automatic V2 startup and repeated V2/V1/V2 sessions in both workspaces."""
+    """CLI overrides, manual/automatic startup and repeated V2/V1/V2 sessions."""
     with audio_devices():
+        # The audio CI scripts specify -utmode without setting SelectedRadeMode.
+        # Also check both directions against an explicitly conflicting config.
+        for stored, mode, index in ((None, "RADEV2", 1), (1, "RADEV2", 1), (2, "RADEV1", 0)):
+            config = settings()
+            if stored is not None:
+                config["/Modem/SelectedRadeMode"] = stored
+            with freedvtest.start(settings=config,
+                                  args=("-ut", "rx", "-utmode", mode, "-txtime", "2")) as app:
+                app.wait_for_window("main")
+                check_equal(app.get("main.choiceRadeMode")["selection"], index, "CLI mode selection")
+                app.wait_until(lambda: app.state()["running"] and
+                               label(app, "main.textCurrentDecodeMode") == "Mode: " + mode,
+                               description="CLI-selected active codec")
+                check_equal(app.message_boxes(), [], "CLI startup errors")
+                check_equal(app.wait_for_exit(timeout=90), 0, "CLI test exit code")
+                check("rade_open: V%d " % (index + 1) in app.log(), "Wrong RADE codec initialized")
+
         for independent in (False, True):
             for auto_start in (False, True):
                 with freedvtest.start(settings=settings(
