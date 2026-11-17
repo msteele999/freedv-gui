@@ -2,7 +2,7 @@
 
 [msteele999/freedv-gui](https://github.com/msteele999/freedv-gui/releases) · downloads, engagement and repository traffic
 
-**Most recent successful collection: 2026-11-17T20:59:57Z UTC.**
+**Most recent successful collection: 2026-11-17T21:12:32Z UTC.**
 
 | Release downloads (cumulative) | Published releases | Stars |
 | ---: | ---: | ---: |
@@ -14,7 +14,7 @@
 
 Stable W2MWS: **319** · Experimental RADEV2: **231** · Other: **0** downloads.
 
-Releases: Fresh · last successful collection 2026\-11\-17T20:59:57Z UTC. Engagement: Fresh · last successful collection 2026\-11\-17T20:59:57Z UTC. Traffic: Fresh · last successful collection 2026\-11\-17T20:59:57Z UTC.
+Releases: Fresh · last successful collection 2026\-11\-17T21:12:32Z UTC. Engagement: Fresh · last successful collection 2026\-11\-17T21:12:32Z UTC. Traffic: Fresh · last successful collection 2026\-11\-17T21:12:32Z UTC.
 
 ## Downloads by release
 
@@ -83,7 +83,7 @@ Releases: Fresh · last successful collection 2026\-11\-17T20:59:57Z UTC. Engage
 
 **Rolling 14-day window; these are repository visits and clones, not release downloads.**
 
-Traffic snapshot: Fresh · last successful collection 2026\-11\-17T20:59:57Z UTC.
+Traffic snapshot: Fresh · last successful collection 2026\-11\-17T21:12:32Z UTC.
 
 | Views | Unique visitors | Clones | Unique cloners |
 | ---: | ---: | ---: | ---: |

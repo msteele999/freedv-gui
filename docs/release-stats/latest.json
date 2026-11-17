@@ -1,11 +1,11 @@
 {
-  "last_attempt_at": "2026-11-17T20:59:57Z",
-  "last_successful_collection_at": "2026-11-17T20:59:57Z",
-  "observed_at": "2026-11-17T20:59:57Z",
+  "last_attempt_at": "2026-11-17T21:12:32Z",
+  "last_successful_collection_at": "2026-11-17T21:12:32Z",
+  "observed_at": "2026-11-17T21:12:32Z",
   "release_collection": {
     "error": null,
-    "last_attempt_at": "2026-11-17T20:59:57Z",
-    "observed_at": "2026-11-17T20:59:57Z",
+    "last_attempt_at": "2026-11-17T21:12:32Z",
+    "observed_at": "2026-11-17T21:12:32Z",
     "status": "fresh"
   },
   "releases": [
@@ -1202,8 +1202,8 @@
       "subscribers": 0
     },
     "error": null,
-    "last_attempt_at": "2026-11-17T20:59:57Z",
-    "observed_at": "2026-11-17T20:59:57Z",
+    "last_attempt_at": "2026-11-17T21:12:32Z",
+    "observed_at": "2026-11-17T21:12:32Z",
     "status": "fresh"
   },
   "schema_version": 2,
@@ -1513,8 +1513,8 @@
       "window_days": 14
     },
     "error": null,
-    "last_attempt_at": "2026-11-17T20:59:57Z",
-    "observed_at": "2026-11-17T20:59:57Z",
+    "last_attempt_at": "2026-11-17T21:12:32Z",
+    "observed_at": "2026-11-17T21:12:32Z",
     "status": "fresh"
   }
 }
