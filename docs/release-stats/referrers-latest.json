@@ -1,0 +1,71 @@
+{
+  "data": [
+    {
+      "count": 48,
+      "referrer": "tonaru.net",
+      "self_referral": false,
+      "uniques": 10
+    },
+    {
+      "count": 38,
+      "referrer": "hamradio.my",
+      "self_referral": false,
+      "uniques": 18
+    },
+    {
+      "count": 17,
+      "referrer": "github.com",
+      "self_referral": true,
+      "uniques": 13
+    },
+    {
+      "count": 14,
+      "referrer": "groups.io",
+      "self_referral": false,
+      "uniques": 8
+    },
+    {
+      "count": 12,
+      "referrer": "mail3.spectrum.net",
+      "self_referral": false,
+      "uniques": 1
+    },
+    {
+      "count": 11,
+      "referrer": "reddit.com",
+      "self_referral": false,
+      "uniques": 8
+    },
+    {
+      "count": 7,
+      "referrer": "t.co",
+      "self_referral": false,
+      "uniques": 3
+    },
+    {
+      "count": 5,
+      "referrer": "ja4joe.livedoor.blog",
+      "self_referral": false,
+      "uniques": 1
+    },
+    {
+      "count": 3,
+      "referrer": "reporter-radev2.k6aq.net",
+      "self_referral": false,
+      "uniques": 2
+    },
+    {
+      "count": 2,
+      "referrer": "Google",
+      "self_referral": false,
+      "uniques": 2
+    }
+  ],
+  "error": null,
+  "last_attempt_at": "2026-11-17T20:59:57Z",
+  "observed_at": "2026-11-17T20:59:57Z",
+  "repository": "msteele999/freedv-gui",
+  "schema_version": 1,
+  "status": "fresh",
+  "window_days": 14
+}
