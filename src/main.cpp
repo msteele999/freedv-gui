@@ -3343,7 +3343,9 @@ void MainFrame::performFreeDVOn_()
             // streaming protocol can carry compound callsigns (up to 32 chars).
             if (selectedMode == RadeMode::RADEV2)
             {
-                const auto callsign = wxGetApp().appConfiguration.reportingConfiguration.reportingCallsign.get().ToUTF8();
+                // ToUTF8() may borrow the wxString's buffer; keep both alive.
+                const auto callsignString = wxGetApp().appConfiguration.reportingConfiguration.reportingCallsign.get();
+                const auto callsign = callsignString.ToUTF8();
                 log_info("Setting callsign to %s", callsign.data());
                 freedvInterface.setReliableText(callsign.data());
             }
