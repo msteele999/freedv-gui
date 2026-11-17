@@ -1,0 +1,350 @@
+name: W2MWS RADEV2 Experimental Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag, e.g. v3.0-dev-W2MWS-radev2.8'
+        required: true
+        type: string
+      windows_run_id:
+        description: 'Successful cmake-windows.yml run ID (e.g. 44106363340)'
+        required: true
+        type: string
+      linux_run_id:
+        description: 'Successful cmake-linux.yml run ID (e.g. 44106363148)'
+        required: true
+        type: string
+      macos_run_id:
+        description: 'cmake-macos.yml run ID with successful dist-pgo-build (e.g. 44125731584)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: radev2-release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Publish validated RADEV2 installers
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: msteele999/freedv-gui
+      GH_HOST: github.com
+      RELEASE_TAG: ${{ inputs.tag }}
+      WINDOWS_RUN_ID: ${{ inputs.windows_run_id }}
+      LINUX_RUN_ID: ${{ inputs.linux_run_id }}
+      MACOS_RUN_ID: ${{ inputs.macos_run_id }}
+
+    # No checkout, rebuild, or execution of code from the supplied runs.
+    # Every validation completes before the sole release-creation command.
+    steps:
+      - name: Validate provenance and installers, then publish prerelease
+        shell: python
+        run: |
+          import hashlib
+          import json
+          import os
+          from pathlib import Path, PurePosixPath
+          import re
+          import shutil
+          import stat
+          import struct
+          import subprocess
+          import tempfile
+          from datetime import datetime, timezone
+          import zipfile
+
+          REPO = "msteele999/freedv-gui"
+          TAG = os.environ["RELEASE_TAG"]
+
+          def require(condition, message):
+              if not condition:
+                  raise RuntimeError(message)
+
+          def api(path):
+              return json.loads(subprocess.check_output([
+                  "gh", "api", "--hostname", "github.com",
+                  "-H", "Accept: application/vnd.github+json",
+                  "-H", "X-GitHub-Api-Version: 2022-11-28",
+                  f"repos/{REPO}/{path}",
+              ], text=True))
+
+          def list_all(path, key):
+              result = []
+              page = 1
+              while True:
+                  separator = "&" if "?" in path else "?"
+                  data = api(f"{path}{separator}per_page=100&page={page}")
+                  batch = data[key]
+                  result.extend(batch)
+                  if len(batch) < 100:
+                      return result
+                  page += 1
+
+          def tag_commit():
+              obj = api(f"git/ref/tags/{TAG}")["object"]
+              # Peel annotated tags as well as accepting lightweight tags.
+              for _ in range(10):
+                  if obj["type"] == "commit":
+                      return obj["sha"]
+                  require(obj["type"] == "tag", "Release tag must resolve to a commit")
+                  obj = api(f"git/tags/{obj['sha']}")["object"]
+              raise RuntimeError("Too many nested annotated tags")
+
+          def application_tree(commit):
+              tree_sha = api(f"git/commits/{commit}")["tree"]["sha"]
+              data = api(f"git/trees/{tree_sha}?recursive=1")
+              require(data.get("truncated") is False, f"Incomplete source tree for {commit}")
+              # Compare all tracked files, file modes and submodule revisions.
+              # Directory tree IDs naturally change when a workflow changes.
+              return {
+                  entry["path"]: (entry["mode"], entry["type"], entry["sha"])
+                  for entry in data["tree"]
+                  if entry["type"] != "tree" and not (
+                      entry["type"] == "blob" and entry["mode"] in ("100644", "100755")
+                      and re.fullmatch(r"\.github/workflows/[^/]+\.ya?ml", entry["path"])
+                  )
+              }
+
+          def validate_run(platform, run_id, workflow):
+              run = api(f"actions/runs/{run_id}")
+              require(str(run["id"]) == run_id, f"Wrong {platform} run returned")
+              require(run["repository"]["full_name"] == REPO, f"Wrong {platform} repository")
+              require(run["head_repository"]["full_name"] == REPO, f"Fork source in {platform} run")
+              expected = api(f"actions/workflows/{workflow}")
+              require(run["workflow_id"] == expected["id"] and
+                      run["path"] == f".github/workflows/{workflow}",
+                      f"Wrong workflow for {platform} run {run_id}")
+              require(run["status"] == "completed", f"{platform} run is not complete")
+              if platform == "macos":
+                  jobs = list_all(f"actions/runs/{run_id}/jobs?filter=latest", "jobs")
+                  require(any(job["name"] == "dist-pgo-build" and
+                              job["status"] == "completed" and job["conclusion"] == "success"
+                              for job in jobs), "macOS dist-pgo-build did not succeed")
+              else:
+                  require(run["conclusion"] == "success", f"{platform} run did not succeed")
+              return run
+
+          def validate_artifact(artifact, run):
+              require(artifact.get("expired") is False, f"Expired artifact {artifact['id']}")
+              expiry = datetime.fromisoformat(artifact["expires_at"].replace("Z", "+00:00"))
+              require(expiry > datetime.now(timezone.utc), f"Artifact {artifact['id']} has expired")
+              require(artifact["size_in_bytes"] > 0, f"Empty artifact {artifact['id']}")
+              require(re.fullmatch(r"sha256:[0-9a-f]{64}", artifact.get("digest") or ""),
+                      f"Missing SHA-256 digest for artifact {artifact['id']}")
+              source = artifact["workflow_run"]
+              require(source["id"] == run["id"] and
+                      source["repository_id"] == run["repository"]["id"] and
+                      source["head_repository_id"] == run["repository"]["id"] and
+                      source["head_sha"] == run["head_sha"],
+                      f"Artifact {artifact['id']} has inconsistent run provenance")
+
+          def sha256(path):
+              digest = hashlib.sha256()
+              with path.open("rb") as stream:
+                  for block in iter(lambda: stream.read(1024 * 1024), b""):
+                      digest.update(block)
+              return digest.hexdigest()
+
+          def validate_installer(path, slot):
+              require(path.is_file() and path.stat().st_size > 0, f"Empty installer: {path.name}")
+              with path.open("rb") as stream:
+                  header = stream.read(64)
+                  if slot.startswith("windows-"):
+                      # NSIS's bootstrap PE need not match the installed application's
+                      # architecture; the architecture is selected by artifact name.
+                      require(header[:2] == b"MZ" and len(header) == 64,
+                              f"Not a Windows installer: {path.name}")
+                      pe_offset = struct.unpack_from("<I", header, 60)[0]
+                      stream.seek(pe_offset)
+                      require(stream.read(4) == b"PE\0\0", f"Invalid PE: {path.name}")
+                  elif slot.startswith("linux-"):
+                      require(header[:5] == b"\x7fELF\x02" and header[5:6] == b"\x01"
+                              and header[8:11] in (b"AI\x01", b"AI\x02"),
+                              f"Not a 64-bit AppImage: {path.name}")
+                      machine = struct.unpack_from("<H", header, 18)[0]
+                      require(machine == (62 if slot.endswith("x86_64") else 183),
+                              f"AppImage architecture mismatch: {path.name}")
+                  else:
+                      require(path.stat().st_size >= 512, f"Truncated DMG: {path.name}")
+                      stream.seek(-512, os.SEEK_END)
+                      require(stream.read(4) == b"koly", f"Invalid UDIF DMG: {path.name}")
+
+          def collect(artifact, run, slot, downloads, assets):
+              # Read fresh metadata immediately before downloading, not just the list.
+              current = api(f"actions/artifacts/{artifact['id']}")
+              validate_artifact(current, run)
+              require(all(current[key] == artifact[key] for key in
+                          ("name", "digest", "size_in_bytes")), "Artifact changed during validation")
+              download = downloads / str(artifact["id"])
+              with download.open("xb") as output:
+                  subprocess.run([
+                      "gh", "api", "--hostname", "github.com",
+                      f"repos/{REPO}/actions/artifacts/{artifact['id']}/zip",
+                  ], stdout=output, check=True)
+              require(download.stat().st_size == artifact["size_in_bytes"],
+                      f"Download size mismatch: {artifact['name']}")
+              require("sha256:" + sha256(download) == artifact["digest"],
+                      f"Download digest mismatch: {artifact['name']}")
+
+              target = assets / artifact["name"]
+              # archive:false uploads can be raw installers even though the API
+              # endpoint ends in /zip. Older uploads really are ZIP containers.
+              with download.open("rb") as stream:
+                  is_zip_container = stream.read(4) in (b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08")
+              if is_zip_container:
+                  with zipfile.ZipFile(download) as archive:
+                      members = archive.infolist()
+                      require(len(members) == 1, f"Expected one ZIP payload: {artifact['name']}")
+                      member = members[0]
+                      member_path = PurePosixPath(member.filename)
+                      require(not member.is_dir() and member.file_size > 0 and
+                              not member_path.is_absolute() and ".." not in member_path.parts and
+                              "\\" not in member.filename and
+                              member_path.name == artifact["name"] and
+                              not stat.S_ISLNK(member.external_attr >> 16),
+                              f"Unexpected ZIP payload: {member.filename!r}")
+                      require(archive.testzip() is None, f"ZIP CRC failure: {artifact['name']}")
+                      # Do not extract archive paths or publish the ZIP as an installer.
+                      with archive.open(member) as source, target.open("xb") as output:
+                          shutil.copyfileobj(source, output)
+                      require(target.stat().st_size == member.file_size,
+                              f"ZIP payload size mismatch: {target.name}")
+                      # Preserve Unix permission bits carried by ZIP payloads.
+                      mode = stat.S_IMODE(member.external_attr >> 16)
+                      if member.create_system == 3 and mode:
+                          target.chmod(mode & 0o777)
+              else:
+                  with download.open("rb") as source, target.open("xb") as output:
+                      shutil.copyfileobj(source, output)
+              # Raw artifact downloads carry no Unix mode metadata. Ensure an
+              # AppImage is executable without altering existing executable modes.
+              if slot.startswith("linux-") and not (target.stat().st_mode & 0o111):
+                  target.chmod(stat.S_IMODE(target.stat().st_mode) | 0o111)
+              validate_installer(target, slot)
+              return target
+
+          require(os.environ["GITHUB_REPOSITORY"] == REPO, "Run this workflow in msteele999/freedv-gui")
+          require(re.fullmatch(r"v3\.0-dev-W2MWS-radev2\.[0-9]+", TAG), "Invalid RADEV2 release tag")
+          specifications = (
+              ("windows", os.environ["WINDOWS_RUN_ID"], "cmake-windows.yml"),
+              ("linux", os.environ["LINUX_RUN_ID"], "cmake-linux.yml"),
+              ("macos", os.environ["MACOS_RUN_ID"], "cmake-macos.yml"),
+          )
+          require(all(re.fullmatch(r"[1-9][0-9]*", run_id) for _, run_id, _ in specifications),
+                  "Run IDs must be positive decimal integers")
+          require(len({run_id for _, run_id, _ in specifications}) == 3, "Duplicate workflow run IDs")
+          release_sha = tag_commit()  # A missing remote tag is fatal; never create a tag.
+          reference = application_tree(release_sha)
+          runs = {}
+          chosen = {}
+          safe_version = r"[A-Za-z0-9][A-Za-z0-9._+-]*"
+          patterns = {
+              "windows": re.compile(rf"FreeDV-{safe_version}-windows-(x86_64|aarch64|arm64)\.exe"),
+              "linux": re.compile(rf"FreeDV-W2MWS-{safe_version}-(x86_64|aarch64|arm64)\.AppImage"),
+              "macos": re.compile(rf"FreeDV-{safe_version}\.dmg"),
+          }
+          required_slots = {"windows-x86_64", "windows-arm64", "linux-x86_64", "linux-arm64", "macos"}
+          release_version = TAG.removeprefix("v3.0-dev-W2MWS-").upper()
+          extensions = {"windows": ".exe", "linux": ".AppImage", "macos": ".dmg"}
+          release_names = {
+              slot: f"FreeDV-W2MWS-{release_version}-{slot}{extensions[slot.split('-', 1)[0]]}"
+              for slot in required_slots
+          }
+          require(len(set(release_names.values())) == 5, "Duplicate renamed installer filenames")
+          for platform, run_id, workflow in specifications:
+              run = validate_run(platform, run_id, workflow)
+              runs[platform] = run
+              source = application_tree(run["head_sha"])
+              differences = sorted(path for path in reference.keys() | source.keys()
+                                   if reference.get(path) != source.get(path))
+              require(not differences,
+                      f"{platform} application source differs from release tag: {differences[:20]}")
+              for artifact in list_all(f"actions/runs/{run_id}/artifacts", "artifacts"):
+                  name = artifact["name"]
+                  # Exclude logs, reports and prefixed instrumented/sanitizer packages.
+                  if not name.startswith("FreeDV-") or not name.endswith((".exe", ".AppImage", ".dmg")):
+                      continue
+                  match = patterns[platform].fullmatch(name)
+                  require(match is not None, f"Unexpected production installer in {platform}: {name!r}")
+                  arch = "arm64" if platform != "macos" and match[1] in ("aarch64", "arm64") else (
+                      "x86_64" if platform != "macos" else "")
+                  slot = f"{platform}-{arch}" if arch else platform
+                  require(slot not in chosen, f"Duplicate production artifact for {slot}")
+                  validate_artifact(artifact, run)
+                  chosen[slot] = artifact
+          require(set(chosen) == required_slots, f"Expected five installer slots; found {sorted(chosen)}")
+          require(len({a["id"] for a in chosen.values()}) == 5, "Duplicate artifact IDs")
+          require(len({a["name"] for a in chosen.values()}) == 5, "Duplicate installer filenames")
+
+          work = Path(tempfile.mkdtemp(prefix="radev2-release-", dir=os.environ["RUNNER_TEMP"]))
+          downloads = work / "downloads"
+          assets = work / "installers"
+          downloads.mkdir()
+          assets.mkdir()
+          payloads = []
+          notes = [f"Experimental FreeDV RADEV2 prerelease `{TAG}`.", "",
+                   f"Release tag commit: `{release_sha}`.",
+                   "Application sources match the tag; only workflow YAML files may differ.", "",
+                   "Validated CI runs:"]
+          for platform, run_id, _ in specifications:
+              notes.append(f"- {platform}: https://github.com/{REPO}/actions/runs/{run_id} "
+                           f"(commit `{runs[platform]['head_sha']}`)")
+          notes.extend(["", "Installer SHA-256 checksums:", "", "```text"])
+          for slot in sorted(chosen):
+              platform = slot.split("-", 1)[0]
+              payload = collect(chosen[slot], runs[platform], slot, downloads, assets)
+              # Keep CI names intact through download and validation. Rename only
+              # the validated payload, on the same filesystem, preserving its mode.
+              published = assets / release_names[slot]
+              original_digest = sha256(payload)
+              original_mode = stat.S_IMODE(payload.stat().st_mode)
+              if payload != published:
+                  require(not published.exists(), f"Installer name collision: {published.name}")
+                  payload.rename(published)
+              published_digest = sha256(published)
+              require(published_digest == original_digest and
+                      stat.S_IMODE(published.stat().st_mode) == original_mode,
+                      f"Installer contents or permissions changed while renaming: {published.name}")
+              payloads.append(published)
+              notes.append(f"{published_digest}  {published.name}")
+          notes.append("```")
+          require(len(payloads) == 5 and len(list(assets.iterdir())) == 5,
+                  "Exactly five production installers must be collected")
+          require(len({payload.name for payload in payloads}) == 5 and
+                  {payload.name for payload in payloads} == set(release_names.values()),
+                  "Expected five unique renamed release filenames")
+
+          # Recheck remote provenance after the downloads, before any publication.
+          require(tag_commit() == release_sha, "Release tag moved during validation")
+          for platform, run_id, workflow in specifications:
+              current = validate_run(platform, run_id, workflow)
+              require(current["head_sha"] == runs[platform]["head_sha"] and
+                      current["run_attempt"] == runs[platform]["run_attempt"],
+                      f"{platform} run changed during validation")
+          for slot, artifact in chosen.items():
+              current = api(f"actions/artifacts/{artifact['id']}")
+              validate_artifact(current, runs[slot.split("-", 1)[0]])
+              require(all(current[key] == artifact[key] for key in ("name", "digest", "size_in_bytes")),
+                      "Artifact changed after download")
+          notes_file = work / "release-notes.md"
+          notes_file.write_text("\n".join(notes) + "\n", encoding="utf-8")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write(notes_file.read_text(encoding="utf-8"))
+
+          # gh uploads assets to a draft before publishing. A pre-existing release
+          # causes create to fail; never overwrite or update an existing release.
+          subprocess.run([
+              "gh", "release", "create", TAG, "--repo", REPO,
+              "--verify-tag", "--prerelease", "--latest=false",
+              "--title", f"FreeDV W2MWS RADEV2 Experimental {TAG}",
+              "--notes-file", str(notes_file),
+              *map(str, payloads),
+          ], check=True)
