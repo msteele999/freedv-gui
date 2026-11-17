@@ -1,0 +1,1216 @@
+{
+  "observed_at": "2026-11-17T19:24:46Z",
+  "releases": [
+    {
+      "assets": [
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-2026-10-01-a5c6-windows-aarch64.exe",
+          "id": 604405667,
+          "is_zip": false,
+          "platform": "Windows ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 3,
+          "filename": "FreeDV-3.0.0-dev-2026-10-01-a5c6-windows-x86_64.exe",
+          "id": 604405666,
+          "is_zip": false,
+          "platform": "Windows x64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-a5c6b-aarch64.AppImage",
+          "id": 604405663,
+          "is_zip": false,
+          "platform": "Linux ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-a5c6b-x86_64.AppImage",
+          "id": 604405664,
+          "is_zip": false,
+          "platform": "Linux x64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-a5c6b.dmg",
+          "id": 604405665,
+          "is_zip": false,
+          "platform": "macOS"
+        }
+      ],
+      "classification": "stable",
+      "download_count": 7,
+      "id": 401446064,
+      "is_w2mws": true,
+      "name": "FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release 1",
+      "prerelease": true,
+      "published_at": "2026-10-02T00:15:55Z",
+      "tag": "v3.0-dev-W2MWS.1"
+    },
+    {
+      "assets": [
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-2026-10-02-857a-windows-aarch64.exe",
+          "id": 605595265,
+          "is_zip": false,
+          "platform": "Windows ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 3,
+          "filename": "FreeDV-3.0.0-dev-2026-10-02-857a-windows-x86_64.exe",
+          "id": 605595272,
+          "is_zip": false,
+          "platform": "Windows x64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-857a3-aarch64.AppImage",
+          "id": 605595263,
+          "is_zip": false,
+          "platform": "Linux ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 2,
+          "filename": "FreeDV-3.0.0-dev-857a3-x86_64.AppImage",
+          "id": 605595277,
+          "is_zip": false,
+          "platform": "Linux x64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 3,
+          "filename": "FreeDV-3.0.0-dev-857a3.dmg",
+          "id": 605595266,
+          "is_zip": false,
+          "platform": "macOS"
+        }
+      ],
+      "classification": "stable",
+      "download_count": 10,
+      "id": 401809769,
+      "is_w2mws": true,
+      "name": "FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release 2",
+      "prerelease": true,
+      "published_at": "2026-10-02T12:45:29Z",
+      "tag": "v3.0-dev-W2MWS.2"
+    },
+    {
+      "assets": [
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-2026-10-02-b74d-windows-aarch64.exe",
+          "id": 605801650,
+          "is_zip": false,
+          "platform": "Windows ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 4,
+          "filename": "FreeDV-3.0.0-dev-2026-10-02-b74d-windows-x86_64.exe",
+          "id": 605801658,
+          "is_zip": false,
+          "platform": "Windows x64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-b74d-aarch64.AppImage",
+          "id": 605801652,
+          "is_zip": false,
+          "platform": "Linux ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-b74d-x86_64.AppImage",
+          "id": 605801654,
+          "is_zip": false,
+          "platform": "Linux x64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-b74d.dmg",
+          "id": 605801649,
+          "is_zip": false,
+          "platform": "macOS"
+        }
+      ],
+      "classification": "stable",
+      "download_count": 8,
+      "id": 401898079,
+      "is_w2mws": true,
+      "name": "FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release 3",
+      "prerelease": true,
+      "published_at": "2026-10-02T14:42:19Z",
+      "tag": "v3.0-dev-W2MWS.3"
+    },
+    {
+      "assets": [
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-2026-10-03-f013-windows-aarch64.exe",
+          "id": 608671384,
+          "is_zip": false,
+          "platform": "Windows ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 6,
+          "filename": "FreeDV-3.0.0-dev-2026-10-03-f013-windows-x86_64.exe",
+          "id": 608671382,
+          "is_zip": false,
+          "platform": "Windows x64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-f013.dmg",
+          "id": 608671385,
+          "is_zip": false,
+          "platform": "macOS"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-f013-aarch64.AppImage",
+          "id": 608671380,
+          "is_zip": false,
+          "platform": "Linux ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-f013-x86_64.AppImage",
+          "id": 608671383,
+          "is_zip": false,
+          "platform": "Linux x64"
+        }
+      ],
+      "classification": "stable",
+      "download_count": 10,
+      "id": 402721504,
+      "is_w2mws": true,
+      "name": "FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release 4",
+      "prerelease": true,
+      "published_at": "2026-10-03T22:50:08Z",
+      "tag": "v3.0-dev-W2MWS.4"
+    },
+    {
+      "assets": [
+        {
+          "asset_type": "installer",
+          "download_count": 2,
+          "filename": "FreeDV-3.0.0-dev-2026-10-06-a1d2-windows-aarch64.exe",
+          "id": 615342478,
+          "is_zip": false,
+          "platform": "Windows ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 6,
+          "filename": "FreeDV-3.0.0-dev-2026-10-06-a1d2-windows-x86_64.exe",
+          "id": 615342479,
+          "is_zip": false,
+          "platform": "Windows x64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 2,
+          "filename": "FreeDV-3.0.0-dev-a1d24.dmg",
+          "id": 615342482,
+          "is_zip": false,
+          "platform": "macOS"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-a1d24-aarch64.AppImage",
+          "id": 615342481,
+          "is_zip": false,
+          "platform": "Linux ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 2,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-a1d24-x86_64.AppImage",
+          "id": 615342485,
+          "is_zip": false,
+          "platform": "Linux x64"
+        }
+      ],
+      "classification": "stable",
+      "download_count": 13,
+      "id": 404638156,
+      "is_w2mws": true,
+      "name": "FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release 5",
+      "prerelease": true,
+      "published_at": "2026-10-06T11:40:32Z",
+      "tag": "v3.0-dev-W2MWS.5"
+    },
+    {
+      "assets": [
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-2026-10-09-e3d5-windows-aarch64.exe",
+          "id": 625653439,
+          "is_zip": false,
+          "platform": "Windows ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 4,
+          "filename": "FreeDV-3.0.0-dev-2026-10-09-e3d5-windows-x86_64.exe",
+          "id": 625653438,
+          "is_zip": false,
+          "platform": "Windows x64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 2,
+          "filename": "FreeDV-3.0.0-dev-e3d5.dmg",
+          "id": 625653437,
+          "is_zip": false,
+          "platform": "macOS"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-e3d5-aarch64.AppImage",
+          "id": 625653436,
+          "is_zip": false,
+          "platform": "Linux ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-e3d5-x86_64.AppImage",
+          "id": 625653440,
+          "is_zip": false,
+          "platform": "Linux x64"
+        }
+      ],
+      "classification": "stable",
+      "download_count": 9,
+      "id": 408162530,
+      "is_w2mws": true,
+      "name": "FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release 6",
+      "prerelease": true,
+      "published_at": "2026-10-09T17:27:28Z",
+      "tag": "v3.0-dev-W2MWS.6"
+    },
+    {
+      "assets": [
+        {
+          "asset_type": "installer",
+          "download_count": 3,
+          "filename": "FreeDV-3.0.0-dev-2026-10-12-5a3e-windows-aarch64.exe",
+          "id": 635247354,
+          "is_zip": false,
+          "platform": "Windows ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 3,
+          "filename": "FreeDV-3.0.0-dev-2026-10-12-5a3e-windows-x86_64.exe",
+          "id": 635247355,
+          "is_zip": false,
+          "platform": "Windows x64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 3,
+          "filename": "FreeDV-3.0.0-dev-5a3ed.dmg",
+          "id": 635247357,
+          "is_zip": false,
+          "platform": "macOS"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 2,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-5a3ed-aarch64.AppImage",
+          "id": 635247356,
+          "is_zip": false,
+          "platform": "Linux ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-5a3ed-x86_64.AppImage",
+          "id": 635247349,
+          "is_zip": false,
+          "platform": "Linux x64"
+        }
+      ],
+      "classification": "stable",
+      "download_count": 12,
+      "id": 411064904,
+      "is_w2mws": true,
+      "name": "FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release 7",
+      "prerelease": true,
+      "published_at": "2026-10-12T23:11:38Z",
+      "tag": "v3.0-dev-W2MWS.7"
+    },
+    {
+      "assets": [
+        {
+          "asset_type": "installer",
+          "download_count": 4,
+          "filename": "FreeDV-3.0.0-dev-2026-10-14-efa6-windows-aarch64.exe",
+          "id": 640876912,
+          "is_zip": false,
+          "platform": "Windows ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 4,
+          "filename": "FreeDV-3.0.0-dev-2026-10-14-efa6-windows-x86_64.exe",
+          "id": 640876913,
+          "is_zip": false,
+          "platform": "Windows x64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-efa6.dmg",
+          "id": 640876914,
+          "is_zip": false,
+          "platform": "macOS"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 2,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-efa6-aarch64.AppImage",
+          "id": 640876919,
+          "is_zip": false,
+          "platform": "Linux ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-efa6-x86_64.AppImage",
+          "id": 640876915,
+          "is_zip": false,
+          "platform": "Linux x64"
+        }
+      ],
+      "classification": "stable",
+      "download_count": 12,
+      "id": 412909808,
+      "is_w2mws": true,
+      "name": "FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release 8",
+      "prerelease": true,
+      "published_at": "2026-10-14T16:00:12Z",
+      "tag": "v3.0-dev-W2MWS.8"
+    },
+    {
+      "assets": [
+        {
+          "asset_type": "installer",
+          "download_count": 3,
+          "filename": "FreeDV-3.0.0-dev-2026-10-18-b898-windows-aarch64.exe",
+          "id": 654633877,
+          "is_zip": false,
+          "platform": "Windows ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 4,
+          "filename": "FreeDV-3.0.0-dev-2026-10-18-b898-windows-x86_64.exe",
+          "id": 654633875,
+          "is_zip": false,
+          "platform": "Windows x64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 4,
+          "filename": "FreeDV-3.0.0-dev-b898.dmg",
+          "id": 654633876,
+          "is_zip": false,
+          "platform": "macOS"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 2,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-b898-aarch64.AppImage",
+          "id": 654633878,
+          "is_zip": false,
+          "platform": "Linux ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 2,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-b898-x86_64.AppImage",
+          "id": 654633867,
+          "is_zip": false,
+          "platform": "Linux x64"
+        }
+      ],
+      "classification": "stable",
+      "download_count": 15,
+      "id": 416748623,
+      "is_w2mws": true,
+      "name": "FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release 9",
+      "prerelease": false,
+      "published_at": "2026-10-18T23:00:49Z",
+      "tag": "v3.0-dev-W2MWS.9"
+    },
+    {
+      "assets": [
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-2026-10-22-a393-windows-aarch64.exe",
+          "id": 666211295,
+          "is_zip": false,
+          "platform": "Windows ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-2026-10-22-a393-windows-x86_64.exe",
+          "id": 666211299,
+          "is_zip": false,
+          "platform": "Windows x64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-a3933.dmg",
+          "id": 666211296,
+          "is_zip": false,
+          "platform": "macOS"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-a3933-aarch64.AppImage",
+          "id": 666211301,
+          "is_zip": false,
+          "platform": "Linux ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 2,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-a3933-x86_64.AppImage",
+          "id": 666211294,
+          "is_zip": false,
+          "platform": "Linux x64"
+        }
+      ],
+      "classification": "stable",
+      "download_count": 6,
+      "id": 420868316,
+      "is_w2mws": true,
+      "name": "FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release 10",
+      "prerelease": false,
+      "published_at": "2026-10-22T15:13:15Z",
+      "tag": "v3.0-dev-W2MWS.10"
+    },
+    {
+      "assets": [
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-2026-10-23-fa7b-windows-aarch64.exe",
+          "id": 669937848,
+          "is_zip": false,
+          "platform": "Windows ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 5,
+          "filename": "FreeDV-3.0.0-dev-2026-10-23-fa7b-windows-x86_64.exe",
+          "id": 669937845,
+          "is_zip": false,
+          "platform": "Windows x64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 2,
+          "filename": "FreeDV-3.0.0-dev-fa7bf.dmg",
+          "id": 669937839,
+          "is_zip": false,
+          "platform": "macOS"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-fa7bf-aarch64.AppImage",
+          "id": 669937843,
+          "is_zip": false,
+          "platform": "Linux ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 2,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-fa7bf-x86_64.AppImage",
+          "id": 669937844,
+          "is_zip": false,
+          "platform": "Linux x64"
+        }
+      ],
+      "classification": "stable",
+      "download_count": 11,
+      "id": 422154236,
+      "is_w2mws": true,
+      "name": "FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release 11",
+      "prerelease": false,
+      "published_at": "2026-10-23T18:11:07Z",
+      "tag": "v3.0-dev-W2MWS.11"
+    },
+    {
+      "assets": [
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-2026-10-26-efcc-windows-aarch64.exe",
+          "id": 681519128,
+          "is_zip": false,
+          "platform": "Windows ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 3,
+          "filename": "FreeDV-3.0.0-dev-2026-10-26-efcc-windows-x86_64.exe",
+          "id": 681519125,
+          "is_zip": false,
+          "platform": "Windows x64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-efcc.dmg",
+          "id": 681519130,
+          "is_zip": false,
+          "platform": "macOS"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 3,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-efcc-aarch64.AppImage",
+          "id": 681519127,
+          "is_zip": false,
+          "platform": "Linux ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 3,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-efcc-x86_64.AppImage",
+          "id": 681519129,
+          "is_zip": false,
+          "platform": "Linux x64"
+        }
+      ],
+      "classification": "stable",
+      "download_count": 11,
+      "id": 425421881,
+      "is_w2mws": true,
+      "name": "FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release 12",
+      "prerelease": false,
+      "published_at": "2026-10-27T12:23:14Z",
+      "tag": "v3.0-dev-W2MWS.12"
+    },
+    {
+      "assets": [
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-2026-10-27-e422-windows-aarch64.exe",
+          "id": 684532715,
+          "is_zip": false,
+          "platform": "Windows ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 6,
+          "filename": "FreeDV-3.0.0-dev-2026-10-27-e422-windows-x86_64.exe",
+          "id": 684532721,
+          "is_zip": false,
+          "platform": "Windows x64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-e422.dmg",
+          "id": 684532719,
+          "is_zip": false,
+          "platform": "macOS"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-e422-aarch64.AppImage",
+          "id": 684532716,
+          "is_zip": false,
+          "platform": "Linux ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-e422-x86_64.AppImage",
+          "id": 684532723,
+          "is_zip": false,
+          "platform": "Linux x64"
+        }
+      ],
+      "classification": "stable",
+      "download_count": 10,
+      "id": 426488944,
+      "is_w2mws": true,
+      "name": "FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release 13",
+      "prerelease": false,
+      "published_at": "2026-10-28T10:03:15Z",
+      "tag": "v3.0-dev-W2MWS.13"
+    },
+    {
+      "assets": [
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-2026-10-28-9499-windows-aarch64.exe",
+          "id": 688576698,
+          "is_zip": false,
+          "platform": "Windows ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 12,
+          "filename": "FreeDV-3.0.0-dev-2026-10-28-9499-windows-x86_64.exe",
+          "id": 688576699,
+          "is_zip": false,
+          "platform": "Windows x64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-9499.dmg",
+          "id": 688576697,
+          "is_zip": false,
+          "platform": "macOS"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 2,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-9499-aarch64.AppImage",
+          "id": 688576694,
+          "is_zip": false,
+          "platform": "Linux ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-9499-x86_64.AppImage",
+          "id": 688576700,
+          "is_zip": false,
+          "platform": "Linux x64"
+        }
+      ],
+      "classification": "stable",
+      "download_count": 17,
+      "id": 427870342,
+      "is_w2mws": true,
+      "name": "FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release 14",
+      "prerelease": false,
+      "published_at": "2026-10-29T13:03:47Z",
+      "tag": "v3.0-dev-W2MWS.14"
+    },
+    {
+      "assets": [
+        {
+          "asset_type": "installer",
+          "download_count": 12,
+          "filename": "FreeDV-3.0.0-dev-2026-10-30-66d9f-windows-x86_64.exe",
+          "id": 692886354,
+          "is_zip": false,
+          "platform": "Windows x64"
+        },
+        {
+          "asset_type": "archive",
+          "download_count": 0,
+          "filename": "FreeDV-W2MWS-RADEV2-PI-Timing-Test.zip",
+          "id": 696889325,
+          "is_zip": true,
+          "platform": "Other / Unknown"
+        }
+      ],
+      "classification": "experimental",
+      "download_count": 12,
+      "id": 429315622,
+      "is_w2mws": true,
+      "name": "FreeDV W2MWS RADEV2 Experimental 1",
+      "prerelease": true,
+      "published_at": "2026-10-30T17:35:07Z",
+      "tag": "v3.0-dev-W2MWS-radev2.1"
+    },
+    {
+      "assets": [
+        {
+          "asset_type": "archive",
+          "download_count": 32,
+          "filename": "FreeDV-W2MWS-RADEV2-PI-Timing-Test.zip",
+          "id": 696891248,
+          "is_zip": true,
+          "platform": "Other / Unknown"
+        }
+      ],
+      "classification": "experimental",
+      "download_count": 32,
+      "id": 430276911,
+      "is_w2mws": true,
+      "name": "FreeDV W2MWS RADEV2.2 - PI Timing Test",
+      "prerelease": true,
+      "published_at": "2026-11-01T00:40:55Z",
+      "tag": "v3.0-dev-W2MWS-radev2.2"
+    },
+    {
+      "assets": [
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-2026-11-01-25b0-windows-aarch64.exe",
+          "id": 699075102,
+          "is_zip": false,
+          "platform": "Windows ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 12,
+          "filename": "FreeDV-3.0.0-dev-2026-11-01-25b0-windows-x86_64.exe",
+          "id": 699075103,
+          "is_zip": false,
+          "platform": "Windows x64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-25b0.dmg",
+          "id": 699075096,
+          "is_zip": false,
+          "platform": "macOS"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-25b0-aarch64.AppImage",
+          "id": 699075101,
+          "is_zip": false,
+          "platform": "Linux ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 2,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-25b0-x86_64.AppImage",
+          "id": 699075108,
+          "is_zip": false,
+          "platform": "Linux x64"
+        }
+      ],
+      "classification": "stable",
+      "download_count": 17,
+      "id": 430755513,
+      "is_w2mws": true,
+      "name": "FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release 15",
+      "prerelease": false,
+      "published_at": "2026-11-01T17:58:54Z",
+      "tag": "v3.0-dev-W2MWS.15"
+    },
+    {
+      "assets": [
+        {
+          "asset_type": "archive",
+          "download_count": 29,
+          "filename": "FreeDV-W2MWS-RADEV2.4-windows-x86_64.zip",
+          "id": 699865296,
+          "is_zip": true,
+          "platform": "Windows x64"
+        }
+      ],
+      "classification": "experimental",
+      "download_count": 29,
+      "id": 430934512,
+      "is_w2mws": true,
+      "name": "FreeDV W2MWS RADEV2.4 (Experimental)",
+      "prerelease": true,
+      "published_at": "2026-11-01T23:42:09Z",
+      "tag": "v3.0-dev-W2MWS-radev2.4"
+    },
+    {
+      "assets": [
+        {
+          "asset_type": "installer",
+          "download_count": 2,
+          "filename": "FreeDV-3.0.0-dev-2026-11-03-f7af-windows-aarch64.exe",
+          "id": 707681616,
+          "is_zip": false,
+          "platform": "Windows ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 3,
+          "filename": "FreeDV-3.0.0-dev-2026-11-03-f7af-windows-x86_64.exe",
+          "id": 707681617,
+          "is_zip": false,
+          "platform": "Windows x64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-f7af.dmg",
+          "id": 707681615,
+          "is_zip": false,
+          "platform": "macOS"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-f7af-aarch64.AppImage",
+          "id": 707681619,
+          "is_zip": false,
+          "platform": "Linux ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 3,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-f7af-x86_64.AppImage",
+          "id": 707681612,
+          "is_zip": false,
+          "platform": "Linux x64"
+        }
+      ],
+      "classification": "stable",
+      "download_count": 10,
+      "id": 433384313,
+      "is_w2mws": true,
+      "name": "FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release 16",
+      "prerelease": false,
+      "published_at": "2026-11-04T00:52:19Z",
+      "tag": "v3.0-dev-W2MWS.16"
+    },
+    {
+      "assets": [
+        {
+          "asset_type": "archive",
+          "download_count": 4,
+          "filename": "FreeDV-W2MWS-RADEV2.5-windows-x86_64.zip",
+          "id": 707738447,
+          "is_zip": true,
+          "platform": "Windows x64"
+        }
+      ],
+      "classification": "experimental",
+      "download_count": 4,
+      "id": 433397142,
+      "is_w2mws": true,
+      "name": "FreeDV W2MWS RADEV2.5 Experimental",
+      "prerelease": true,
+      "published_at": "2026-11-04T01:09:45Z",
+      "tag": "v3.0-dev-W2MWS-radev2.5"
+    },
+    {
+      "assets": [
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-2026-11-06-a396-windows-aarch64.exe",
+          "id": 717381690,
+          "is_zip": false,
+          "platform": "Windows ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 6,
+          "filename": "FreeDV-3.0.0-dev-2026-11-06-a396-windows-x86_64.exe",
+          "id": 717381687,
+          "is_zip": false,
+          "platform": "Windows x64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-a396.dmg",
+          "id": 717381691,
+          "is_zip": false,
+          "platform": "macOS"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 2,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-a396-aarch64.AppImage",
+          "id": 717381688,
+          "is_zip": false,
+          "platform": "Linux ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 7,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-a396-x86_64.AppImage",
+          "id": 717381684,
+          "is_zip": false,
+          "platform": "Linux x64"
+        }
+      ],
+      "classification": "stable",
+      "download_count": 17,
+      "id": 436578117,
+      "is_w2mws": true,
+      "name": "FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release 17",
+      "prerelease": false,
+      "published_at": "2026-11-06T14:14:18Z",
+      "tag": "v3.0-dev-W2MWS.17"
+    },
+    {
+      "assets": [
+        {
+          "asset_type": "archive",
+          "download_count": 28,
+          "filename": "FreeDV-W2MWS-RADEV2.6-windows-x86_64.zip",
+          "id": 717875290,
+          "is_zip": true,
+          "platform": "Windows x64"
+        }
+      ],
+      "classification": "experimental",
+      "download_count": 28,
+      "id": 436768162,
+      "is_w2mws": true,
+      "name": "FreeDV W2MWS RADEV2.6 (Experimental)",
+      "prerelease": true,
+      "published_at": "2026-11-06T17:03:36Z",
+      "tag": "v3.0-dev-W2MWS-radev2.6"
+    },
+    {
+      "assets": [
+        {
+          "asset_type": "installer",
+          "download_count": 6,
+          "filename": "FreeDV-3.0.0-dev-2026-11-12-e5e1-windows-aarch64.exe",
+          "id": 739223075,
+          "is_zip": false,
+          "platform": "Windows ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 70,
+          "filename": "FreeDV-3.0.0-dev-2026-11-12-e5e1-windows-x86_64.exe",
+          "id": 739223072,
+          "is_zip": false,
+          "platform": "Windows x64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 5,
+          "filename": "FreeDV-3.0.0-dev-e5e1.dmg",
+          "id": 739223076,
+          "is_zip": false,
+          "platform": "macOS"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 2,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-e5e1-aarch64.AppImage",
+          "id": 739223074,
+          "is_zip": false,
+          "platform": "Linux ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 18,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-e5e1-x86_64.AppImage",
+          "id": 739223077,
+          "is_zip": false,
+          "platform": "Linux x64"
+        }
+      ],
+      "classification": "stable",
+      "download_count": 101,
+      "id": 442851888,
+      "is_w2mws": true,
+      "name": "FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release 18",
+      "prerelease": false,
+      "published_at": "2026-11-12T11:28:55Z",
+      "tag": "v3.0-dev-W2MWS.18"
+    },
+    {
+      "assets": [
+        {
+          "asset_type": "installer",
+          "download_count": 33,
+          "filename": "FreeDV-W2MWS-RADEV2.7-linux-x86_64.AppImage",
+          "id": 740050469,
+          "is_zip": false,
+          "platform": "Linux x64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 2,
+          "filename": "FreeDV-W2MWS-RADEV2.7-macos-universal.dmg",
+          "id": 748667042,
+          "is_zip": false,
+          "platform": "macOS"
+        },
+        {
+          "asset_type": "archive",
+          "download_count": 85,
+          "filename": "FreeDV-W2MWS-RADEV2.7-windows-x86_64.zip",
+          "id": 739629074,
+          "is_zip": true,
+          "platform": "Windows x64"
+        }
+      ],
+      "classification": "experimental",
+      "download_count": 120,
+      "id": 442998804,
+      "is_w2mws": true,
+      "name": "FreeDV W2MWS RADEV2.7 (Experimental)",
+      "prerelease": true,
+      "published_at": "2026-11-12T13:39:48Z",
+      "tag": "v3.0-dev-W2MWS-radev2.7"
+    },
+    {
+      "assets": [
+        {
+          "asset_type": "installer",
+          "download_count": 3,
+          "filename": "FreeDV-3.0.0-dev-2026-11-16-dea0-windows-aarch64.exe",
+          "id": 757066553,
+          "is_zip": false,
+          "platform": "Windows ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 12,
+          "filename": "FreeDV-3.0.0-dev-2026-11-16-dea0-windows-x86_64.exe",
+          "id": 757066556,
+          "is_zip": false,
+          "platform": "Windows x64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-3.0.0-dev-dea0.dmg",
+          "id": 757066554,
+          "is_zip": false,
+          "platform": "macOS"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-dea0-aarch64.AppImage",
+          "id": 757066557,
+          "is_zip": false,
+          "platform": "Linux ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 6,
+          "filename": "FreeDV-W2MWS-3.0.0-dev-dea0-x86_64.AppImage",
+          "id": 757066555,
+          "is_zip": false,
+          "platform": "Linux x64"
+        }
+      ],
+      "classification": "stable",
+      "download_count": 23,
+      "id": 447845806,
+      "is_w2mws": true,
+      "name": "FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release 19",
+      "prerelease": false,
+      "published_at": "2026-11-17T00:54:40Z",
+      "tag": "v3.0-dev-W2MWS.19"
+    },
+    {
+      "assets": [
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-W2MWS-RADEV2.8-linux-arm64.AppImage",
+          "id": 760112346,
+          "is_zip": false,
+          "platform": "Linux ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 2,
+          "filename": "FreeDV-W2MWS-RADEV2.8-linux-x86_64.AppImage",
+          "id": 760112351,
+          "is_zip": false,
+          "platform": "Linux x64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-W2MWS-RADEV2.8-macos.dmg",
+          "id": 760112350,
+          "is_zip": false,
+          "platform": "macOS"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-W2MWS-RADEV2.8-windows-arm64.exe",
+          "id": 760112349,
+          "is_zip": false,
+          "platform": "Windows ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-W2MWS-RADEV2.8-windows-x86_64.exe",
+          "id": 760112348,
+          "is_zip": false,
+          "platform": "Windows x64"
+        }
+      ],
+      "classification": "experimental",
+      "download_count": 6,
+      "id": 449018348,
+      "is_w2mws": true,
+      "name": "FreeDV W2MWS RADEV2 Experimental v3.0-dev-W2MWS-radev2.8",
+      "prerelease": true,
+      "published_at": "2026-11-17T18:13:29Z",
+      "tag": "v3.0-dev-W2MWS-radev2.8"
+    }
+  ],
+  "repository": "msteele999/freedv-gui",
+  "schema_version": 1,
+  "status": "collected",
+  "totals": {
+    "assets": 109,
+    "by_asset_type": {
+      "archive": 178,
+      "installer": 372,
+      "other": 0
+    },
+    "by_classification": {
+      "experimental": 231,
+      "other": 0,
+      "stable": 319
+    },
+    "by_platform": {
+      "Linux ARM64": 28,
+      "Linux x64": 92,
+      "Other / Unknown": 32,
+      "Windows ARM64": 36,
+      "Windows x64": 326,
+      "macOS": 36
+    },
+    "downloads": 550,
+    "releases": 26,
+    "zip_downloads": 178
+  }
+}

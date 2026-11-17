@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="420" viewBox="0 0 1000 420" role="img" aria-labelledby="title desc">
+<title id="title">Downloads by platform</title><desc id="desc">Distribution of cumulative downloads across six platform categories. Counts include uploaded ZIP archives.</desc>
+<rect width="100%" height="100%" rx="12" fill="#ffffff"/>
+<g font-family="Segoe UI, Arial, sans-serif" fill="#0f172a">
+<text x="28" y="36" font-size="22" fill="#0f172a" text-anchor="start">Downloads by platform</text>
+<text x="28" y="60" font-size="13" fill="#475569" text-anchor="start">All published release assets · cumulative counts</text>
+<path d="M 190 235 L 190.000 105.000 A 130 130 0 1 1 118.472 343.553 Z" fill="#2563eb" stroke="#ffffff" stroke-width="2"/>
+<rect x="380" y="103" width="14" height="14" rx="3" fill="#2563eb"/>
+<text x="405" y="115" font-size="15" fill="#0f172a" text-anchor="start">Windows x64</text>
+<text x="950" y="115" font-size="15" fill="#0f172a" text-anchor="end">326  (59.3%)</text>
+<path d="M 190 235 L 118.472 343.553 A 130 130 0 0 1 81.040 305.907 Z" fill="#0891b2" stroke="#ffffff" stroke-width="2"/>
+<rect x="380" y="143" width="14" height="14" rx="3" fill="#0891b2"/>
+<text x="405" y="155" font-size="15" fill="#0f172a" text-anchor="start">Windows ARM64</text>
+<text x="950" y="155" font-size="15" fill="#0f172a" text-anchor="end">36  (6.5%)</text>
+<path d="M 190 235 L 81.040 305.907 A 130 130 0 0 1 74.338 175.651 Z" fill="#15803d" stroke="#ffffff" stroke-width="2"/>
+<rect x="380" y="183" width="14" height="14" rx="3" fill="#15803d"/>
+<text x="405" y="195" font-size="15" fill="#0f172a" text-anchor="start">Linux x64</text>
+<text x="950" y="195" font-size="15" fill="#0f172a" text-anchor="end">92  (16.7%)</text>
+<path d="M 190 235 L 74.338 175.651 A 130 130 0 0 1 98.867 142.292 Z" fill="#65a30d" stroke="#ffffff" stroke-width="2"/>
+<rect x="380" y="223" width="14" height="14" rx="3" fill="#65a30d"/>
+<text x="405" y="235" font-size="15" fill="#0f172a" text-anchor="start">Linux ARM64</text>
+<text x="950" y="235" font-size="15" fill="#0f172a" text-anchor="end">28  (5.1%)</text>
+<path d="M 190 235 L 98.867 142.292 A 130 130 0 0 1 143.528 113.590 Z" fill="#7c3aed" stroke="#ffffff" stroke-width="2"/>
+<rect x="380" y="263" width="14" height="14" rx="3" fill="#7c3aed"/>
+<text x="405" y="275" font-size="15" fill="#0f172a" text-anchor="start">macOS</text>
+<text x="950" y="275" font-size="15" fill="#0f172a" text-anchor="end">36  (6.5%)</text>
+<path d="M 190 235 L 143.528 113.590 A 130 130 0 0 1 190.000 105.000 Z" fill="#64748b" stroke="#ffffff" stroke-width="2"/>
+<rect x="380" y="303" width="14" height="14" rx="3" fill="#64748b"/>
+<text x="405" y="315" font-size="15" fill="#0f172a" text-anchor="start">Other / Unknown</text>
+<text x="950" y="315" font-size="15" fill="#0f172a" text-anchor="end">32  (5.8%)</text>
+<text x="380" y="380" font-size="17" fill="#0f172a" text-anchor="start">Total asset downloads: 550</text>
+</g></svg>

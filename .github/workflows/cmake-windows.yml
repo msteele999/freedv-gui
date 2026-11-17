@@ -7,6 +7,10 @@ on:
     types: [opened, synchronize, reopened, labeled]
     paths-ignore:
     - '.github/workflows/prune-workflow-runs.yml'
+    - 'RELEASE-STATISTICS.md'
+    - 'docs/release-stats/**'
+    - 'scripts/release_stats.py'
+    - '.github/workflows/update-release-statistics.yml'
     - "**.md"
     - "**/README"
   # Keep branch builds for the W2MWS fork, including branches without a PR.
@@ -15,6 +19,10 @@ on:
     - 'dr-render-manual'
     paths-ignore:
     - '.github/workflows/prune-workflow-runs.yml'
+    - 'RELEASE-STATISTICS.md'
+    - 'docs/release-stats/**'
+    - 'scripts/release_stats.py'
+    - '.github/workflows/update-release-statistics.yml'
     - "**.md"
     - "**/README"
   # "Run workflow", for a branch without a pull request, for instance.
