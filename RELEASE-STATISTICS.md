@@ -2,7 +2,7 @@
 
 Cumulative downloads of uploaded release assets for [msteele999/freedv-gui](https://github.com/msteele999/freedv-gui/releases).
 
-Last updated: **2026-11-17T19:24:46Z (UTC)**.
+Last updated: **2026-11-17T19:38:38Z (UTC)**.
 
 ## Overview
 
