@@ -469,7 +469,7 @@ def test_receive():
     into what it hears from it."""
     reporting = dict(Reporting__Enable=True, Reporting__Callsign=CALLSIGN, Reporting__GridSquare="DM12")
     with audio_devices(), Loopback(RADIO_TX, RADIO_RX):
-        with freedvtest.start(settings=settings(Rig__HalfDuplex=False, Debug__showDecodeStats=True,
+        with freedvtest.start(settings=settings(Rig__HalfDuplex=False, Modem__SelectedRadeMode=2, Debug__showDecodeStats=True,
                                                 **reporting)) as app:
             app.wait_for_window("main")
             check_equal(label(app, "main.textSNR"), "--", "SNR before starting")
@@ -1027,6 +1027,101 @@ def test_voice_keyer_files():
                 app.click("main.btnVoiceKeyer")
                 wait_for_transmit(app, False)
                 stop_modem(app)
+                quit_and_check_log(app)
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
+def test_voice_keyer_re_record():
+    """Recording a second voice keyer file while the first is still going.
+
+    The file being recorded to is the one RecordStep's file thread writes
+    into, so starting a second recording has to finish the first off first:
+    a WAV's lengths are written when it's closed, so a take that's merely
+    replaced rather than closed is left unreadable on disk.
+    """
+    folder = tempfile.mkdtemp(prefix="freedvtest-rerecord-")
+    try:
+        first = os.path.join(folder, "first.wav")
+        second = os.path.join(folder, "second.wav")
+
+        with audio_devices():
+            with freedvtest.start(settings=settings()) as app:
+                app.wait_for_window("main")
+                start_modem(app)
+
+                with Tone(MICROPHONE):
+                    app.choose_next_path(first)
+                    app.context_menu("main.btnVoiceKeyer", choose="Record new voice keyer file...")
+                    check_equal(app.get("main")["status"], "Recording file %s from microphone" % first, "Status")
+                    time.sleep(2)
+
+                    # Asked for another file while that's still recording, it
+                    # records this one...
+                    app.choose_next_path(second)
+                    app.context_menu("main.btnVoiceKeyer", choose="Record new voice keyer file...")
+                    check_equal(app.get("main")["status"], "Recording file %s from microphone" % second,
+                                "Status for the second recording")
+                    time.sleep(2)
+
+                    # ...and stops, leaving both takes behind.
+                    app.click("main.btnVoiceKeyer")
+                    check_equal(app.get("main")["status"], "", "Status after stopping")
+
+                for name, path in (("first", first), ("second", second)):
+                    try:
+                        level, seconds = file_level(path)
+                    except Exception as error:
+                        check(False, "The %s recording isn't a readable WAV file (%s)" % (name, error))
+                    check(level > AUDIBLE and seconds >= 1,
+                          "The %s recording is %.1f s at level %d" % (name, seconds, level))
+
+                quit_and_check_log(app)
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
+def test_voice_keyer_re_record_same_file():
+    """Re-recording the voice keyer file being recorded, to the same file.
+
+    The save dialog offers the file last recorded, so picking it again while
+    that recording is still going is easy. Opening it for the new take
+    truncates it, so the take still going has to be closed first: closed
+    after, it writes its own header and buffered audio into the new one.
+    """
+    folder = tempfile.mkdtemp(prefix="freedvtest-rerecord-")
+    try:
+        path = os.path.join(folder, "keyer.wav")
+
+        with audio_devices():
+            with freedvtest.start(settings=settings()) as app:
+                app.wait_for_window("main")
+                start_modem(app)
+
+                with Tone(MICROPHONE):
+                    app.choose_next_path(path)
+                    app.context_menu("main.btnVoiceKeyer", choose="Record new voice keyer file...")
+                    check_equal(app.get("main")["status"], "Recording file %s from microphone" % path, "Status")
+                    time.sleep(3)
+
+                    app.choose_next_path(path)
+                    app.context_menu("main.btnVoiceKeyer", choose="Record new voice keyer file...")
+                    check_equal(app.get("main")["status"], "Recording file %s from microphone" % path,
+                                "Status for the second recording")
+                    time.sleep(2)
+
+                    app.click("main.btnVoiceKeyer")
+                    check_equal(app.get("main")["status"], "", "Status after stopping")
+
+                try:
+                    level, seconds = file_level(path)
+                except Exception as error:
+                    check(False, "The recording isn't a readable WAV file (%s)" % error)
+                # Only the second take: about 2 s, not the first one's 3 or
+                # the two together.
+                check(level > AUDIBLE and 1 <= seconds < 2.8,
+                      "The recording is %.1f s at level %d" % (seconds, level))
+
                 quit_and_check_log(app)
     finally:
         shutil.rmtree(folder, ignore_errors=True)
@@ -2458,7 +2553,7 @@ def test_receive_reports():
         with open(csv_log, "w") as f:
             f.write("date,time,callsign,mode,frequency_hz,snr_db\n")
             f.write("2026-10-23,12:00:00,%s,RADEV1,14236000,10\n" % CALLSIGN)
-        extra = dict(Rig__HalfDuplex=False, Reporting__Enable=True, Reporting__Callsign=CALLSIGN,
+        extra = dict(Rig__HalfDuplex=False, Modem__SelectedRadeMode=2, Reporting__Enable=True, Reporting__Callsign=CALLSIGN,
                      Reporting__GridSquare="DM12", Reporting__Frequency=14236000, Reporting__FrequencyAsKHz=True,
                      Reporting__ManualFrequencyReporting=True, Reporting__FreeDV__Enable=False,
                      Reporting__CSV__LogFilePath=csv_log, CallsignList__UseUTCTime=True,
@@ -2516,14 +2611,18 @@ def test_receive_reports():
         shutil.rmtree(folder, ignore_errors=True)
 
 
-def set_debugging(app, **values):
+def change_settings(app, tab, **values):
     app.menu("Settings/Edit Settings...")
     app.wait_for_window("settings")
-    app.set_value("settings.notebook", "Debugging")
+    app.set_value("settings.notebook", tab)
     for name, value in values.items():
         app.set_value("settings." + name, value)
     app.click("settings.sdbSizer5OK")
     app.wait_for_window_closed("settings")
+
+
+def set_debugging(app, **values):
+    change_settings(app, "Debugging", **values)
 
 
 def test_test_tone():
@@ -2603,7 +2702,54 @@ def test_test_tone():
             app.click("main.btnPTT")
             wait_for_transmit(app, False)
             check_silent(RADIO_TX_MONITOR, "Something is still being sent to the radio after transmitting")
+
+            # Turned off while FreeDV is running, the next transmission goes
+            # out without it.
+            change_settings(app, "Radio", ckLeftChannelVoxTone=False)
+            app.click("main.btnPTT")
+            wait_for_transmit(app)
+            def vox_gone():
+                last[:] = heard(RADIO_TX_MONITOR)
+                left, right = last
+                return tone_share(left, 1000) < 0.2 and \
+                    math.sqrt(sum(sample * sample for sample in right) / len(right)) > AUDIBLE
+            try:
+                app.wait_until(vox_gone, timeout=10)
+            except freedvtest.FreeDVError:
+                left, right = last
+                check(False, "After turning the VOX tone off, the left channel is %.2f VOX tone"
+                      % tone_share(left, 1000))
+            app.click("main.btnPTT")
+            wait_for_transmit(app, False)
             stop_modem(app)
+            quit_and_check_log(app)
+
+
+def test_duplex_while_running():
+    """Half or full duplex can be changed while FreeDV is running. With what
+    it sends to the radio fed back into what it hears, it only receives its
+    own transmission in full duplex."""
+    with audio_devices(), Loopback(RADIO_TX, RADIO_RX):
+        with freedvtest.start(settings=settings(Rig__HalfDuplex=True)) as app:
+            app.wait_for_window("main")
+            start_modem(app)
+
+            app.click("main.btnPTT")
+            wait_for_transmit(app)
+            time.sleep(10)
+            check_equal(app.state()["sync"], 0, "Sync with its own transmission in half duplex")
+            app.click("main.btnPTT")
+            wait_for_transmit(app, False)
+
+            change_settings(app, "Modem", ckHalfDuplex=False)
+            app.click("main.btnPTT")
+            wait_for_transmit(app)
+            app.wait_until(lambda: app.state()["sync"] == 1, timeout=20,
+                           description="FreeDV to sync to its own transmission once in full duplex")
+            app.click("main.btnPTT")
+            wait_for_transmit(app, False)
+            stop_modem(app)
+            check_equal(freedvtest.read_config(app.config_path).get("/Rig/HalfDuplex"), "0", "Saved half duplex")
             quit_and_check_log(app)
 
 
@@ -2763,6 +2909,8 @@ SCENARIOS = {
     "voice_keyer": test_voice_keyer,
     "voice_keyer_reply": test_voice_keyer_reply,
     "voice_keyer_files": test_voice_keyer_files,
+    "voice_keyer_re_record": test_voice_keyer_re_record,
+    "voice_keyer_re_record_same_file": test_voice_keyer_re_record_same_file,
     "recording": test_recording,
     "recording_options": test_recording_options,
     "unwritable_files": test_unwritable_files,
@@ -2787,6 +2935,7 @@ SCENARIOS = {
     "window_geometry": test_window_geometry,
     "receive_reports": test_receive_reports,
     "test_tone": test_test_tone,
+    "duplex_while_running": test_duplex_while_running,
     "exit_while_tuning": test_exit_while_tuning,
     "old_settings": test_old_settings,
     "bad_command_line": test_bad_command_line,

@@ -16,7 +16,7 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum OS X deployment ver
 
 set(PROJECT_NAME FreeDV)
 set(PROJECT_VERSION 3.0.0)
-set(W2MWS_RELEASE_NUMBER 18)
+set(W2MWS_RELEASE_NUMBER 19)
 option(W2MWS_PACKAGE "Use the stable W2MWS application/package identity" ON)
 if(W2MWS_PACKAGE)
     set(FREEDV_APPLICATION_NAME "FreeDV W2MWS")
@@ -988,7 +988,7 @@ endforeach(scenario)
 
 # These measure what FreeDV plays and records, so they're kept from running
 # alongside anything else.
-foreach(scenario transmit ptt_key ptt_key_elsewhere tx_level receive analog play_file play_file_loop voice_keyer voice_keyer_reply voice_keyer_files recording recording_options unwritable_files monitor_volume mouse_controls tune_level_per_band frequency_units time_out_timer voice_keyer_time_out ptt_key_time_out menus help_and_restore default_config config_migration_failure exit_menu reporting_without_callsign band_names appearance_change tab_layout heard_list window_geometry receive_reports test_tone exit_while_tuning old_settings bad_command_line rade_mode_selection rade_mode_startup rade_mode_while_running)
+foreach(scenario transmit ptt_key ptt_key_elsewhere tx_level receive analog play_file play_file_loop voice_keyer voice_keyer_reply voice_keyer_files voice_keyer_re_record voice_keyer_re_record_same_file recording recording_options unwritable_files monitor_volume mouse_controls tune_level_per_band frequency_units time_out_timer voice_keyer_time_out ptt_key_time_out menus help_and_restore default_config config_migration_failure exit_menu reporting_without_callsign band_names appearance_change tab_layout heard_list window_geometry receive_reports test_tone duplex_while_running exit_while_tuning old_settings bad_command_line rade_mode_selection rade_mode_startup rade_mode_while_running)
     add_test(NAME gui_main_window_${scenario}
              COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/test/gui/test_main_window.py ${scenario})
     set_tests_properties(gui_main_window_${scenario} PROPERTIES LABELS gui RUN_SERIAL TRUE SKIP_RETURN_CODE 77)
@@ -1044,7 +1044,7 @@ foreach(scenario meter agc agc_off saved_gain)
 endforeach(scenario)
 
 # These use Hamlib's rigctld as the radio, and are skipped without it.
-foreach(scenario control frequency_only save_restore_frequency mode_display analog_sideband editing_frequency unreachable serial_ptt missing_port receive_after_transmit lost)
+foreach(scenario control frequency_only save_restore_frequency mode_display analog_sideband editing_frequency unreachable serial_ptt ptt_test missing_port receive_after_transmit lost)
     add_test(NAME gui_rig_control_${scenario}
              COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/test/gui/test_rig_control.py ${scenario})
     set_tests_properties(gui_rig_control_${scenario} PROPERTIES LABELS gui SKIP_RETURN_CODE 77)
