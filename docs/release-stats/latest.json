@@ -1,5 +1,13 @@
 {
-  "observed_at": "2026-11-17T19:38:38Z",
+  "last_attempt_at": "2026-11-17T20:59:57Z",
+  "last_successful_collection_at": "2026-11-17T20:59:57Z",
+  "observed_at": "2026-11-17T20:59:57Z",
+  "release_collection": {
+    "error": null,
+    "last_attempt_at": "2026-11-17T20:59:57Z",
+    "observed_at": "2026-11-17T20:59:57Z",
+    "status": "fresh"
+  },
   "releases": [
     {
       "assets": [
@@ -1187,7 +1195,18 @@
     }
   ],
   "repository": "msteele999/freedv-gui",
-  "schema_version": 1,
+  "repository_metrics": {
+    "data": {
+      "forks": 0,
+      "stars": 1,
+      "subscribers": 0
+    },
+    "error": null,
+    "last_attempt_at": "2026-11-17T20:59:57Z",
+    "observed_at": "2026-11-17T20:59:57Z",
+    "status": "fresh"
+  },
+  "schema_version": 2,
   "status": "collected",
   "totals": {
     "assets": 109,
@@ -1212,5 +1231,290 @@
     "downloads": 550,
     "releases": 26,
     "zip_downloads": 178
+  },
+  "traffic": {
+    "data": {
+      "clones": {
+        "count": 309,
+        "days": [
+          {
+            "count": 65,
+            "date": "2026-11-03",
+            "uniques": 1
+          },
+          {
+            "count": 1,
+            "date": "2026-11-04",
+            "uniques": 1
+          },
+          {
+            "count": 0,
+            "date": "2026-11-05",
+            "uniques": 0
+          },
+          {
+            "count": 77,
+            "date": "2026-11-06",
+            "uniques": 2
+          },
+          {
+            "count": 0,
+            "date": "2026-11-07",
+            "uniques": 0
+          },
+          {
+            "count": 0,
+            "date": "2026-11-08",
+            "uniques": 0
+          },
+          {
+            "count": 1,
+            "date": "2026-11-09",
+            "uniques": 1
+          },
+          {
+            "count": 0,
+            "date": "2026-11-10",
+            "uniques": 0
+          },
+          {
+            "count": 0,
+            "date": "2026-11-11",
+            "uniques": 0
+          },
+          {
+            "count": 67,
+            "date": "2026-11-12",
+            "uniques": 1
+          },
+          {
+            "count": 1,
+            "date": "2026-11-13",
+            "uniques": 1
+          },
+          {
+            "count": 33,
+            "date": "2026-11-14",
+            "uniques": 2
+          },
+          {
+            "count": 1,
+            "date": "2026-11-15",
+            "uniques": 1
+          },
+          {
+            "count": 63,
+            "date": "2026-11-16",
+            "uniques": 3
+          }
+        ],
+        "uniques": 8
+      },
+      "popular_pages": [
+        {
+          "count": 276,
+          "path": "/msteele999/freedv-gui/releases",
+          "title": "/releases",
+          "uniques": 56
+        },
+        {
+          "count": 135,
+          "path": "/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.7",
+          "title": "/releases/tag/v3.0-dev-W2MWS-radev2.7",
+          "uniques": 51
+        },
+        {
+          "count": 102,
+          "path": "/msteele999/freedv-gui",
+          "title": "Overview",
+          "uniques": 39
+        },
+        {
+          "count": 80,
+          "path": "/msteele999/freedv-gui/actions",
+          "title": "/actions",
+          "uniques": 5
+        },
+        {
+          "count": 64,
+          "path": "/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS.18",
+          "title": "/releases/tag/v3.0-dev-W2MWS.18",
+          "uniques": 35
+        },
+        {
+          "count": 51,
+          "path": "/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.6",
+          "title": "/releases/tag/v3.0-dev-W2MWS-radev2.6",
+          "uniques": 24
+        },
+        {
+          "count": 22,
+          "path": "/msteele999/freedv-gui/issues",
+          "title": "/issues",
+          "uniques": 6
+        },
+        {
+          "count": 20,
+          "path": "/msteele999/freedv-gui/actions/runs/41644473686",
+          "title": "/actions/runs/41644473686",
+          "uniques": 1
+        },
+        {
+          "count": 15,
+          "path": "/msteele999/freedv-gui/tree/v3.0-dev-W2MWS-radev2.7",
+          "title": "/tree/v3.0-dev-W2MWS-radev2.7",
+          "uniques": 6
+        },
+        {
+          "count": 14,
+          "path": "/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.4",
+          "title": "/releases/tag/v3.0-dev-W2MWS-radev2.4",
+          "uniques": 8
+        }
+      ],
+      "referrers": [
+        {
+          "count": 48,
+          "referrer": "tonaru.net",
+          "self_referral": false,
+          "uniques": 10
+        },
+        {
+          "count": 38,
+          "referrer": "hamradio.my",
+          "self_referral": false,
+          "uniques": 18
+        },
+        {
+          "count": 17,
+          "referrer": "github.com",
+          "self_referral": true,
+          "uniques": 13
+        },
+        {
+          "count": 14,
+          "referrer": "groups.io",
+          "self_referral": false,
+          "uniques": 8
+        },
+        {
+          "count": 12,
+          "referrer": "mail3.spectrum.net",
+          "self_referral": false,
+          "uniques": 1
+        },
+        {
+          "count": 11,
+          "referrer": "reddit.com",
+          "self_referral": false,
+          "uniques": 8
+        },
+        {
+          "count": 7,
+          "referrer": "t.co",
+          "self_referral": false,
+          "uniques": 3
+        },
+        {
+          "count": 5,
+          "referrer": "ja4joe.livedoor.blog",
+          "self_referral": false,
+          "uniques": 1
+        },
+        {
+          "count": 3,
+          "referrer": "reporter-radev2.k6aq.net",
+          "self_referral": false,
+          "uniques": 2
+        },
+        {
+          "count": 2,
+          "referrer": "Google",
+          "self_referral": false,
+          "uniques": 2
+        }
+      ],
+      "views": {
+        "count": 932,
+        "days": [
+          {
+            "count": 54,
+            "date": "2026-11-03",
+            "uniques": 5
+          },
+          {
+            "count": 34,
+            "date": "2026-11-04",
+            "uniques": 5
+          },
+          {
+            "count": 0,
+            "date": "2026-11-05",
+            "uniques": 0
+          },
+          {
+            "count": 28,
+            "date": "2026-11-06",
+            "uniques": 5
+          },
+          {
+            "count": 2,
+            "date": "2026-11-07",
+            "uniques": 2
+          },
+          {
+            "count": 11,
+            "date": "2026-11-08",
+            "uniques": 5
+          },
+          {
+            "count": 3,
+            "date": "2026-11-09",
+            "uniques": 2
+          },
+          {
+            "count": 2,
+            "date": "2026-11-10",
+            "uniques": 2
+          },
+          {
+            "count": 43,
+            "date": "2026-11-11",
+            "uniques": 7
+          },
+          {
+            "count": 203,
+            "date": "2026-11-12",
+            "uniques": 24
+          },
+          {
+            "count": 152,
+            "date": "2026-11-13",
+            "uniques": 30
+          },
+          {
+            "count": 129,
+            "date": "2026-11-14",
+            "uniques": 37
+          },
+          {
+            "count": 164,
+            "date": "2026-11-15",
+            "uniques": 34
+          },
+          {
+            "count": 107,
+            "date": "2026-11-16",
+            "uniques": 27
+          }
+        ],
+        "uniques": 109
+      },
+      "window_days": 14
+    },
+    "error": null,
+    "last_attempt_at": "2026-11-17T20:59:57Z",
+    "observed_at": "2026-11-17T20:59:57Z",
+    "status": "fresh"
   }
 }
