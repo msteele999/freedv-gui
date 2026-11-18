@@ -2,19 +2,19 @@
 
 [msteele999/freedv-gui](https://github.com/msteele999/freedv-gui/releases) · downloads, engagement and repository traffic
 
-**Most recent successful collection: 2026-11-17T21:12:32Z UTC.**
+**Most recent successful collection: 2026-11-18T01:21:59Z UTC.**
 
 | Release downloads (cumulative) | Published releases | Stars |
 | ---: | ---: | ---: |
-| **550** | **26** | **1** |
+| **586** | **26** | **1** |
 
 | Subscribers / watchers | Forks | Unique visitors (14 days) |
 | ---: | ---: | ---: |
 | **0** | **0** | **109** |
 
-Stable W2MWS: **319** · Experimental RADEV2: **231** · Other: **0** downloads.
+Stable W2MWS: **326** · Experimental RADEV2: **260** · Other: **0** downloads.
 
-Releases: Fresh · last successful collection 2026\-11\-17T21:12:32Z UTC. Engagement: Fresh · last successful collection 2026\-11\-17T21:12:32Z UTC. Traffic: Fresh · last successful collection 2026\-11\-17T21:12:32Z UTC.
+Releases: Fresh · last successful collection 2026\-11\-18T01:21:59Z UTC. Engagement: Fresh · last successful collection 2026\-11\-18T01:21:59Z UTC. Traffic: Fresh · last successful collection 2026\-11\-18T01:21:59Z UTC.
 
 ## Downloads by release
 
@@ -25,10 +25,10 @@ Releases: Fresh · last successful collection 2026\-11\-17T21:12:32Z UTC. Engage
 
 | Release | Name | Family | Published (UTC) | Downloads |
 | --- | --- | --- | --- | ---: |
-| [v3\.0\-dev\-W2MWS\-radev2\.8](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.8) | FreeDV W2MWS RADEV2 Experimental v3\.0\-dev\-W2MWS\-radev2\.8 | Experimental | 2026\-11\-17 | 6 |
-| [v3\.0\-dev\-W2MWS\.19](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS.19) | FreeDV GUI v3\.0\-dev — W2MWS Enhanced Client Release 19 | Stable | 2026\-11\-17 | 23 |
-| [v3\.0\-dev\-W2MWS\-radev2\.7](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.7) | FreeDV W2MWS RADEV2\.7 \(Experimental\) | Experimental | 2026\-11\-12 | 120 |
-| [v3\.0\-dev\-W2MWS\.18](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS.18) | FreeDV GUI v3\.0\-dev — W2MWS Enhanced Client Release 18 | Stable | 2026\-11\-12 | 101 |
+| [v3\.0\-dev\-W2MWS\-radev2\.8](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.8) | FreeDV W2MWS RADEV2 Experimental v3\.0\-dev\-W2MWS\-radev2\.8 | Experimental | 2026\-11\-17 | 29 |
+| [v3\.0\-dev\-W2MWS\.19](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS.19) | FreeDV GUI v3\.0\-dev — W2MWS Enhanced Client Release 19 | Stable | 2026\-11\-17 | 29 |
+| [v3\.0\-dev\-W2MWS\-radev2\.7](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.7) | FreeDV W2MWS RADEV2\.7 \(Experimental\) | Experimental | 2026\-11\-12 | 126 |
+| [v3\.0\-dev\-W2MWS\.18](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS.18) | FreeDV GUI v3\.0\-dev — W2MWS Enhanced Client Release 18 | Stable | 2026\-11\-12 | 102 |
 | [v3\.0\-dev\-W2MWS\-radev2\.6](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.6) | FreeDV W2MWS RADEV2\.6 \(Experimental\) | Experimental | 2026\-11\-06 | 28 |
 | [v3\.0\-dev\-W2MWS\.17](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS.17) | FreeDV GUI v3\.0\-dev — W2MWS Enhanced Client Release 17 | Stable | 2026\-11\-06 | 17 |
 | [v3\.0\-dev\-W2MWS\-radev2\.5](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.5) | FreeDV W2MWS RADEV2\.5 Experimental | Experimental | 2026\-11\-04 | 4 |
@@ -63,17 +63,17 @@ Releases: Fresh · last successful collection 2026\-11\-17T21:12:32Z UTC. Engage
 
 | Platform | Downloads | Share |
 | --- | ---: | ---: |
-| Windows x64 | 326 | 59.3% |
-| Windows ARM64 | 36 | 6.5% |
-| Linux x64 | 92 | 16.7% |
-| Linux ARM64 | 28 | 5.1% |
-| macOS | 36 | 6.5% |
-| Other / Unknown | 32 | 5.8% |
+| Windows x64 | 358 | 61.1% |
+| Windows ARM64 | 36 | 6.1% |
+| Linux x64 | 95 | 16.2% |
+| Linux ARM64 | 28 | 4.8% |
+| macOS | 37 | 6.3% |
+| Other / Unknown | 32 | 5.5% |
 
 | Asset format | Downloads |
 | --- | ---: |
-| Installers / distributions | 372 |
-| ZIP archives | 178 |
+| Installers / distributions | 403 |
+| ZIP archives | 183 |
 | Other archives | 0 |
 | Other files | 0 |
 
@@ -83,7 +83,7 @@ Releases: Fresh · last successful collection 2026\-11\-17T21:12:32Z UTC. Engage
 
 **Rolling 14-day window; these are repository visits and clones, not release downloads.**
 
-Traffic snapshot: Fresh · last successful collection 2026\-11\-17T21:12:32Z UTC.
+Traffic snapshot: Fresh · last successful collection 2026\-11\-18T01:21:59Z UTC.
 
 | Views | Unique visitors | Clones | Unique cloners |
 | ---: | ---: | ---: | ---: |

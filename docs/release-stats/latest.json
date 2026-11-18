@@ -1,11 +1,11 @@
 {
-  "last_attempt_at": "2026-11-17T21:12:32Z",
-  "last_successful_collection_at": "2026-11-17T21:12:32Z",
-  "observed_at": "2026-11-17T21:12:32Z",
+  "last_attempt_at": "2026-11-18T01:21:59Z",
+  "last_successful_collection_at": "2026-11-18T01:21:59Z",
+  "observed_at": "2026-11-18T01:21:59Z",
   "release_collection": {
     "error": null,
-    "last_attempt_at": "2026-11-17T21:12:32Z",
-    "observed_at": "2026-11-17T21:12:32Z",
+    "last_attempt_at": "2026-11-18T01:21:59Z",
+    "observed_at": "2026-11-18T01:21:59Z",
     "status": "fresh"
   },
   "releases": [
@@ -1013,7 +1013,7 @@
         },
         {
           "asset_type": "installer",
-          "download_count": 70,
+          "download_count": 71,
           "filename": "FreeDV-3.0.0-dev-2026-11-12-e5e1-windows-x86_64.exe",
           "id": 739223072,
           "is_zip": false,
@@ -1045,7 +1045,7 @@
         }
       ],
       "classification": "stable",
-      "download_count": 101,
+      "download_count": 102,
       "id": 442851888,
       "is_w2mws": true,
       "name": "FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release 18",
@@ -1065,7 +1065,7 @@
         },
         {
           "asset_type": "installer",
-          "download_count": 2,
+          "download_count": 3,
           "filename": "FreeDV-W2MWS-RADEV2.7-macos-universal.dmg",
           "id": 748667042,
           "is_zip": false,
@@ -1073,7 +1073,7 @@
         },
         {
           "asset_type": "archive",
-          "download_count": 85,
+          "download_count": 90,
           "filename": "FreeDV-W2MWS-RADEV2.7-windows-x86_64.zip",
           "id": 739629074,
           "is_zip": true,
@@ -1081,7 +1081,7 @@
         }
       ],
       "classification": "experimental",
-      "download_count": 120,
+      "download_count": 126,
       "id": 442998804,
       "is_w2mws": true,
       "name": "FreeDV W2MWS RADEV2.7 (Experimental)",
@@ -1101,7 +1101,7 @@
         },
         {
           "asset_type": "installer",
-          "download_count": 12,
+          "download_count": 18,
           "filename": "FreeDV-3.0.0-dev-2026-11-16-dea0-windows-x86_64.exe",
           "id": 757066556,
           "is_zip": false,
@@ -1133,7 +1133,7 @@
         }
       ],
       "classification": "stable",
-      "download_count": 23,
+      "download_count": 29,
       "id": 447845806,
       "is_w2mws": true,
       "name": "FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release 19",
@@ -1153,7 +1153,7 @@
         },
         {
           "asset_type": "installer",
-          "download_count": 2,
+          "download_count": 5,
           "filename": "FreeDV-W2MWS-RADEV2.8-linux-x86_64.AppImage",
           "id": 760112351,
           "is_zip": false,
@@ -1177,7 +1177,7 @@
         },
         {
           "asset_type": "installer",
-          "download_count": 1,
+          "download_count": 21,
           "filename": "FreeDV-W2MWS-RADEV2.8-windows-x86_64.exe",
           "id": 760112348,
           "is_zip": false,
@@ -1185,7 +1185,7 @@
         }
       ],
       "classification": "experimental",
-      "download_count": 6,
+      "download_count": 29,
       "id": 449018348,
       "is_w2mws": true,
       "name": "FreeDV W2MWS RADEV2 Experimental v3.0-dev-W2MWS-radev2.8",
@@ -1202,8 +1202,8 @@
       "subscribers": 0
     },
     "error": null,
-    "last_attempt_at": "2026-11-17T21:12:32Z",
-    "observed_at": "2026-11-17T21:12:32Z",
+    "last_attempt_at": "2026-11-18T01:21:59Z",
+    "observed_at": "2026-11-18T01:21:59Z",
     "status": "fresh"
   },
   "schema_version": 2,
@@ -1211,26 +1211,26 @@
   "totals": {
     "assets": 109,
     "by_asset_type": {
-      "archive": 178,
-      "installer": 372,
+      "archive": 183,
+      "installer": 403,
       "other": 0
     },
     "by_classification": {
-      "experimental": 231,
+      "experimental": 260,
       "other": 0,
-      "stable": 319
+      "stable": 326
     },
     "by_platform": {
       "Linux ARM64": 28,
-      "Linux x64": 92,
+      "Linux x64": 95,
       "Other / Unknown": 32,
       "Windows ARM64": 36,
-      "Windows x64": 326,
-      "macOS": 36
+      "Windows x64": 358,
+      "macOS": 37
     },
-    "downloads": 550,
+    "downloads": 586,
     "releases": 26,
-    "zip_downloads": 178
+    "zip_downloads": 183
   },
   "traffic": {
     "data": {
@@ -1513,8 +1513,8 @@
       "window_days": 14
     },
     "error": null,
-    "last_attempt_at": "2026-11-17T21:12:32Z",
-    "observed_at": "2026-11-17T21:12:32Z",
+    "last_attempt_at": "2026-11-18T01:21:59Z",
+    "observed_at": "2026-11-18T01:21:59Z",
     "status": "fresh"
   }
 }
