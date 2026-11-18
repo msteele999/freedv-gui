@@ -1,52 +1,52 @@
 {
   "data": [
     {
-      "count": 276,
+      "count": 307,
       "path": "/msteele999/freedv-gui/releases",
       "title": "/releases",
-      "uniques": 56
+      "uniques": 63
     },
     {
-      "count": 135,
+      "count": 171,
       "path": "/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.7",
       "title": "/releases/tag/v3.0-dev-W2MWS-radev2.7",
+      "uniques": 66
+    },
+    {
+      "count": 142,
+      "path": "/msteele999/freedv-gui",
+      "title": "Overview",
       "uniques": 51
     },
     {
-      "count": 102,
-      "path": "/msteele999/freedv-gui",
-      "title": "Overview",
-      "uniques": 39
-    },
-    {
-      "count": 80,
+      "count": 103,
       "path": "/msteele999/freedv-gui/actions",
       "title": "/actions",
-      "uniques": 5
+      "uniques": 6
     },
     {
-      "count": 64,
+      "count": 70,
       "path": "/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS.18",
       "title": "/releases/tag/v3.0-dev-W2MWS.18",
-      "uniques": 35
+      "uniques": 36
     },
     {
-      "count": 51,
+      "count": 55,
       "path": "/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.6",
       "title": "/releases/tag/v3.0-dev-W2MWS-radev2.6",
       "uniques": 24
     },
     {
-      "count": 22,
+      "count": 23,
       "path": "/msteele999/freedv-gui/issues",
       "title": "/issues",
-      "uniques": 6
+      "uniques": 7
     },
     {
-      "count": 20,
-      "path": "/msteele999/freedv-gui/actions/runs/41644473686",
-      "title": "/actions/runs/41644473686",
-      "uniques": 1
+      "count": 21,
+      "path": "/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS.19",
+      "title": "/releases/tag/v3.0-dev-W2MWS.19",
+      "uniques": 15
     },
     {
       "count": 15,
@@ -62,8 +62,8 @@
     }
   ],
   "error": null,
-  "last_attempt_at": "2026-11-18T01:21:59Z",
-  "observed_at": "2026-11-18T01:21:59Z",
+  "last_attempt_at": "2026-11-18T11:02:02Z",
+  "observed_at": "2026-11-18T11:02:02Z",
   "repository": "msteele999/freedv-gui",
   "schema_version": 1,
   "status": "fresh",

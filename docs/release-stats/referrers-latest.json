@@ -1,28 +1,40 @@
 {
   "data": [
     {
-      "count": 48,
+      "count": 51,
       "referrer": "tonaru.net",
       "self_referral": false,
       "uniques": 10
     },
     {
-      "count": 38,
+      "count": 46,
       "referrer": "hamradio.my",
       "self_referral": false,
-      "uniques": 18
+      "uniques": 21
     },
     {
-      "count": 17,
-      "referrer": "github.com",
-      "self_referral": true,
-      "uniques": 13
+      "count": 30,
+      "referrer": "ja4joe.livedoor.blog",
+      "self_referral": false,
+      "uniques": 11
     },
     {
-      "count": 14,
+      "count": 16,
       "referrer": "groups.io",
       "self_referral": false,
       "uniques": 8
+    },
+    {
+      "count": 14,
+      "referrer": "github.com",
+      "self_referral": true,
+      "uniques": 11
+    },
+    {
+      "count": 14,
+      "referrer": "reddit.com",
+      "self_referral": false,
+      "uniques": 10
     },
     {
       "count": 12,
@@ -31,39 +43,27 @@
       "uniques": 1
     },
     {
-      "count": 11,
-      "referrer": "reddit.com",
-      "self_referral": false,
-      "uniques": 8
-    },
-    {
-      "count": 7,
+      "count": 8,
       "referrer": "t.co",
       "self_referral": false,
       "uniques": 3
     },
     {
       "count": 5,
-      "referrer": "ja4joe.livedoor.blog",
+      "referrer": "blog.livedoor.jp",
       "self_referral": false,
-      "uniques": 1
+      "uniques": 4
     },
     {
       "count": 3,
       "referrer": "reporter-radev2.k6aq.net",
       "self_referral": false,
       "uniques": 2
-    },
-    {
-      "count": 2,
-      "referrer": "Google",
-      "self_referral": false,
-      "uniques": 2
     }
   ],
   "error": null,
-  "last_attempt_at": "2026-11-18T01:21:59Z",
-  "observed_at": "2026-11-18T01:21:59Z",
+  "last_attempt_at": "2026-11-18T11:02:02Z",
+  "observed_at": "2026-11-18T11:02:02Z",
   "repository": "msteele999/freedv-gui",
   "schema_version": 1,
   "status": "fresh",
