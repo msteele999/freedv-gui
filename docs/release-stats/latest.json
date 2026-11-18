@@ -1,11 +1,11 @@
 {
-  "last_attempt_at": "2026-11-18T14:44:11Z",
-  "last_successful_collection_at": "2026-11-18T14:44:11Z",
-  "observed_at": "2026-11-18T14:44:11Z",
+  "last_attempt_at": "2026-11-18T15:48:02Z",
+  "last_successful_collection_at": "2026-11-18T15:48:02Z",
+  "observed_at": "2026-11-18T15:48:02Z",
   "release_collection": {
     "error": null,
-    "last_attempt_at": "2026-11-18T14:44:11Z",
-    "observed_at": "2026-11-18T14:44:11Z",
+    "last_attempt_at": "2026-11-18T15:48:02Z",
+    "observed_at": "2026-11-18T15:48:02Z",
     "status": "fresh"
   },
   "releases": [
@@ -1177,7 +1177,7 @@
         },
         {
           "asset_type": "installer",
-          "download_count": 36,
+          "download_count": 38,
           "filename": "FreeDV-W2MWS-RADEV2.8-windows-x86_64.exe",
           "id": 760112348,
           "is_zip": false,
@@ -1185,7 +1185,7 @@
         }
       ],
       "classification": "experimental",
-      "download_count": 57,
+      "download_count": 59,
       "id": 449018348,
       "is_w2mws": true,
       "name": "FreeDV W2MWS RADEV2 Experimental v3.0-dev-W2MWS-radev2.8",
@@ -1202,8 +1202,8 @@
       "subscribers": 0
     },
     "error": null,
-    "last_attempt_at": "2026-11-18T14:44:11Z",
-    "observed_at": "2026-11-18T14:44:11Z",
+    "last_attempt_at": "2026-11-18T15:48:02Z",
+    "observed_at": "2026-11-18T15:48:02Z",
     "status": "fresh"
   },
   "schema_version": 2,
@@ -1212,11 +1212,11 @@
     "assets": 109,
     "by_asset_type": {
       "archive": 187,
-      "installer": 452,
+      "installer": 454,
       "other": 0
     },
     "by_classification": {
-      "experimental": 295,
+      "experimental": 297,
       "other": 0,
       "stable": 344
     },
@@ -1225,10 +1225,10 @@
       "Linux x64": 117,
       "Other / Unknown": 33,
       "Windows ARM64": 36,
-      "Windows x64": 385,
+      "Windows x64": 387,
       "macOS": 37
     },
-    "downloads": 639,
+    "downloads": 641,
     "releases": 26,
     "zip_downloads": 187
   },
@@ -1513,8 +1513,8 @@
       "window_days": 14
     },
     "error": null,
-    "last_attempt_at": "2026-11-18T14:44:11Z",
-    "observed_at": "2026-11-18T14:44:11Z",
+    "last_attempt_at": "2026-11-18T15:48:02Z",
+    "observed_at": "2026-11-18T15:48:02Z",
     "status": "fresh"
   }
 }

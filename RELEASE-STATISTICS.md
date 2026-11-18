@@ -2,19 +2,19 @@
 
 [msteele999/freedv-gui](https://github.com/msteele999/freedv-gui/releases) · downloads, engagement and repository traffic
 
-**Most recent successful collection: 2026-11-18T14:44:11Z UTC.**
+**Most recent successful collection: 2026-11-18T15:48:02Z UTC.**
 
 | Release downloads (cumulative) | Published releases | Stars |
 | ---: | ---: | ---: |
-| **639** | **26** | **1** |
+| **641** | **26** | **1** |
 
 | Subscribers / watchers | Forks | Unique visitors (14 days) |
 | ---: | ---: | ---: |
 | **0** | **0** | **125** |
 
-Stable W2MWS: **344** · Experimental RADEV2: **295** · Other: **0** downloads.
+Stable W2MWS: **344** · Experimental RADEV2: **297** · Other: **0** downloads.
 
-Releases: Fresh · last successful collection 2026\-11\-18T14:44:11Z UTC. Engagement: Fresh · last successful collection 2026\-11\-18T14:44:11Z UTC. Traffic: Fresh · last successful collection 2026\-11\-18T14:44:11Z UTC.
+Releases: Fresh · last successful collection 2026\-11\-18T15:48:02Z UTC. Engagement: Fresh · last successful collection 2026\-11\-18T15:48:02Z UTC. Traffic: Fresh · last successful collection 2026\-11\-18T15:48:02Z UTC.
 
 ## Downloads by release
 
@@ -25,7 +25,7 @@ Releases: Fresh · last successful collection 2026\-11\-18T14:44:11Z UTC. Engage
 
 | Release | Name | Family | Published (UTC) | Downloads |
 | --- | --- | --- | --- | ---: |
-| [v3\.0\-dev\-W2MWS\-radev2\.8](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.8) | FreeDV W2MWS RADEV2 Experimental v3\.0\-dev\-W2MWS\-radev2\.8 | Experimental | 2026\-11\-17 | 57 |
+| [v3\.0\-dev\-W2MWS\-radev2\.8](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.8) | FreeDV W2MWS RADEV2 Experimental v3\.0\-dev\-W2MWS\-radev2\.8 | Experimental | 2026\-11\-17 | 59 |
 | [v3\.0\-dev\-W2MWS\.19](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS.19) | FreeDV GUI v3\.0\-dev — W2MWS Enhanced Client Release 19 | Stable | 2026\-11\-17 | 47 |
 | [v3\.0\-dev\-W2MWS\-radev2\.7](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.7) | FreeDV W2MWS RADEV2\.7 \(Experimental\) | Experimental | 2026\-11\-12 | 131 |
 | [v3\.0\-dev\-W2MWS\.18](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS.18) | FreeDV GUI v3\.0\-dev — W2MWS Enhanced Client Release 18 | Stable | 2026\-11\-12 | 102 |
@@ -63,16 +63,16 @@ Releases: Fresh · last successful collection 2026\-11\-18T14:44:11Z UTC. Engage
 
 | Platform | Downloads | Share |
 | --- | ---: | ---: |
-| Windows x64 | 385 | 60.3% |
+| Windows x64 | 387 | 60.4% |
 | Windows ARM64 | 36 | 5.6% |
 | Linux x64 | 117 | 18.3% |
-| Linux ARM64 | 31 | 4.9% |
+| Linux ARM64 | 31 | 4.8% |
 | macOS | 37 | 5.8% |
-| Other / Unknown | 33 | 5.2% |
+| Other / Unknown | 33 | 5.1% |
 
 | Asset format | Downloads |
 | --- | ---: |
-| Installers / distributions | 452 |
+| Installers / distributions | 454 |
 | ZIP archives | 187 |
 | Other archives | 0 |
 | Other files | 0 |
@@ -83,7 +83,7 @@ Releases: Fresh · last successful collection 2026\-11\-18T14:44:11Z UTC. Engage
 
 **Rolling 14-day window; these are repository visits and clones, not release downloads.**
 
-Traffic snapshot: Fresh · last successful collection 2026\-11\-18T14:44:11Z UTC.
+Traffic snapshot: Fresh · last successful collection 2026\-11\-18T15:48:02Z UTC.
 
 | Views | Unique visitors | Clones | Unique cloners |
 | ---: | ---: | ---: | ---: |
