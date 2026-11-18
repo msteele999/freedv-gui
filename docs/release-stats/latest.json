@@ -1,11 +1,11 @@
 {
-  "last_attempt_at": "2026-11-18T11:02:02Z",
-  "last_successful_collection_at": "2026-11-18T11:02:02Z",
-  "observed_at": "2026-11-18T11:02:02Z",
+  "last_attempt_at": "2026-11-18T14:44:11Z",
+  "last_successful_collection_at": "2026-11-18T14:44:11Z",
+  "observed_at": "2026-11-18T14:44:11Z",
   "release_collection": {
     "error": null,
-    "last_attempt_at": "2026-11-18T11:02:02Z",
-    "observed_at": "2026-11-18T11:02:02Z",
+    "last_attempt_at": "2026-11-18T14:44:11Z",
+    "observed_at": "2026-11-18T14:44:11Z",
     "status": "fresh"
   },
   "releases": [
@@ -1057,7 +1057,7 @@
       "assets": [
         {
           "asset_type": "installer",
-          "download_count": 34,
+          "download_count": 36,
           "filename": "FreeDV-W2MWS-RADEV2.7-linux-x86_64.AppImage",
           "id": 740050469,
           "is_zip": false,
@@ -1081,7 +1081,7 @@
         }
       ],
       "classification": "experimental",
-      "download_count": 129,
+      "download_count": 131,
       "id": 442998804,
       "is_w2mws": true,
       "name": "FreeDV W2MWS RADEV2.7 (Experimental)",
@@ -1101,7 +1101,7 @@
         },
         {
           "asset_type": "installer",
-          "download_count": 21,
+          "download_count": 27,
           "filename": "FreeDV-3.0.0-dev-2026-11-16-dea0-windows-x86_64.exe",
           "id": 757066556,
           "is_zip": false,
@@ -1125,7 +1125,7 @@
         },
         {
           "asset_type": "installer",
-          "download_count": 12,
+          "download_count": 14,
           "filename": "FreeDV-W2MWS-3.0.0-dev-dea0-x86_64.AppImage",
           "id": 757066555,
           "is_zip": false,
@@ -1133,7 +1133,7 @@
         }
       ],
       "classification": "stable",
-      "download_count": 39,
+      "download_count": 47,
       "id": 447845806,
       "is_w2mws": true,
       "name": "FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release 19",
@@ -1145,7 +1145,7 @@
       "assets": [
         {
           "asset_type": "installer",
-          "download_count": 2,
+          "download_count": 3,
           "filename": "FreeDV-W2MWS-RADEV2.8-linux-arm64.AppImage",
           "id": 760112346,
           "is_zip": false,
@@ -1153,7 +1153,7 @@
         },
         {
           "asset_type": "installer",
-          "download_count": 14,
+          "download_count": 16,
           "filename": "FreeDV-W2MWS-RADEV2.8-linux-x86_64.AppImage",
           "id": 760112351,
           "is_zip": false,
@@ -1177,7 +1177,7 @@
         },
         {
           "asset_type": "installer",
-          "download_count": 34,
+          "download_count": 36,
           "filename": "FreeDV-W2MWS-RADEV2.8-windows-x86_64.exe",
           "id": 760112348,
           "is_zip": false,
@@ -1185,7 +1185,7 @@
         }
       ],
       "classification": "experimental",
-      "download_count": 52,
+      "download_count": 57,
       "id": 449018348,
       "is_w2mws": true,
       "name": "FreeDV W2MWS RADEV2 Experimental v3.0-dev-W2MWS-radev2.8",
@@ -1202,8 +1202,8 @@
       "subscribers": 0
     },
     "error": null,
-    "last_attempt_at": "2026-11-18T11:02:02Z",
-    "observed_at": "2026-11-18T11:02:02Z",
+    "last_attempt_at": "2026-11-18T14:44:11Z",
+    "observed_at": "2026-11-18T14:44:11Z",
     "status": "fresh"
   },
   "schema_version": 2,
@@ -1212,23 +1212,23 @@
     "assets": 109,
     "by_asset_type": {
       "archive": 187,
-      "installer": 437,
+      "installer": 452,
       "other": 0
     },
     "by_classification": {
-      "experimental": 288,
+      "experimental": 295,
       "other": 0,
-      "stable": 336
+      "stable": 344
     },
     "by_platform": {
-      "Linux ARM64": 30,
-      "Linux x64": 111,
+      "Linux ARM64": 31,
+      "Linux x64": 117,
       "Other / Unknown": 33,
       "Windows ARM64": 36,
-      "Windows x64": 377,
+      "Windows x64": 385,
       "macOS": 37
     },
-    "downloads": 624,
+    "downloads": 639,
     "releases": 26,
     "zip_downloads": 187
   },
@@ -1513,8 +1513,8 @@
       "window_days": 14
     },
     "error": null,
-    "last_attempt_at": "2026-11-18T11:02:02Z",
-    "observed_at": "2026-11-18T11:02:02Z",
+    "last_attempt_at": "2026-11-18T14:44:11Z",
+    "observed_at": "2026-11-18T14:44:11Z",
     "status": "fresh"
   }
 }
