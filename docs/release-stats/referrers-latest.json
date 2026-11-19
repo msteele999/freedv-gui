@@ -1,58 +1,58 @@
 {
   "data": [
     {
-      "count": 51,
+      "count": 58,
       "referrer": "tonaru.net",
       "self_referral": false,
-      "uniques": 10
+      "uniques": 12
     },
     {
-      "count": 46,
+      "count": 56,
       "referrer": "hamradio.my",
       "self_referral": false,
-      "uniques": 21
+      "uniques": 26
     },
     {
-      "count": 30,
+      "count": 55,
       "referrer": "ja4joe.livedoor.blog",
+      "self_referral": false,
+      "uniques": 17
+    },
+    {
+      "count": 24,
+      "referrer": "groups.io",
       "self_referral": false,
       "uniques": 11
     },
     {
-      "count": 16,
-      "referrer": "groups.io",
+      "count": 18,
+      "referrer": "mail3.spectrum.net",
       "self_referral": false,
-      "uniques": 8
+      "uniques": 1
     },
     {
-      "count": 14,
+      "count": 16,
+      "referrer": "reddit.com",
+      "self_referral": false,
+      "uniques": 11
+    },
+    {
+      "count": 13,
       "referrer": "github.com",
       "self_referral": true,
       "uniques": 11
     },
     {
-      "count": 14,
-      "referrer": "reddit.com",
+      "count": 8,
+      "referrer": "blog.livedoor.jp",
       "self_referral": false,
-      "uniques": 10
-    },
-    {
-      "count": 12,
-      "referrer": "mail3.spectrum.net",
-      "self_referral": false,
-      "uniques": 1
+      "uniques": 4
     },
     {
       "count": 8,
       "referrer": "t.co",
       "self_referral": false,
       "uniques": 3
-    },
-    {
-      "count": 5,
-      "referrer": "blog.livedoor.jp",
-      "self_referral": false,
-      "uniques": 4
     },
     {
       "count": 3,
@@ -62,8 +62,8 @@
     }
   ],
   "error": null,
-  "last_attempt_at": "2026-11-18T15:48:02Z",
-  "observed_at": "2026-11-18T15:48:02Z",
+  "last_attempt_at": "2026-11-19T15:52:56Z",
+  "observed_at": "2026-11-19T15:52:56Z",
   "repository": "msteele999/freedv-gui",
   "schema_version": 1,
   "status": "fresh",
