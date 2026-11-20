@@ -33,6 +33,7 @@
 #include "ReportingConfiguration.h"
 #include "CallsignWatchlist.h"
 #include "RadeMode.h"
+#include "RadioSideband.h"
 #include "../gui/theme/FreeDVTheme.h"
 
 class FreeDVConfiguration : public WxWidgetsConfigStore
@@ -153,12 +154,15 @@ public:
 
     RadeMode getSelectedRadeMode();
     void setSelectedRadeMode(RadeMode mode);
+    RadioSideband getRadioSideband();
+    void setRadioSideband(RadioSideband sideband);
 
     virtual void load(wxConfigBase* config) override;
     virtual void save(wxConfigBase* config) override;
 
 private:
     ConfigurationDataElement<long> selectedRadeMode_;
+    ConfigurationDataElement<long> radioSideband_;
 };
 
 #endif // FREEDV_CONFIGURATION_H

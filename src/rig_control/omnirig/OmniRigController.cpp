@@ -93,15 +93,19 @@ void OmniRigController::ptt(bool state)
     enqueue_(std::bind(&OmniRigController::pttImpl_, this, state));
 }
 
-void OmniRigController::setFrequency(uint64_t frequency)
+void OmniRigController::setFrequency(uint64_t frequency, bool receiveOnly)
 {
-    noteRequestedFrequency_(frequency);
-    enqueue_(std::bind(&OmniRigController::setFrequencyImpl_, this, frequency));
+    if (!receiveOnly) noteRequestedFrequency_(frequency);
+    enqueue_([this, frequency, receiveOnly]() {
+        if (receiveOnly && (pttSet_ || isTransmitActive())) return;
+        if (receiveOnly) noteRequestedFrequency_(frequency);
+        setFrequencyImpl_(frequency);
+    });
 }
 
-void OmniRigController::setMode(IRigFrequencyController::Mode mode)
+void OmniRigController::setMode(IRigFrequencyController::Mode mode, bool receiveOnly)
 {
-    enqueue_(std::bind(&OmniRigController::setModeImpl_, this, mode));
+    enqueue_(std::bind(&OmniRigController::setModeImpl_, this, mode, receiveOnly));
 }
 
 void OmniRigController::requestCurrentFrequencyMode()
@@ -174,7 +178,7 @@ void OmniRigController::connectImpl_()
         
         if (pendingMode != UNKNOWN)
         {
-            setModeImpl_(pendingMode);
+            setModeImpl_(pendingMode, pendingModeReceiveOnly_);
         }
     }
     else
@@ -186,6 +190,9 @@ void OmniRigController::connectImpl_()
 
 void OmniRigController::disconnectImpl_()
 {
+    noteModeReadback_(UNKNOWN);
+    diglUnsupported_ = false;
+    diglFallbackRequested_ = false;
     if (omniRig_ != nullptr)
     {
         IRigX* rig = rig_.load(std::memory_order_acquire);
@@ -210,6 +217,8 @@ void OmniRigController::disconnectImpl_()
         currFreq_ = 0;
         currMode_ = UNKNOWN;
 
+        noteModeReadback_(UNKNOWN);
+        setTransmitActive(false);
         onRigDisconnected(this);
     }
 
@@ -322,6 +331,7 @@ void OmniRigController::setFrequencyImpl_(uint64_t frequencyHz)
         {
             std::stringstream errMsg;
             log_error("Could not change frequency to %lld Hz (HRESULT = %d)", frequencyHz, result);
+            errMsg << "Could not change frequency to " << frequencyHz << " Hz (HRESULT = " << result << ")";
             onRigError(this, errMsg.str());
         }
     }
@@ -331,9 +341,11 @@ void OmniRigController::setFrequencyImpl_(uint64_t frequencyHz)
     }
 }
 
-void OmniRigController::setModeImpl_(IRigFrequencyController::Mode mode)
+void OmniRigController::setModeImpl_(IRigFrequencyController::Mode mode, bool receiveOnly)
 {
+    if (freqOnly_ || (receiveOnly && (pttSet_ || isTransmitActive()))) return;
     IRigX* rig = rig_.load(std::memory_order_acquire);
+    if (receiveOnly && mode == DIGL && diglUnsupported_) mode = LSB;
     if (mode == currMode_)
     {
         return;
@@ -369,13 +381,61 @@ void OmniRigController::setModeImpl_(IRigFrequencyController::Mode mode)
 
     if (rig != nullptr)
     {
+        if (receiveOnly)
+        {
+            // Refresh the radio-owned dial before preserving it. Do not use
+            // an optimistic mode write as evidence of actual radio state.
+            const bool readFrequency = requestCurrentFrequencyModeImpl_();
+            RigStatusX status = ST_NOTRESPONDING;
+            if (!readFrequency || rig->get_Status(&status) != S_OK || status != ST_ONLINE)
+            {
+                noteModeReadback_(UNKNOWN);
+                onRigError(this, "Cannot change sideband while OmniRig is offline");
+                return;
+            }
+        }
+        if (receiveOnly && mode == DIGL && !(writableParams_ & PM_DIG_L))
+        {
+            if (!(writableParams_ & PM_SSB_L))
+            {
+                noteModeReadback_(UNKNOWN);
+                onRigError(this, "OmniRig supports neither DIG-L nor LSB");
+                return;
+            }
+            omniRigMode = PM_SSB_L;
+            diglFallbackRequested_ = true;
+        }
+        // Save the dial before the mode command. A mode may have a different
+        // carrier offset, even when the application hasn't requested a QSY.
+        const auto frequency = receiveOnly ? frequencyToPreserve_(currFreq_) : currFreq_;
+        if (receiveOnly && frequency == 0)
+        {
+            onRigError(this, "Cannot preserve dial frequency before sideband change");
+            return;
+        }
+        noteModeReadback_(UNKNOWN);
         auto result = rig->put_Mode(omniRigMode);
+        if (receiveOnly && omniRigMode == PM_DIG_L && (writableParams_ & PM_SSB_L) &&
+            (result == E_NOTIMPL || result == E_INVALIDARG || result == DISP_E_MEMBERNOTFOUND))
+        {
+            omniRigMode = PM_SSB_L;
+            diglFallbackRequested_ = true;
+            result = rig->put_Mode(omniRigMode);
+        }
         if (result == S_OK)
         {
-            currMode_ = mode;
+            currMode_ = omniRigMode == PM_SSB_L ? LSB : mode;
 
             // Note: wait required to ensure that change takes effect.
             std::this_thread::sleep_for(OMNI_RIG_WAIT_TIME);
+
+            if (receiveOnly)
+            {
+                // Force the existing VFO-aware frequency setter to reassert
+                // the saved dial, without ever changing reporting config.
+                currFreq_ = 0;
+                setFrequencyImpl_(frequency);
+            }
 
             if (!destroying_)
             {
@@ -384,6 +444,7 @@ void OmniRigController::setModeImpl_(IRigFrequencyController::Mode mode)
         }
         else
         {
+            diglFallbackRequested_ = false;
             std::stringstream errMsg;
             errMsg << "Could not change mode to " << omniRigMode << " (HRESULT = " << result << ")";
             onRigError(this, errMsg.str());
@@ -392,21 +453,23 @@ void OmniRigController::setModeImpl_(IRigFrequencyController::Mode mode)
     else
     {
         currMode_ = mode;
+        pendingModeReceiveOnly_ = receiveOnly;
     }
 }
 
-void OmniRigController::requestCurrentFrequencyModeImpl_()
+bool OmniRigController::requestCurrentFrequencyModeImpl_()
 {
+    noteModeReadback_(UNKNOWN);
     IRigX* rig = rig_.load(std::memory_order_acquire);
-    RigParamX omniRigMode;
-    long freq;
+    RigParamX omniRigMode = PM_UNKNOWN;
+    long freq = 0;
 
     // Note: we ignore attempts to retrieve frequency/mode during
     // TX for several reasons:
     //   a. Some radios do not respond to commands during TX (ex: FT-817)
     //   b. Some radios on their own accord will briefly stop TX to handle the command,
     //      causing distortion of the transmitted signal (ex: Red Pitaya with Thetis).
-    if (rig != nullptr && !pttSet_)
+    if (rig != nullptr && !pttSet_ && !isTransmitActive())
     {
         RigParamX vfo;
         HRESULT result = rig->get_Vfo(&vfo);
@@ -442,13 +505,21 @@ void OmniRigController::requestCurrentFrequencyModeImpl_()
         if (result != S_OK || freq == 0)
         {
             // FREQA/FREQB aren't being set. Use FREQ instead.
-            rig->get_Freq(&freq);
+            result = rig->get_Freq(&freq);
         }
+
+        if (result != S_OK || freq <= 0) return false;
         
         log_info("Got frequency as %ld", freq);
         
         // Mode isn't dependent on VFO in the current OmniRig API (!)        
-        rig->get_Mode(&omniRigMode);
+        const HRESULT modeResult = rig->get_Mode(&omniRigMode);
+        long readable = 0;
+        RigStatusX status = ST_NOTRESPONDING;
+        const bool confirmed = modeResult == S_OK &&
+            rig->get_ReadableParams(&readable) == S_OK &&
+            (readable & omniRigMode) != 0 &&
+            rig->get_Status(&status) == S_OK && status == ST_ONLINE;
 
         // Convert OmniRig mode to our mode
         IRigFrequencyController::Mode mode;
@@ -480,7 +551,13 @@ void OmniRigController::requestCurrentFrequencyModeImpl_()
         // Publish frequency/mode to subscribers
         currFreq_ = freq;
         currMode_ = mode;
-        onFreqModeChange(this, freq, mode);
+        noteModeReadback_(confirmed ? mode : UNKNOWN);
+        if (confirmed && mode == LSB && diglFallbackRequested_)
+        {
+            diglUnsupported_ = true;
+            diglFallbackRequested_ = false;
+        }
+        onFreqModeChange(this, freq, confirmed ? mode : UNKNOWN);
 
         if (origFreq_ == 0)
         {
@@ -488,5 +565,7 @@ void OmniRigController::requestCurrentFrequencyModeImpl_()
             origFreq_ = freq;
             origMode_ = omniRigMode;
         }
+        return true;
     }
+    return false;
 }

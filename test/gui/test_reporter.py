@@ -1023,7 +1023,7 @@ def test_qsy():
             quit_and_check_log(app)
 
 
-def test_row_actions():
+def test_row_actions(sideband=0):
     """What can be done to a station in the list with the mouse, other than
     selecting it: looking it up, copying its message and tuning to it."""
     with audio_devices(), ReporterServer() as server:
@@ -1037,7 +1037,7 @@ def test_row_actions():
         settings = reporter_settings(server.hostname)
         settings.update(audio_settings())
         settings.update({"/Reporting/ManualFrequencyReporting": False, "/Hamlib/UseForPTT": True,
-                         "/Hamlib/RigNameStr": "Hamlib Dummy"})
+                         "/Hamlib/RigNameStr": "Hamlib Dummy", "/Modem/RadioSideband": sideband})
         with freedvtest.start(settings=settings) as app:
             open_reporter(app)
             wait_for_callsigns(app, ["K1ABC", "VK5DGR"])
@@ -1135,6 +1135,8 @@ def test_row_actions():
             app.activate_row(LIST, (CALLSIGN, "K1ABC"))
             app.wait_until(lambda: app.get("main.cboReportFrequency")["value"] == "7.1770", timeout=15,
                            description="FreeDV's radio to be tuned to K1ABC's frequency")
+            app.wait_until(lambda: app.get("main.textRadioSidebandMode")["label"] ==
+                           ("DIG-L" if sideband else "DIG-U"), description="Reporter-selected radio sideband")
             wait_for_cell(app, CALLSIGN_OF_FREEDV, FREQUENCY, "7.1770", timeout=45)
             check_equal([row[CALLSIGN] for row in app.rows(LIST) if row["selected"]], [],
                         "Selected station after double-clicking")
@@ -2619,6 +2621,7 @@ SCENARIOS = {
     "status_message": test_status_message,
     "qsy": test_qsy,
     "row_actions": test_row_actions,
+    "row_actions_lsb": lambda: test_row_actions(1),
     "turn_off": test_turn_off,
     "off_at_start": test_off_at_start,
     "qsy_with_radio": test_qsy_with_radio,

@@ -121,6 +121,9 @@ class TopFrame : public wxFrame
         
         wxStaticText* m_txtModeStatus;
         wxChoice* m_choiceRadeMode;
+        wxRadioButton* m_radioSidebandDefault;
+        wxRadioButton* m_radioSidebandLsb;
+        wxStaticText* m_textRadioSidebandMode;
 
         wxStaticText* m_txtTxLevelNum;
         wxButton* m_btnTxLevelMM;

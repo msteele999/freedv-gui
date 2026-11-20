@@ -256,6 +256,10 @@ def test_mode_display():
                     check_equal(label(app), displayed, "Mode displayed with the radio in " + mode)
                 check_equal(app.get("main.textModeStatus")["enabled"], displayed != "unk",
                             "Mode's display enabled with the radio in " + mode)
+                expected_sideband = {"PKTUSB": "DIG-U", "PKTLSB": "DIG-L", "USB": "USB", "LSB": "LSB"}.get(
+                    mode, "Unknown")
+                app.wait_until(lambda: app.get("main.textRadioSidebandMode")["label"] == expected_sideband,
+                               timeout=15, description="confirmed Sync radio mode " + expected_sideband)
 
             # Stopped, it doesn't know.
             radio.command("M USB 0")
@@ -654,7 +658,33 @@ def test_ptt_test():
             check_equal(app.quit(), 0, "FreeDV's exit code")
 
 
+def test_sideband_frequency_only():
+    """The LSB preference never overrides frequency-only or disabled mode CAT."""
+    for frequency_only in (False, True):
+        with Rigctld() as radio, audio_devices():
+            radio.set_frequency(14236000)
+            radio.command("M USB 2400")
+            extra = dict(Modem__RadioSideband=1, Hamlib__EnableFreqModeChanges=False,
+                         Hamlib__EnableFreqChangesOnly=frequency_only, Reporting__Frequency=7177000)
+            with freedvtest.start(settings=rig_settings(radio.address, **extra)) as app:
+                app.wait_for_window("main")
+                start_modem(app)
+                wait_for_frequency(app, "7.1770" if frequency_only else "14.2360", "CAT frequency policy")
+                app.wait_until(lambda: app.get("main.textRadioSidebandMode")["label"] == "USB",
+                               description="actual USB despite requested LSB")
+                check_equal(radio.mode(), "USB", "Radio mode with mode changes disabled")
+                app.set_value("main.cboReportFrequency", "3.6250")
+                if frequency_only:
+                    wait_for(lambda: radio.frequency() == 3625000, "Frequency-only QSY did not complete")
+                else:
+                    check_equal(radio.frequency(), 14236000, "Disabled CAT frequency changed")
+                check_equal(radio.mode(), "USB", "Sideband preference changed mode")
+                stop_modem(app)
+                quit_and_check_log(app)
+
+
 SCENARIOS = {
+    "sideband_frequency_only": test_sideband_frequency_only,
     "control": test_control,
     "frequency_only": test_frequency_only,
     "mode_display": test_mode_display,

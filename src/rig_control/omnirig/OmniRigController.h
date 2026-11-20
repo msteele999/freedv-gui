@@ -39,13 +39,14 @@ public:
     virtual void disconnect() override;
     virtual bool isConnected() override;
     virtual void ptt(bool state) override;
-    virtual void setFrequency(uint64_t frequency) override;
-    virtual void setMode(IRigFrequencyController::Mode mode) override;
+    virtual void setFrequency(uint64_t frequency, bool receiveOnly = false) override;
+    virtual void setMode(IRigFrequencyController::Mode mode, bool receiveOnly = false) override;
     virtual void requestCurrentFrequencyMode() override;
     
     virtual int getRigResponseTimeMicroseconds() override;
 
 private:
+    friend struct OmniRigControllerTestAccess;
     int rigId_; // can be either 0 or 1 (Rig 1 or 2)
     IOmniRigX* omniRig_;
     // Atomic like HamlibRigController::rig_: the worker thread assigns it
@@ -62,13 +63,16 @@ private:
     int rigResponseTime_;
     bool destroying_;
     bool pttSet_;
+    bool pendingModeReceiveOnly_ = false;
+    bool diglUnsupported_ = false;
+    bool diglFallbackRequested_ = false;
 
     void connectImpl_();
     void disconnectImpl_();
     void pttImpl_(bool state);
     void setFrequencyImpl_(uint64_t frequencyHz);
-    void setModeImpl_(IRigFrequencyController::Mode mode);
-    void requestCurrentFrequencyModeImpl_();
+    void setModeImpl_(IRigFrequencyController::Mode mode, bool receiveOnly = false);
+    bool requestCurrentFrequencyModeImpl_();
 };
 
 #endif // OMNIRIG_CONTROLLER_H

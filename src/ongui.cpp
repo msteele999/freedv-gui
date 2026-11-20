@@ -23,6 +23,7 @@
 #include "gui/dialogs/log_entry.h"
 #include "gui/theme/FreeDVTheme.h"
 #include "gui/util/FrequencyOps.h"
+#include "gui/util/ApplicationTitle.h"
 
 #if defined(WIN32)
 #include "rig_control/omnirig/OmniRigController.h"
@@ -388,9 +389,10 @@ void MainFrame::OnHelpAbout(wxCommandEvent& event)
     wxString msg;
     wxString version = wxString::FromUTF8(GetFreeDVVersion().c_str());
 
-    // TRANSLATORS: The first two %s are the FreeDV version, the third is the git
-    // commit hash and the fourth is the Hamlib version.
-    msg.Printf( _("FreeDV GUI %s\n\n"
+    // TRANSLATORS: The first %s is the application title, the next two are the
+    // technical FreeDV version, then the git commit hash and Hamlib version.
+    msg.Printf( _("%s\n\n"
+                "FreeDV GUI %s\n\n"
                 "W2MWS Enhanced Client\n"
                 "UI modernization and decoded-speech transcription enhancements\n"
                 "Mark Steele W2MWS\n"
@@ -403,15 +405,43 @@ void MainFrame::OnHelpAbout(wxCommandEvent& event)
                 "freedv-gui version: %s\n"
                 "freedv-gui git hash: %s\n"
                 "Using %s\n")
-                , version, version, FREEDV_GIT_HASH, hamlib_version
+                , GetFreeDVApplicationTitle(), version, version, FREEDV_GIT_HASH, hamlib_version
                 );
 
     wxMessageBox(msg, _("About"), wxOK | wxICON_INFORMATION, this);
 }
 
-void MainFrame::onFrequencyModeChange_(IRigFrequencyController*, uint64_t freq, IRigFrequencyController::Mode mode)
+void MainFrame::onFrequencyModeChange_(IRigFrequencyController* source, uint64_t freq, IRigFrequencyController::Mode mode)
 {
-    CallAfter([&, mode, freq]() {
+    CallAfter([this, source, mode, freq]() {
+        auto activeRig = snapshotRigFrequencyController();
+        if (!activeRig || activeRig.get() != source) return;
+        updateRadioSidebandStatus_();
+        // Under the override, move the dial only after the new sideband has
+        // actually been read back. Never infer a shift from a failed request.
+        if (analogTransitionFrequency_ != 0)
+        {
+            const auto target = getCurrentMode_();
+            const bool matches = (IsLowerRadioSideband(target) && IsLowerRadioSideband(mode)) ||
+                (IsUpperRadioSideband(target) && IsUpperRadioSideband(mode));
+            if (g_tx.load(std::memory_order_acquire) || txChangeoverOccurring_ || m_btnTogTune->GetValue() ||
+                std::chrono::steady_clock::now() > analogTransitionDeadline_ ||
+                !wxGetApp().appConfiguration.rigControlConfiguration.hamlibEnableFreqModeChanges ||
+                wxGetApp().appConfiguration.rigControlConfiguration.hamlibEnableFreqChangesOnly ||
+                wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency.get() != analogTransitionFrequency_)
+                analogTransitionFrequency_ = 0;
+            else if (matches && activeRig->getConfirmedMode() == mode)
+            {
+                const auto original = analogTransitionFrequency_;
+                analogTransitionFrequency_ = 0;
+                const int shift = RadioSidebandFrequencyShift(analogTransitionOldMode_, mode);
+                if (freq == original && shift != 0 && (shift > 0 || original > static_cast<uint64_t>(-shift)))
+                {
+                    activeRig->setFrequency(static_cast<uint64_t>(static_cast<int64_t>(original) + shift), true);
+                    return; // The frequency readback updates reporting and the field.
+                }
+            }
+        }
         if (firstFreqUpdateOnConnect_)
         {
             firstFreqUpdateOnConnect_ = false;
@@ -474,7 +504,8 @@ void MainFrame::onFrequencyModeChange_(IRigFrequencyController*, uint64_t freq, 
         bool isLsbFreq = newFreq < 10000000 && !is60MeterBand;
 
         bool isMatchingMode =
-            (!g_analog && (mode == IRigFrequencyController::USB || mode == IRigFrequencyController::DIGU)) ||
+            (!g_analog && (wxGetApp().appConfiguration.getRadioSideband() == RadioSideband::LSB
+                ? IsLowerRadioSideband(mode) : IsUpperRadioSideband(mode))) ||
             (g_analog && isUsbFreq && (mode == IRigFrequencyController::USB)) ||
             (g_analog && isLsbFreq && (mode == IRigFrequencyController::LSB));
 
@@ -563,7 +594,8 @@ void MainFrame::onRadioConnected_(IRigController*)
         
         if (wxGetApp().appConfiguration.rigControlConfiguration.hamlibEnableFreqModeChanges)
         {
-            rigController->setMode(getCurrentMode_());
+            rigController->setMode(getCurrentMode_(),
+                wxGetApp().appConfiguration.getRadioSideband() == RadioSideband::LSB);
         }
     }
 }
@@ -571,6 +603,8 @@ void MainFrame::onRadioConnected_(IRigController*)
 void MainFrame::onRadioDisconnected_(IRigController*)
 {
     CallAfter([&]() {
+        analogTransitionFrequency_ = 0;
+        updateRadioSidebandStatus_();
         m_txtModeStatus->SetLabel(_("unk"));
         m_txtModeStatus->Enable(false);
     });
@@ -582,6 +616,8 @@ void MainFrame::onRadioDisconnected_(IRigController*)
 //-------------------------------------------------------------------------
 void MainFrame::onRigPttChange_(bool pttState)
 {
+    auto frequencyController = snapshotRigFrequencyController();
+    if (frequencyController) frequencyController->setTransmitActive(pttState);
     if (pttState)
     {
         return;
@@ -1385,6 +1421,11 @@ void MainFrame::togglePTT(void) {
     // Record direction now; button value may be toggled by a stray click during
     // the drain loops below, which would corrupt newTx at the end if not checked.
     const bool wasInTx = g_tx.load(std::memory_order_acquire);
+    if (!wasInTx)
+    {
+        auto rigFrequency = snapshotRigFrequencyController();
+        if (rigFrequency) rigFrequency->setTransmitActive(true);
+    }
 
     // Change tabbed page in centre panel depending on PTT state
 
@@ -1632,6 +1673,12 @@ void MainFrame::togglePTT(void) {
         rigPtt->ptt(newTx);
     }
 
+    if (!newTx && (!rigPtt || !rigPtt->isConnected()))
+    {
+        auto rigFrequency = snapshotRigFrequencyController();
+        if (rigFrequency) rigFrequency->setTransmitActive(false);
+    }
+
     // reset level gauge
 
     m_maxLevel = 0;
@@ -1749,6 +1796,8 @@ void MainFrame::OnTogBtnTune(wxCommandEvent&)
 {
     // Ensure background is correct for button.
     bool newTx = m_btnTogTune->GetValue();
+    auto rigFrequency = snapshotRigFrequencyController();
+    if (rigFrequency && newTx) rigFrequency->setTransmitActive(true);
     m_btnTogTune->SetBackgroundColour(newTx ? *wxRED : wxNullColour);
 
     // Update PTT state
@@ -1757,6 +1806,8 @@ void MainFrame::OnTogBtnTune(wxCommandEvent&)
     {
         rigPtt->ptt(newTx);
     }
+    if (rigFrequency && !newTx && (!rigPtt || !rigPtt->isConnected()))
+        rigFrequency->setTransmitActive(false);
 
     // Disable actual TX controls if needed
     m_togBtnVoiceKeyer->Enable(!newTx);
@@ -1792,7 +1843,7 @@ HamlibRigController::Mode MainFrame::getCurrentMode_()
     return GetModeForFrequency(
         wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency, 
         wxGetApp().appConfiguration.rigControlConfiguration.hamlibUseAnalogModes,
-        useAnalog);
+        useAnalog, wxGetApp().appConfiguration.getRadioSideband());
 }
 
 //-------------------------------------------------------------------------
@@ -1800,6 +1851,10 @@ HamlibRigController::Mode MainFrame::getCurrentMode_()
 //-------------------------------------------------------------------------
 void MainFrame::OnTogBtnAnalogClick (wxCommandEvent& event)
 {
+    const bool lsbOverride = wxGetApp().appConfiguration.getRadioSideband() == RadioSideband::LSB;
+    if (lsbOverride && (g_tx.load(std::memory_order_acquire) || txChangeoverOccurring_ || m_btnTogTune->GetValue()))
+        return;
+    analogTransitionFrequency_ = 0;
     auto oldMode = getCurrentMode_();
 
     if (g_analog.load(std::memory_order_relaxed) == 0) {
@@ -1835,7 +1890,16 @@ void MainFrame::OnTogBtnAnalogClick (wxCommandEvent& event)
         auto currentMode = getCurrentMode_();
 
         constexpr int LSB_USB_FREQ_SHIFT_HZ = 3000;
-        if (currentMode == HamlibRigController::LSB && g_analog)
+        if (lsbOverride)
+        {
+            analogTransitionOldMode_ = rigController->getConfirmedMode();
+            if (IsLowerRadioSideband(analogTransitionOldMode_) || IsUpperRadioSideband(analogTransitionOldMode_))
+            {
+                analogTransitionFrequency_ = wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency.get();
+                analogTransitionDeadline_ = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+            }
+        }
+        else if (currentMode == HamlibRigController::LSB && g_analog)
         {
             // If analog is enabled, we should add +3 kHz to the frequency to 
             // ensure we're still listening to the same passband that we were
@@ -1852,7 +1916,7 @@ void MainFrame::OnTogBtnAnalogClick (wxCommandEvent& event)
             rigController->setFrequency(wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency);
         }
 
-        rigController->setMode(currentMode);
+        rigController->setMode(currentMode, lsbOverride);
     }
 
     g_State.store(0, std::memory_order_release);
@@ -2111,7 +2175,8 @@ void MainFrame::OnChangeReportFrequency( wxCommandEvent& )
             rigController->setFrequency(wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency);
             if (wxGetApp().appConfiguration.rigControlConfiguration.hamlibEnableFreqModeChanges)
             {
-                rigController->setMode(getCurrentMode_());
+                rigController->setMode(getCurrentMode_(),
+                    wxGetApp().appConfiguration.getRadioSideband() == RadioSideband::LSB);
             }
         }
     }
@@ -2454,7 +2519,7 @@ void MainFrame::OnToolsImportConfig(wxCommandEvent& event)
     wxFileName fn(path);
     wxGetApp().customConfigFileName = fn.GetFullName();
 
-    SetTitle(wxString::Format("%s (%s)", wxT("FreeDV ") + wxString::FromUTF8(GetFreeDVVersion().c_str()), wxGetApp().customConfigFileName));
+    SetTitle(wxString::Format("%s (%s)", GetFreeDVApplicationTitle(), wxGetApp().customConfigFileName));
 #if defined(UNOFFICIAL_RELEASE)
     wxDateTime buildDate(wxInvalidDateTime);
     wxString::const_iterator iter;
@@ -2519,7 +2584,7 @@ void MainFrame::OnToolsLoadDefaultConfig(wxCommandEvent& event)
 
     // Clear any custom config file indicator from the title bar.
     wxGetApp().customConfigFileName = wxEmptyString;
-    SetTitle(wxT("FreeDV ") + wxString::FromUTF8(GetFreeDVVersion().c_str()));
+    SetTitle(GetFreeDVApplicationTitle());
 #if defined(UNOFFICIAL_RELEASE)
     wxDateTime buildDate(wxInvalidDateTime);
     wxString::const_iterator iter;

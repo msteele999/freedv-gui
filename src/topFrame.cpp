@@ -603,6 +603,24 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
     
     m_btnCenterRx = new wxButton(syncBox, wxID_ANY, _("C&enter RX"), wxDefaultPosition, wxDefaultSize, 0);
     sbSizer3_33->Add(m_btnCenterRx, 0, static_cast<int>(wxALL) | wxALIGN_CENTRE, 5);
+
+    sbSizer3_33->Add(new wxStaticText(syncBox, wxID_ANY, _("Radio Sideband")),
+        0, wxALIGN_CENTER_HORIZONTAL | wxTOP, 5);
+    m_radioSidebandDefault = new wxRadioButton(syncBox, wxID_ANY, _("Default"),
+        wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
+    m_radioSidebandLsb = new wxRadioButton(syncBox, wxID_ANY, _("LSB"));
+    m_radioSidebandDefault->SetName("main.radioSidebandDefault");
+    m_radioSidebandLsb->SetName("main.radioSidebandLsb");
+    m_radioSidebandDefault->SetValue(true);
+    const wxString sidebandHelp = _("Choose while stopped. Both stations must use matching sidebands. CAT settings still apply.");
+    m_radioSidebandDefault->SetToolTip(sidebandHelp);
+    m_radioSidebandLsb->SetToolTip(sidebandHelp);
+    sbSizer3_33->Add(m_radioSidebandDefault, 0, wxLEFT | wxRIGHT | wxTOP, 5);
+    sbSizer3_33->Add(m_radioSidebandLsb, 0, wxLEFT | wxRIGHT | wxBOTTOM, 5);
+    m_textRadioSidebandMode = new wxStaticText(syncBox, wxID_ANY, _("CAT Off"));
+    m_textRadioSidebandMode->SetName("main.textRadioSidebandMode");
+    m_textRadioSidebandMode->SetToolTip(_("Actual radio mode confirmed by CAT readback."));
+    sbSizer3_33->Add(m_textRadioSidebandMode, 0, wxALIGN_CENTER_HORIZONTAL | wxALL, 5);
     
     leftSizer->Add(sbSizer3_33,0, static_cast<int>(wxALL)|static_cast<int>(wxEXPAND)|wxFIXED_MINSIZE, 2);
 

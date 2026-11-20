@@ -24,6 +24,7 @@
 
 #include "config.h"
 #include <atomic>
+#include <chrono>
 #include <wx/wx.h>
 
 #include <wx/tglbtn.h>
@@ -482,6 +483,9 @@ class MainFrame : public TopFrame
         void OnTogBtnOnOff( wxCommandEvent& event ) override;
         void updateRadeModeSelection_();
         void OnRadeModeSelected(wxCommandEvent& event);
+        void updateRadioSidebandSelection_();
+        void updateRadioSidebandStatus_();
+        void OnRadioSidebandSelected(wxCommandEvent& event);
         void OnTogBtnRecord( wxCommandEvent& event ) override;
 
         virtual void OnLogQSO(wxCommandEvent& event) override;
@@ -706,6 +710,9 @@ class MainFrame : public TopFrame
         void setConfiguration_(wxConfigBase* config);
 
         HamlibRigController::Mode getCurrentMode_();
+        IRigFrequencyController::Mode analogTransitionOldMode_ = IRigFrequencyController::UNKNOWN;
+        uint64_t analogTransitionFrequency_ = 0;
+        std::chrono::steady_clock::time_point analogTransitionDeadline_;
         
         void performFreeDVOn_();
         void performFreeDVOff_();

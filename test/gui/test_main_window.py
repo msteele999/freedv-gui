@@ -2912,7 +2912,122 @@ def test_rade_mode_while_running():
                 quit_and_check_log(app)
 
 
+def test_radio_sideband_selection():
+    """Sideband preference is shared by both workspaces and both protocols."""
+    for independent in (False, True):
+        for protocol in (1, 2):
+            for stored, expected in ((None, False), (0, False), (1, True), (-1, False),
+                                     (2, False), ("invalid", False), ("1junk", False)):
+                config = settings(Windows__Independent__active=independent,
+                                  Modem__SelectedRadeMode=protocol, Reporting__Frequency=7177000)
+                if stored is not None:
+                    config["/Modem/RadioSideband"] = stored
+                with freedvtest.start(settings=config) as app:
+                    app.wait_for_window("main")
+                    for name in ("main.radioSidebandDefault", "main.radioSidebandLsb"):
+                        check(app.get(name)["shown"] and app.get(name)["enabled"], name + " unavailable")
+                    check_equal(app.get("main.radioSidebandLsb")["value"], expected, "Loaded sideband")
+                    check_equal(app.get("main.radioSidebandDefault")["value"], not expected, "Default selection")
+                    check_equal(label(app, "main.textRadioSidebandMode"), "CAT Off", "Disabled CAT status")
+                    frequency = app.get("main.cboReportFrequency")["value"]
+                    for name, value in (("main.radioSidebandLsb", 1), ("main.radioSidebandDefault", 0),
+                                        ("main.radioSidebandLsb", 1)):
+                        app.click(name)
+                        check_equal(freedvtest.read_config(app.config_path)["/Modem/RadioSideband"],
+                                    str(value), "Immediately saved preference")
+                        check_equal(app.get("main.cboReportFrequency")["value"], frequency, "Dial frequency")
+                        check_equal(app.state()["running"], False, "Stopped modem")
+                        check_equal(label(app, "main.textRadioSidebandMode"), "CAT Off", "Unchanged CAT state")
+                    quit_and_check_log(app)
+                    with freedvtest.start(config=app.config_path) as again:
+                        again.wait_for_window("main")
+                        check(again.get("main.radioSidebandLsb")["value"], "Preference lost on restart")
+                        quit_and_check_log(again)
+
+
+def test_radio_sideband_session_lock():
+    """Running RX, TX, Tune and startup never permit a preference change."""
+    with audio_devices():
+        for independent in (False, True):
+            for protocol in (1, 2):
+                with freedvtest.start(settings=settings(Windows__Independent__active=independent,
+                        Modem__SelectedRadeMode=protocol, Modem__RadioSideband=1)) as app:
+                    app.wait_for_window("main")
+                    start_modem(app)
+                    def locked():
+                        for name in ("main.radioSidebandDefault", "main.radioSidebandLsb"):
+                            check_equal(app.get(name)["enabled"], False, "Session sideband lock")
+                        try:
+                            app.click("main.radioSidebandDefault")
+                        except freedvtest.FreeDVError as error:
+                            check("disabled" in str(error), "Unexpected sideband selection error")
+                        else:
+                            raise AssertionError("Sideband selection allowed during session")
+                        check(app.get("main.radioSidebandLsb")["value"], "Locked preference changed")
+                    locked()
+                    app.click("main.btnPTT")
+                    wait_for_transmit(app)
+                    locked()
+                    app.click("main.btnPTT")
+                    wait_for_transmit(app, False)
+                    app.click("main.btnTune")
+                    locked()
+                    app.click("main.btnTune")
+                    stop_modem(app)
+                    app.wait_until(lambda: app.get("main.radioSidebandDefault")["enabled"],
+                                   description="sideband unlock after stop")
+                    quit_and_check_log(app)
+
+
+def test_radio_sideband_cat():
+    """Dummy CAT supplies actual mode readback, including analog transitions."""
+    with audio_devices():
+        for independent in (False, True):
+            for protocol in (1, 2):
+                for sideband, analog_modes in ((0, False), (0, True), (1, False), (1, True)):
+                    with freedvtest.start(settings=settings(Windows__Independent__active=independent,
+                            Modem__SelectedRadeMode=protocol, Modem__RadioSideband=sideband,
+                            Hamlib__UseForPTT=True, Hamlib__RigNameStr="Hamlib Dummy",
+                            Hamlib__SerialPort="", Hamlib__UseAnalogModes=analog_modes,
+                            Reporting__Frequency=7177000)) as app:
+                        app.wait_for_window("main")
+                        start_modem(app)
+                        digital = ("LSB" if sideband else "USB") if analog_modes else (
+                            "DIG-L" if sideband else "DIG-U")
+                        def mode_is(expected):
+                            app.wait_until(lambda: label(app, "main.textRadioSidebandMode") == expected,
+                                           description="CAT to confirm " + expected)
+                        mode_is(digital)
+                        app.click("main.btnAnalog")
+                        mode_is("LSB")
+                        app.wait_until(lambda: app.get("main.cboReportFrequency")["value"] ==
+                                       ("7.1770" if sideband else "7.1800"), description="analog dial")
+                        app.click("main.btnAnalog")
+                        mode_is(digital)
+                        app.wait_until(lambda: app.get("main.cboReportFrequency")["value"] == "7.1770",
+                                       description="restored digital dial")
+                        # At 20m the override changes sidebands for analog voice;
+                        # the confirmed transition should shift and then restore.
+                        app.set_value("main.cboReportFrequency", "14.2360")
+                        mode_is(digital)
+                        app.click("main.btnAnalog")
+                        mode_is("USB")
+                        app.wait_until(lambda: app.get("main.cboReportFrequency")["value"] ==
+                                       ("14.2330" if sideband else "14.2360"), description="20m analog dial")
+                        app.click("main.btnAnalog")
+                        mode_is(digital)
+                        app.wait_until(lambda: app.get("main.cboReportFrequency")["value"] == "14.2360",
+                                       description="20m digital dial restored")
+                        stop_modem(app)
+                        app.wait_until(lambda: label(app, "main.textRadioSidebandMode") == "Unknown",
+                                       description="disconnected CAT status")
+                        quit_and_check_log(app)
+
+
 SCENARIOS = {
+    "radio_sideband_cat": test_radio_sideband_cat,
+    "radio_sideband_selection": test_radio_sideband_selection,
+    "radio_sideband_session_lock": test_radio_sideband_session_lock,
     "rade_mode_selection": test_rade_mode_selection,
     "rade_mode_startup": test_rade_mode_startup,
     "rade_mode_while_running": test_rade_mode_while_running,

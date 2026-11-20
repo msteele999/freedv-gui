@@ -23,11 +23,15 @@
 #define FREQUENCY_OPS_H
 
 #include "../../rig_control/HamlibRigController.h"
+#include "../../config/RadioSideband.h"
 
-inline HamlibRigController::Mode GetModeForFrequency(uint64_t frequency, bool useAnalogModes, bool inAnalog)
+inline HamlibRigController::Mode GetModeForFrequency(uint64_t frequency, bool useAnalogModes, bool inAnalog,
+    RadioSideband sideband = RadioSideband::Default)
 {
     if (!inAnalog)
     {
+        if (sideband == RadioSideband::LSB)
+            return useAnalogModes ? HamlibRigController::LSB : HamlibRigController::DIGL;
         // Always DIGU or USB if Analog decode isn't active.
         return (useAnalogModes) ? HamlibRigController::USB : HamlibRigController::DIGU;
     }
@@ -52,6 +56,38 @@ inline HamlibRigController::Mode GetModeForFrequency(uint64_t frequency, bool us
     }
 
     return newMode;
+}
+
+inline bool IsLowerRadioSideband(IRigFrequencyController::Mode mode)
+{
+    return mode == IRigFrequencyController::LSB || mode == IRigFrequencyController::DIGL;
+}
+
+inline bool IsUpperRadioSideband(IRigFrequencyController::Mode mode)
+{
+    return mode == IRigFrequencyController::USB || mode == IRigFrequencyController::DIGU;
+}
+
+// Preserve the same RF passband when changing between confirmed sidebands.
+// Unknown old state cannot justify moving the user's dial frequency.
+inline int RadioSidebandFrequencyShift(IRigFrequencyController::Mode oldMode,
+    IRigFrequencyController::Mode newMode)
+{
+    if (IsUpperRadioSideband(oldMode) && IsLowerRadioSideband(newMode)) return 3000;
+    if (IsLowerRadioSideband(oldMode) && IsUpperRadioSideband(newMode)) return -3000;
+    return 0;
+}
+
+inline const char* RadioSidebandModeLabel(IRigFrequencyController::Mode mode)
+{
+    switch (mode)
+    {
+    case IRigFrequencyController::DIGU: return "DIG-U";
+    case IRigFrequencyController::DIGL: return "DIG-L";
+    case IRigFrequencyController::USB: return "USB";
+    case IRigFrequencyController::LSB: return "LSB";
+    default: return "Unknown";
+    }
 }
 
 #endif // FREQUENCY_OPS_H

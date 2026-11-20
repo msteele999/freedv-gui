@@ -244,15 +244,19 @@ void HamlibRigController::ptt(bool state)
     enqueue_(std::bind(&HamlibRigController::pttImpl_, this, state));
 }
 
-void HamlibRigController::setFrequency(uint64_t frequency)
+void HamlibRigController::setFrequency(uint64_t frequency, bool receiveOnly)
 {
-    noteRequestedFrequency_(frequency);
-    enqueue_(std::bind(&HamlibRigController::setFrequencyImpl_, this, frequency));
+    if (!receiveOnly) noteRequestedFrequency_(frequency);
+    enqueue_([this, frequency, receiveOnly]() {
+        if (receiveOnly && (pttSet_ || isTransmitActive())) return;
+        if (receiveOnly) noteRequestedFrequency_(frequency);
+        setFrequencyImpl_(frequency);
+    });
 }
 
-void HamlibRigController::setMode(IRigFrequencyController::Mode mode)
+void HamlibRigController::setMode(IRigFrequencyController::Mode mode, bool receiveOnly)
 {
-    enqueue_(std::bind(&HamlibRigController::setModeImpl_, this, mode));
+    enqueue_(std::bind(&HamlibRigController::setModeImpl_, this, mode, receiveOnly));
 }
 
 void HamlibRigController::requestCurrentFrequencyMode()
@@ -572,7 +576,7 @@ void HamlibRigController::connectImpl_()
         if (currMode_ != RIG_MODE_NONE)
         {
             currMode_ = RIG_MODE_NONE; // to make setModeImpl_ actually run
-            setModeImpl_(pendingMode_);
+            setModeImpl_(pendingMode_, pendingModeReceiveOnly_);
         }
 
         // Disable timeouts. Now that we're able to connect and send the initial
@@ -598,6 +602,9 @@ void HamlibRigController::connectImpl_()
 
 void HamlibRigController::disconnectImpl_()
 {
+    noteModeReadback_(UNKNOWN);
+    diglUnsupported_ = false;
+    diglFallbackRequested_ = false;
     auto tmpRig = rig_.load(std::memory_order_acquire);
     if (tmpRig) 
     {
@@ -630,6 +637,8 @@ void HamlibRigController::disconnectImpl_()
         rig_.store(nullptr, std::memory_order_release);
         rig_close(tmpRig);
         rig_cleanup(tmpRig);
+        noteModeReadback_(UNKNOWN);
+        setTransmitActive(false);
         
         onRigDisconnected(this);
     }
@@ -750,8 +759,9 @@ void HamlibRigController::setFrequencyImpl_(uint64_t frequencyHz)
     }
 }
 
-void HamlibRigController::setModeImpl_(IRigFrequencyController::Mode mode)
+void HamlibRigController::setModeImpl_(IRigFrequencyController::Mode mode, bool receiveOnly)
 {
+    if (freqOnly_ || (receiveOnly && (pttSet_ || isTransmitActive()))) return;
     rmode_t hamlibMode;
     
     switch (mode)
@@ -766,7 +776,7 @@ void HamlibRigController::setModeImpl_(IRigFrequencyController::Mode mode)
             hamlibMode = RIG_MODE_PKTUSB;
             break;
         case DIGL:
-            hamlibMode = RIG_MODE_PKTLSB;
+            hamlibMode = receiveOnly && diglUnsupported_ ? RIG_MODE_LSB : RIG_MODE_PKTLSB;
             break;
         case FM:
             hamlibMode = RIG_MODE_FM;
@@ -787,7 +797,26 @@ void HamlibRigController::setModeImpl_(IRigFrequencyController::Mode mode)
     {
         currMode_ = hamlibMode;
         pendingMode_ = mode;
+        pendingModeReceiveOnly_ = receiveOnly;
         return;
+    }
+
+    if (receiveOnly)
+    {
+        // With save/restore disabled the dial, rather than reporting config,
+        // owns the starting frequency. Preserve it even on the first change.
+        freq_t frequency = 0;
+        const int cacheTimeout = rig_get_cache_timeout_ms(tmpRig, HAMLIB_CACHE_FREQ);
+        rig_set_cache_timeout_ms(tmpRig, HAMLIB_CACHE_FREQ, 0);
+        const int result = rig_get_freq(tmpRig, RIG_VFO_CURR, &frequency);
+        rig_set_cache_timeout_ms(tmpRig, HAMLIB_CACHE_FREQ, cacheTimeout);
+        if (result != RIG_OK || frequency <= 0)
+        {
+            noteModeReadback_(UNKNOWN);
+            onRigError(this, "Cannot preserve dial frequency before sideband change");
+            return;
+        }
+        currFreq_ = frequencyToPreserve_(static_cast<uint64_t>(frequency));
     }
 
     if (pttSet_)
@@ -812,7 +841,7 @@ void HamlibRigController::setModeImpl_(IRigFrequencyController::Mode mode)
     }
 
     vfo_t currVfo = getWritableVfo_();
-    setModeHelper_(currVfo, hamlibMode);
+    setModeHelper_(currVfo, hamlibMode, receiveOnly && mode == DIGL, receiveOnly);
 
     if (pttSet_)
     {
@@ -836,8 +865,9 @@ void HamlibRigController::setModeImpl_(IRigFrequencyController::Mode mode)
 
 void HamlibRigController::requestCurrentFrequencyModeImpl_()
 {
+    noteModeReadback_(UNKNOWN);
     auto tmpRig = rig_.load(std::memory_order_acquire);
-    if (tmpRig == nullptr || pttSet_)
+    if (tmpRig == nullptr || pttSet_ || isTransmitActive())
     {
         // Note: we ignore attempts to retrieve frequency/mode during
         // TX for several reasons:
@@ -852,7 +882,11 @@ void HamlibRigController::requestCurrentFrequencyModeImpl_()
     vfo_t currVfo = getCurrentVfo_();    
 
 modeAttempt:
+    // Hamlib may otherwise return the mode just requested from its cache.
+    const int cacheTimeout = rig_get_cache_timeout_ms(tmpRig, HAMLIB_CACHE_MODE);
+    rig_set_cache_timeout_ms(tmpRig, HAMLIB_CACHE_MODE, 0);
     int result = rig_get_mode(tmpRig, currVfo, &mode, &passband);
+    rig_set_cache_timeout_ms(tmpRig, HAMLIB_CACHE_MODE, cacheTimeout);
     if (result != RIG_OK && currVfo == RIG_VFO_CURR)
     {
         log_debug("rig_get_mode: error = %s ", rigerror(result));
@@ -950,6 +984,12 @@ freqAttempt:
             // to cause a popup.
             getFreqModeErrorCount_ = 0;
 
+            noteModeReadback_(currMode);
+            if (diglFallbackRequested_ && currMode == LSB)
+            {
+                diglUnsupported_ = true;
+                diglFallbackRequested_ = false;
+            }
             onFreqModeChange(this, freq, currMode);
         }
     }
@@ -1062,7 +1102,8 @@ freqAttempt:
     }
 }
 
-void HamlibRigController::setModeHelper_(vfo_t currVfo, rmode_t mode)
+void HamlibRigController::setModeHelper_(vfo_t currVfo, rmode_t mode, bool allowLsbFallback,
+    bool requireFrequencyPreservation)
 {
     bool setOkay = false;
     
@@ -1079,11 +1120,37 @@ void HamlibRigController::setModeHelper_(vfo_t currVfo, rmode_t mode)
         return;
     }
 
+    if (allowLsbFallback && mode == RIG_MODE_PKTLSB)
+    {
+        rmode_t supported = RIG_MODE_NONE;
+        for (const auto& range : tmpRig->caps->rx_range_list1) supported |= range.modes;
+        for (const auto& range : tmpRig->caps->rx_range_list2) supported |= range.modes;
+        // An empty capability list is inconclusive; try the actual command.
+        if ((supported & RIG_MODE_LSB) && !(supported & RIG_MODE_PKTLSB))
+        {
+            mode = RIG_MODE_LSB;
+            diglFallbackRequested_ = true;
+        }
+    }
+
 modeAttempt:
+    noteModeReadback_(UNKNOWN);
     int result = rig_set_mode(tmpRig, currVfo, mode, RIG_PASSBAND_NOCHANGE);
     if (result != RIG_OK && currVfo == RIG_VFO_CURR)
     {
+        // Only an unsupported/rejected mode warrants changing the request.
+        // Communication, protocol and timeout errors must remain errors.
+        if (allowLsbFallback && mode == RIG_MODE_PKTLSB &&
+            (result == -RIG_ENAVAIL || result == -RIG_ENIMPL ||
+             result == -RIG_EINVAL || result == -RIG_ERJCTED))
+        {
+            mode = RIG_MODE_LSB;
+            allowLsbFallback = false;
+            diglFallbackRequested_ = true;
+            goto modeAttempt;
+        }
         log_debug("rig_set_mode: error = %s ", rigerror(result));
+        diglFallbackRequested_ = false;
         
         if (!errorEncountered_)
         {
@@ -1122,6 +1189,12 @@ modeAttempt:
             if (result != RIG_OK)
             {
                 log_debug("rig_set_freq: error = %s ", rigerror(result));
+                if (requireFrequencyPreservation && !errorEncountered_)
+                {
+                    onRigError(this, std::string("Could not preserve dial frequency after sideband change: ") +
+                        HAMLIB_FRIENDLY_ERROR_FN(result));
+                    errorEncountered_ = true;
+                }
             }
         }
 

@@ -57,8 +57,8 @@ public:
     virtual void disconnect() override;
     virtual bool isConnected() override;
     virtual void ptt(bool state) override;
-    virtual void setFrequency(uint64_t frequency) override;
-    virtual void setMode(IRigFrequencyController::Mode mode) override;
+    virtual void setFrequency(uint64_t frequency, bool receiveOnly = false) override;
+    virtual void setMode(IRigFrequencyController::Mode mode, bool receiveOnly = false) override;
     virtual void requestCurrentFrequencyMode() override;
 
     static void InitializeHamlibLibrary();
@@ -96,6 +96,9 @@ private:
     uint64_t currFreq_;
     rmode_t currMode_;
     IRigFrequencyController::Mode pendingMode_;
+    bool pendingModeReceiveOnly_ = false;
+    bool diglUnsupported_ = false;
+    bool diglFallbackRequested_ = false;
     bool restoreOnDisconnect_;
     uint64_t origFreq_;
     rmode_t origMode_;
@@ -124,13 +127,14 @@ private:
     vfo_t getCurrentVfo_();
     vfo_t getWritableVfo_();
     void setFrequencyHelper_(vfo_t currVfo, uint64_t frequencyHz);
-    void setModeHelper_(vfo_t currVfo, rmode_t mode);
+    void setModeHelper_(vfo_t currVfo, rmode_t mode, bool allowLsbFallback = false,
+        bool requireFrequencyPreservation = false);
     
     void connectImpl_();
     void disconnectImpl_();
     void pttImpl_(bool state);
     void setFrequencyImpl_(uint64_t frequencyHz);
-    void setModeImpl_(IRigFrequencyController::Mode mode);
+    void setModeImpl_(IRigFrequencyController::Mode mode, bool receiveOnly = false);
     void requestCurrentFrequencyModeImpl_();
     
     static RigList RigList_;

@@ -112,10 +112,57 @@ bool upperSidebandJustOutside60MetersDigital()
     return result;
 }
 
+bool radioSidebandOverride()
+{
+    for (const uint64_t frequency : {1997000ULL, 5250000ULL, 5450000ULL, 7177000ULL,
+                                   9999999ULL, 10000000ULL, 14236000ULL, 144200000ULL})
+    {
+        for (const bool analogModes : {false, true})
+        {
+            if (GetModeForFrequency(frequency, analogModes, false, RadioSideband::LSB) !=
+                (analogModes ? Mode::LSB : Mode::DIGL)) return false;
+            if (GetModeForFrequency(frequency, analogModes, false, RadioSideband::Default) !=
+                (analogModes ? Mode::USB : Mode::DIGU)) return false;
+            // Voice policy, including 60m and the 10MHz boundary, is invariant.
+            if (GetModeForFrequency(frequency, analogModes, true, RadioSideband::LSB) !=
+                GetModeForFrequency(frequency, analogModes, true)) return false;
+        }
+    }
+    return true;
+}
+
+bool shiftsOnlyBetweenConfirmedOppositeSidebands()
+{
+    for (const auto lower : {Mode::LSB, Mode::DIGL})
+        for (const auto upper : {Mode::USB, Mode::DIGU})
+            if (RadioSidebandFrequencyShift(lower, upper) != -3000 ||
+                RadioSidebandFrequencyShift(upper, lower) != 3000) return false;
+    for (const auto lower : {Mode::LSB, Mode::DIGL})
+        for (const auto other : {Mode::LSB, Mode::DIGL})
+            if (RadioSidebandFrequencyShift(lower, other) != 0) return false;
+    for (const auto mode : {Mode::USB, Mode::DIGU, Mode::LSB, Mode::DIGL, Mode::UNKNOWN})
+        if (RadioSidebandFrequencyShift(Mode::UNKNOWN, mode) != 0 ||
+            RadioSidebandFrequencyShift(mode, Mode::UNKNOWN) != 0) return false;
+    return true;
+}
+
+bool radioModeLabels()
+{
+    return std::string(RadioSidebandModeLabel(Mode::DIGU)) == "DIG-U" &&
+        std::string(RadioSidebandModeLabel(Mode::DIGL)) == "DIG-L" &&
+        std::string(RadioSidebandModeLabel(Mode::USB)) == "USB" &&
+        std::string(RadioSidebandModeLabel(Mode::LSB)) == "LSB" &&
+        std::string(RadioSidebandModeLabel(Mode::UNKNOWN)) == "Unknown" &&
+        std::string(RadioSidebandModeLabel(Mode::FM)) == "Unknown";
+}
+
 }
 
 int main()
 {
+    executeTestCase("radioSidebandOverride", radioSidebandOverride);
+    executeTestCase("shiftsOnlyBetweenConfirmedOppositeSidebands", shiftsOnlyBetweenConfirmedOppositeSidebands);
+    executeTestCase("radioModeLabels", radioModeLabels);
     executeTestCase("lowerSidebandBelow10MHzAnalog", lowerSidebandBelow10MHzAnalog);
     executeTestCase("upperSidebandBelow10MHzDigital", upperSidebandBelow10MHzDigital);
     executeTestCase("upperSidebandFrom10MHzAnalog", upperSidebandFrom10MHzAnalog);

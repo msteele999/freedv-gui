@@ -165,6 +165,7 @@ FreeDVConfiguration::FreeDVConfiguration()
     , showDecodeStats("/Debug/showDecodeStats", false)
     , autoStartOnLaunch("/Modem/autoStartOnLaunch", false)
     , selectedRadeMode_("/Modem/SelectedRadeMode", static_cast<long>(RadeMode::RADEV1))
+    , radioSideband_("/Modem/RadioSideband", static_cast<long>(RadioSideband::Default))
 {
     // empty
 }
@@ -177,6 +178,16 @@ RadeMode FreeDVConfiguration::getSelectedRadeMode()
 void FreeDVConfiguration::setSelectedRadeMode(RadeMode mode)
 {
     selectedRadeMode_ = static_cast<long>(RadeModes::FromStoredValue(static_cast<long>(mode)));
+}
+
+RadioSideband FreeDVConfiguration::getRadioSideband()
+{
+    return RadioSidebands::FromStoredValue(radioSideband_.get());
+}
+
+void FreeDVConfiguration::setRadioSideband(RadioSideband sideband)
+{
+    radioSideband_ = static_cast<long>(RadioSidebands::FromStoredValue(static_cast<long>(sideband)));
 }
 
 void FreeDVConfiguration::load(wxConfigBase* config)
@@ -351,6 +362,8 @@ void FreeDVConfiguration::load(wxConfigBase* config)
     load_(config, autoStartOnLaunch);
     load_(config, selectedRadeMode_);
     setSelectedRadeMode(getSelectedRadeMode());
+    load_(config, radioSideband_);
+    setRadioSideband(getRadioSideband());
 
     load_(config, txAttenByBand);
     load_(config, tuneAttenByBand);
@@ -464,6 +477,7 @@ void FreeDVConfiguration::save(wxConfigBase* config)
     save_(config, showDecodeStats);
     save_(config, autoStartOnLaunch);
     save_(config, selectedRadeMode_);
+    save_(config, radioSideband_);
 
     save_(config, txAttenByBand);
     save_(config, tuneAttenByBand);

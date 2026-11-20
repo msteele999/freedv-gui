@@ -116,6 +116,8 @@ struct RadioFaults
     // Whether a faulted get_vfo reports that VFO information isn't available
     // right now (-RIG_ENAVAIL) rather than outright refusing the request.
     static inline std::atomic<bool> getVfoUnavailable { false };
+    static inline std::atomic<int> diglError { 0 }, diglRequests { 0 }, pttRequests { 0 }, modeRequests { 0 };
+    static inline std::atomic<bool> shiftFrequencyOnMode { false };
 
     static inline struct rig_caps hookedCaps;
     static inline const struct rig_caps* realCaps = nullptr;
@@ -127,6 +129,11 @@ struct RadioFaults
             fault->clear();
         }
         getVfoUnavailable = false;
+        diglError = 0;
+        diglRequests = 0;
+        pttRequests = 0;
+        modeRequests = 0;
+        shiftFrequencyOnMode = false;
     }
 
     // Must be called on the controller's thread (see HamlibRigControllerTestAccess).
@@ -135,6 +142,7 @@ struct RadioFaults
         realCaps = rig->caps;
         hookedCaps = *realCaps;
         hookedCaps.set_ptt = [](RIG* r, vfo_t vfo, ptt_t ptt) -> int {
+            ++pttRequests;
             return setPtt.shouldFail() ? -RIG_EIO : realCaps->set_ptt(r, vfo, ptt);
         };
         hookedCaps.set_freq = [](RIG* r, vfo_t vfo, freq_t freq) -> int {
@@ -144,7 +152,20 @@ struct RadioFaults
             return getFreq.shouldFail() ? -RIG_EIO : realCaps->get_freq(r, vfo, freq);
         };
         hookedCaps.set_mode = [](RIG* r, vfo_t vfo, rmode_t mode, pbwidth_t width) -> int {
-            return setMode.shouldFail() ? -RIG_EIO : realCaps->set_mode(r, vfo, mode, width);
+            ++modeRequests;
+            if (mode == RIG_MODE_PKTLSB)
+            {
+                ++diglRequests;
+                if (diglError != 0) return diglError;
+            }
+            const int result = setMode.shouldFail() ? -RIG_EIO : realCaps->set_mode(r, vfo, mode, width);
+            if (result == RIG_OK && shiftFrequencyOnMode)
+            {
+                freq_t frequency = 0;
+                realCaps->get_freq(r, vfo, &frequency);
+                realCaps->set_freq(r, vfo, frequency + 700);
+            }
+            return result;
         };
         hookedCaps.get_mode = [](RIG* r, vfo_t vfo, rmode_t* mode, pbwidth_t* width) -> int {
             return getMode.shouldFail() ? -RIG_EIO : realCaps->get_mode(r, vfo, mode, width);
@@ -536,6 +557,119 @@ private:
         cv.notify_all();
     }
 };
+
+bool diglFallsBackOnlyForUnsupportedCommands()
+{
+    for (const int error : {-RIG_ENAVAIL, -RIG_ENIMPL, -RIG_EINVAL, -RIG_ERJCTED})
+    {
+        Fixture f;
+        if (!f.connectToFaultyRadioOn(7177000, IRigFrequencyController::USB)) return false;
+        RadioFaults::diglError = error;
+        f.controller.setMode(IRigFrequencyController::DIGL, true);
+        if (!f.radioReports(7177000, IRigFrequencyController::LSB) || !f.noErrors()) return false;
+        if (f.controller.getConfirmedMode() != IRigFrequencyController::LSB) return false;
+        const int attempted = RadioFaults::diglRequests;
+        f.controller.setMode(IRigFrequencyController::USB);
+        if (!f.radioReports(7177000, IRigFrequencyController::USB)) return false;
+        f.controller.setMode(IRigFrequencyController::DIGL, true);
+        if (!f.radioReports(7177000, IRigFrequencyController::LSB)) return false;
+        if (RadioFaults::diglRequests != attempted) return false;
+    }
+    return true;
+}
+
+bool diglDoesNotFallBackOnCommunicationFailure()
+{
+    for (const int error : {-RIG_ETIMEOUT, -RIG_EIO, -RIG_EPROTO})
+    {
+        Fixture f;
+        if (!f.connectToFaultyRadioOn(7177000, IRigFrequencyController::USB)) return false;
+        RadioFaults::diglError = error;
+        f.controller.setMode(IRigFrequencyController::DIGL, true);
+        f.waitUntilIdle();
+        if (f.controller.getConfirmedMode() != IRigFrequencyController::UNKNOWN ||
+            !f.radioIsOn(7177000, RIG_MODE_USB) || !f.reportsOneError("Could not set mode")) return false;
+    }
+    return true;
+}
+
+bool sidebandOverrideNeverUnkeysTransmit()
+{
+    Fixture f;
+    if (!f.connectToFaultyRadioOn(7177000, IRigFrequencyController::USB)) return false;
+    // Both CAT PTT and separate serial/external PTT must block the worker.
+    for (const bool external : {false, true})
+    {
+        if (external) f.controller.setTransmitActive(true);
+        else f.controller.ptt(true);
+        f.waitUntilIdle();
+        const int pttRequests = RadioFaults::pttRequests;
+        const int modeRequests = RadioFaults::modeRequests;
+        f.controller.setMode(IRigFrequencyController::DIGL, true);
+        f.controller.setMode(IRigFrequencyController::LSB, true);
+        f.controller.setFrequency(14236000, true);
+        f.waitUntilIdle();
+        if (RadioFaults::pttRequests != pttRequests || RadioFaults::modeRequests != modeRequests) return false;
+        if (external) f.controller.setTransmitActive(false);
+        else f.controller.ptt(false);
+        f.waitUntilIdle();
+    }
+    f.controller.setMode(IRigFrequencyController::DIGL, true);
+    return f.radioReports(7177000, IRigFrequencyController::DIGL) && f.noErrors();
+}
+
+bool sidebandPreservesDialDespiteRadioModeOffset()
+{
+    Fixture f;
+    if (!f.connectToFaultyRadioOn(7177000, IRigFrequencyController::USB)) return false;
+    RadioFaults::shiftFrequencyOnMode = true;
+    f.controller.setMode(IRigFrequencyController::DIGL, true);
+    return f.radioReports(7177000, IRigFrequencyController::DIGL) && f.noErrors();
+}
+
+bool frequencyOnlyRejectsSidebandRequests()
+{
+    Fixture f(DUMMY_RIG_NAME, HamlibRigController::PTT_VIA_CAT, false, true);
+    if (!f.connectToFaultyRadio()) return false;
+    const int before = RadioFaults::modeRequests;
+    f.controller.setMode(IRigFrequencyController::DIGL, true);
+    f.controller.setMode(IRigFrequencyController::LSB, true);
+    f.waitUntilIdle();
+    return RadioFaults::modeRequests == before && f.noErrors();
+}
+
+bool sidebandFrequencyPreservationFailureIsReported()
+{
+    Fixture f;
+    if (!f.connectToFaultyRadioOn(7177000, IRigFrequencyController::USB)) return false;
+    RadioFaults::shiftFrequencyOnMode = true;
+    RadioFaults::setFreq.always();
+    f.controller.setMode(IRigFrequencyController::DIGL, true);
+    return f.reportsOneError("Could not preserve dial frequency after sideband change");
+}
+
+bool requestedModeIsNotConfirmedWithoutReadback()
+{
+    Fixture f;
+    if (!f.connectToFaultyRadioOn(7177000, IRigFrequencyController::USB)) return false;
+    RadioFaults::getMode.always();
+    f.controller.setMode(IRigFrequencyController::DIGL, true);
+    f.waitUntilIdle();
+    return f.controller.getConfirmedMode() == IRigFrequencyController::UNKNOWN;
+}
+
+bool diglUsesAdvertisedCapabilities()
+{
+    Fixture f;
+    if (!f.connectToFaultyRadioOn(7177000, IRigFrequencyController::USB)) return false;
+    f.onRadio([](RIG*) {
+        for (auto& range : RadioFaults::hookedCaps.rx_range_list1) range.modes &= ~RIG_MODE_PKTLSB;
+        for (auto& range : RadioFaults::hookedCaps.rx_range_list2) range.modes &= ~RIG_MODE_PKTLSB;
+    });
+    f.controller.setMode(IRigFrequencyController::DIGL, true);
+    return f.radioReports(7177000, IRigFrequencyController::LSB) &&
+        RadioFaults::diglRequests == 0 && f.noErrors();
+}
 
 bool rigListIsPopulated()
 {
@@ -2018,6 +2152,14 @@ int main()
     executeTestCase("reportsErrorForUnknownRig", reportsErrorForUnknownRig);
     executeTestCase("reportsErrorWhenAlreadyConnected", reportsErrorWhenAlreadyConnected);
     executeTestCase("setsFrequencyAndMode", setsFrequencyAndMode);
+    executeTestCase("diglFallsBackOnlyForUnsupportedCommands", diglFallsBackOnlyForUnsupportedCommands);
+    executeTestCase("diglDoesNotFallBackOnCommunicationFailure", diglDoesNotFallBackOnCommunicationFailure);
+    executeTestCase("sidebandOverrideNeverUnkeysTransmit", sidebandOverrideNeverUnkeysTransmit);
+    executeTestCase("sidebandPreservesDialDespiteRadioModeOffset", sidebandPreservesDialDespiteRadioModeOffset);
+    executeTestCase("frequencyOnlyRejectsSidebandRequests", frequencyOnlyRejectsSidebandRequests);
+    executeTestCase("sidebandFrequencyPreservationFailureIsReported", sidebandFrequencyPreservationFailureIsReported);
+    executeTestCase("requestedModeIsNotConfirmedWithoutReadback", requestedModeIsNotConfirmedWithoutReadback);
+    executeTestCase("diglUsesAdvertisedCapabilities", diglUsesAdvertisedCapabilities);
     executeTestCase("setsEachSupportedMode", setsEachSupportedMode);
     executeTestCase("appliesModeSetBeforeConnecting", appliesModeSetBeforeConnecting);
     executeTestCase("appliesFrequencySetBeforeConnecting", appliesFrequencySetBeforeConnecting);

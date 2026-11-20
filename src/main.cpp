@@ -70,6 +70,8 @@
 #include "gui/theme/FreeDVTheme.h"
 #include "gui/util/WindowPositionRestore.h"
 #include "gui/util/TabLayoutSerializer.h"
+#include "gui/util/ApplicationTitle.h"
+#include "gui/util/FrequencyOps.h"
 
 #include "util/logging/ulog.h"
 #include "util/audio_spin_mutex.h"
@@ -1206,6 +1208,7 @@ void MainFrame::loadConfiguration_()
     else if (utFreeDVMode == "RADEV2")
         wxGetApp().appConfiguration.setSelectedRadeMode(RadeMode::RADEV2);
     updateRadeModeSelection_();
+    updateRadioSidebandSelection_();
     watchlistWindow_->RestoreGeometry();
     watchlistWindow_->RefreshAppearance();
     applyDecodedSpeechFontSize_();
@@ -1517,7 +1520,7 @@ void MainFrame::loadConfiguration_()
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=
 // Class MainFrame(wxFrame* pa->ent) : TopFrame(parent)
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=
-MainFrame::MainFrame(wxWindow *parent) : TopFrame(parent, wxID_ANY, wxT("FreeDV ") + wxString::FromUTF8(GetFreeDVVersion().c_str())),
+MainFrame::MainFrame(wxWindow *parent) : TopFrame(parent, wxID_ANY, GetFreeDVApplicationTitle()),
 
     // Create needed strings in advance so we don't need to continually
     // reallocate memory every time through OnTimer() below. We prioritize
@@ -1569,7 +1572,7 @@ MainFrame::MainFrame(wxWindow *parent) : TopFrame(parent, wxID_ANY, wxT("FreeDV 
     // Add config file name to title bar if provided at the command line.
     if (wxGetApp().customConfigFileName != "")
     {
-        SetTitle(wxString::Format("%s (%s)", wxT("FreeDV ") + wxString::FromUTF8(GetFreeDVVersion().c_str()), wxGetApp().customConfigFileName));
+        SetTitle(wxString::Format("%s (%s)", GetFreeDVApplicationTitle(), wxGetApp().customConfigFileName));
     }
 
 #if defined(UNOFFICIAL_RELEASE)
@@ -1749,6 +1752,17 @@ MainFrame::MainFrame(wxWindow *parent) : TopFrame(parent, wxID_ANY, wxT("FreeDV 
     m_btnTogPTT->Bind(wxEVT_LEAVE_WINDOW, &MainFrame::OnTogBtnPTTMouseLeave, this);
 
     m_choiceRadeMode->Bind(wxEVT_CHOICE, &MainFrame::OnRadeModeSelected, this);
+    m_radioSidebandDefault->Bind(wxEVT_RADIOBUTTON, &MainFrame::OnRadioSidebandSelected, this);
+    m_radioSidebandLsb->Bind(wxEVT_RADIOBUTTON, &MainFrame::OnRadioSidebandSelected, this);
+    m_radioSidebandDefault->Bind(wxEVT_UPDATE_UI, [this](wxUpdateUIEvent& event) {
+        event.Enable(!m_RxRunning.load(std::memory_order_acquire) && !onOffInProgress_ &&
+            !terminating_ && m_togBtnOnOff->IsEnabled() && !txChangeoverOccurring_ &&
+            !g_tx.load(std::memory_order_acquire) && !m_btnTogTune->GetValue());
+        updateRadioSidebandStatus_();
+    });
+    m_radioSidebandLsb->Bind(wxEVT_UPDATE_UI, [this](wxUpdateUIEvent& event) {
+        event.Enable(m_radioSidebandDefault->IsEnabled());
+    });
     loadConfiguration_();
 
 #ifdef _USE_TIMER
@@ -3482,7 +3496,8 @@ void MainFrame::performFreeDVOn_()
 
                     if (wxGetApp().appConfiguration.rigControlConfiguration.hamlibEnableFreqModeChanges)
                     {
-                        rigController->setMode(getCurrentMode_());
+                        rigController->setMode(getCurrentMode_(),
+                            wxGetApp().appConfiguration.getRadioSideband() == RadioSideband::LSB);
                     }
                 }
 
@@ -3747,6 +3762,54 @@ void MainFrame::performFreeDVOff_()
     });
 }
 
+void MainFrame::updateRadioSidebandSelection_()
+{
+    const bool lsb = wxGetApp().appConfiguration.getRadioSideband() == RadioSideband::LSB;
+    m_radioSidebandDefault->SetValue(!lsb);
+    m_radioSidebandLsb->SetValue(lsb);
+    const bool enabled = !m_RxRunning.load(std::memory_order_acquire) && !onOffInProgress_ &&
+        !terminating_ && m_togBtnOnOff->IsEnabled() && !txChangeoverOccurring_ &&
+        !g_tx.load(std::memory_order_acquire) && !m_btnTogTune->GetValue();
+    m_radioSidebandDefault->Enable(enabled);
+    m_radioSidebandLsb->Enable(enabled);
+}
+
+void MainFrame::updateRadioSidebandStatus_()
+{
+    auto& config = wxGetApp().appConfiguration.rigControlConfiguration;
+    const bool catEnabled = config.hamlibUseForPTT.get()
+#if defined(WIN32)
+        || config.useOmniRig.get()
+#endif
+        ;
+    auto rig = snapshotRigFrequencyController();
+    const wxString label = !catEnabled ? _("CAT Off") :
+        rig && rig->isConnected() ? wxGetTranslation(RadioSidebandModeLabel(rig->getConfirmedMode())) : _("Unknown");
+    if (m_textRadioSidebandMode->GetLabel() != label)
+    {
+        m_textRadioSidebandMode->SetLabel(label);
+        m_textRadioSidebandMode->GetContainingSizer()->Layout();
+    }
+}
+
+void MainFrame::OnRadioSidebandSelected(wxCommandEvent&)
+{
+    // Reject queued/programmatic events as well as disabled user input.
+    if (m_RxRunning.load(std::memory_order_acquire) || onOffInProgress_ || terminating_ ||
+        !m_togBtnOnOff->IsEnabled() || txChangeoverOccurring_ || g_tx.load(std::memory_order_acquire) ||
+        m_btnTogTune->GetValue())
+    {
+        updateRadioSidebandSelection_();
+        return;
+    }
+    auto& config = wxGetApp().appConfiguration;
+    config.setRadioSideband(m_radioSidebandLsb->GetValue() ? RadioSideband::LSB : RadioSideband::Default);
+    config.save(pConfig);
+    pConfig->Flush();
+    // The next session's existing CAT connection/startup path applies it.
+    // Selection alone must not tune the radio or change reporting frequency.
+}
+
 void MainFrame::updateRadeModeSelection_()
 {
     const auto selected = wxGetApp().appConfiguration.getSelectedRadeMode();
@@ -3801,6 +3864,8 @@ void MainFrame::OnTogBtnOnOff(wxCommandEvent&)
     // Disable buttons while on/off is occurring
     m_togBtnOnOff->Enable(false);
     m_choiceRadeMode->Enable(false);
+    m_radioSidebandDefault->Enable(false);
+    m_radioSidebandLsb->Enable(false);
     m_togBtnAnalog->Enable(false);
     m_togBtnVoiceKeyer->Enable(false);
     m_btnTogPTT->Enable(false);
@@ -3882,6 +3947,7 @@ void MainFrame::OnTogBtnOnOff(wxCommandEvent&)
                 m_togBtnOnOff->Enable(true);
                 m_choiceRadeMode->Enable(!m_RxRunning.load(std::memory_order_acquire));
                 onOffInProgress_ = false;
+                updateRadioSidebandSelection_();
 
                 // On some systems the Report Frequency box ends up getting
                 // focus after clicking on Start. This causes the frequency
@@ -3940,6 +4006,7 @@ void MainFrame::OnTogBtnOnOff(wxCommandEvent&)
                 m_togBtnOnOff->Enable(true);
                 m_choiceRadeMode->Enable(!m_RxRunning.load(std::memory_order_acquire));
                 onOffInProgress_ = false;
+                updateRadioSidebandSelection_();
 
                 if (terminating_)
                 {

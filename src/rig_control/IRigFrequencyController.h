@@ -50,9 +50,33 @@ public:
     // Event handlers that are called by implementers of this interface.
     EventHandler<IRigFrequencyController*, uint64_t, Mode> onFreqModeChange;
     
-    virtual void setFrequency(uint64_t frequency) = 0;
-    virtual void setMode(Mode mode) = 0;
+    virtual void setFrequency(uint64_t frequency, bool receiveOnly = false) = 0;
+    // receiveOnly is used by the sideband override. It must never unkey a
+    // transmitting rig; DIGL may fall back to LSB on an unsupported command.
+    virtual void setMode(Mode mode, bool receiveOnly = false) = 0;
     virtual void requestCurrentFrequencyMode() = 0;
+
+    // Also covers PTT controlled by a different controller (e.g. serial PTT
+    // with OmniRig). Set before TX/Tune starts, clear on PTT-off acknowledgement.
+    void setTransmitActive(bool active)
+    {
+        transmitActive_.store(active, std::memory_order_release);
+        if (active) noteModeReadback_(UNKNOWN);
+    }
+
+    bool isTransmitActive() const
+    {
+        return transmitActive_.load(std::memory_order_acquire);
+    }
+
+    Mode getConfirmedMode() const
+    {
+        // A previously successful poll is not indefinite confirmation after
+        // a cable is removed, a command fails, or polling stops during TX.
+        if (isTransmitActive() || nowMs_() - modeReadAtMs_.load(std::memory_order_acquire) > 5000)
+            return UNKNOWN;
+        return confirmedMode_.load(std::memory_order_acquire);
+    }
 
     // Whether a frequency reported by onFreqModeChange predates the one last
     // asked for with setFrequency(): it was read from the radio before that
@@ -80,11 +104,26 @@ public:
 protected:
     IRigFrequencyController() = default;
 
+    void noteModeReadback_(Mode mode)
+    {
+        modeReadAtMs_.store(nowMs_(), std::memory_order_release);
+        confirmedMode_.store(mode, std::memory_order_release);
+    }
+
     // For implementers' setFrequency().
     void noteRequestedFrequency_(uint64_t frequency)
     {
         requestedAtMs_.store(nowMs_(), std::memory_order_release);
         requestedFrequency_.store(frequency, std::memory_order_release);
+    }
+
+    // A mode command immediately following QSY must preserve that requested
+    // dial, even if an asynchronous backend still reports its previous dial.
+    uint64_t frequencyToPreserve_(uint64_t observed) const
+    {
+        const auto requested = requestedFrequency_.load(std::memory_order_acquire);
+        return requested != 0 && nowMs_() - requestedAtMs_.load(std::memory_order_acquire) <= PENDING_FREQUENCY_TIMEOUT_MS
+            ? requested : observed;
     }
 
 private:
@@ -98,6 +137,9 @@ private:
 
     std::atomic<uint64_t> requestedFrequency_{0};
     std::atomic<int64_t> requestedAtMs_{0};
+    std::atomic<bool> transmitActive_{false};
+    std::atomic<Mode> confirmedMode_{UNKNOWN};
+    std::atomic<int64_t> modeReadAtMs_{0};
 };
 
 #endif // I_RIG_FREQUENCY_CONTROLLER_H

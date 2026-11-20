@@ -1735,7 +1735,8 @@ void FreeDVReporterDialog::OnItemDoubleClick(wxDataViewEvent& event)
                     GetModeForFrequency(
                         frequency, 
                         wxGetApp().appConfiguration.rigControlConfiguration.hamlibUseAnalogModes, 
-                        useAnalog));
+                        useAnalog, wxGetApp().appConfiguration.getRadioSideband()),
+                    wxGetApp().appConfiguration.getRadioSideband() == RadioSideband::LSB);
             }
         }
         DeselectItem();

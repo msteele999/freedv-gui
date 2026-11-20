@@ -65,6 +65,42 @@ bool radeModesSurviveRestart()
     return true;
 }
 
+bool radioSidebandDefaultsAndValidation()
+{
+    FreeDVConfiguration settings;
+    if (settings.getRadioSideband() != RadioSideband::Default) return false;
+    for (const auto value : {"", "-1", "2", "999999", "invalid", "1junk"})
+    {
+        auto config = makeTestConfig();
+        if (*value) config->Write("/Modem/RadioSideband", value);
+        settings.setRadioSideband(RadioSideband::LSB);
+        settings.load(config.get());
+        if (settings.getRadioSideband() != RadioSideband::Default) return false;
+    }
+    settings.setRadioSideband(static_cast<RadioSideband>(-1));
+    return settings.getRadioSideband() == RadioSideband::Default;
+}
+
+bool radioSidebandSurvivesRestartForBothProtocols()
+{
+    for (const auto mode : RadeModes::selectable)
+        for (const auto sideband : {RadioSideband::Default, RadioSideband::LSB})
+        {
+            auto config = makeTestConfig("[Unrelated]\nKeep=preserve me\n");
+            FreeDVConfiguration first;
+            first.load(config.get());
+            first.setSelectedRadeMode(mode);
+            first.setRadioSideband(sideband);
+            first.save(config.get());
+            auto disk = reload(*config);
+            FreeDVConfiguration second;
+            second.load(disk.get());
+            if (second.getRadioSideband() != sideband || second.getSelectedRadeMode() != mode ||
+                disk->Read("/Unrelated/Keep", "") != "preserve me") return false;
+        }
+    return true;
+}
+
 bool audioSampleRatesDefaultToUnset()
 {
     auto config = makeTestConfig();
@@ -700,6 +736,8 @@ int main()
 
     executeTestCase("radeModeDefaultsAndValidation", radeModeDefaultsAndValidation);
     executeTestCase("radeModesSurviveRestart", radeModesSurviveRestart);
+    executeTestCase("radioSidebandDefaultsAndValidation", radioSidebandDefaultsAndValidation);
+    executeTestCase("radioSidebandSurvivesRestartForBothProtocols", radioSidebandSurvivesRestartForBothProtocols);
     executeTestCase("audioSampleRatesDefaultToUnset", audioSampleRatesDefaultToUnset);
     executeTestCase("audioSampleRatesMigrateFromPerCardRates", audioSampleRatesMigrateFromPerCardRates);
     executeTestCase("audioPerDirectionRatesTakePrecedence", audioPerDirectionRatesTakePrecedence);
