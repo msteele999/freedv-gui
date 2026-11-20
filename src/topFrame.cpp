@@ -612,7 +612,7 @@ TopFrame::TopFrame(wxWindow* parent, wxWindowID id, const wxString& title, const
     m_radioSidebandDefault->SetName("main.radioSidebandDefault");
     m_radioSidebandLsb->SetName("main.radioSidebandLsb");
     m_radioSidebandDefault->SetValue(true);
-    const wxString sidebandHelp = _("Choose while stopped. Both stations must use matching sidebands. CAT settings still apply.");
+    const wxString sidebandHelp = _("Choose while stopped. Both stations must use matching sidebands. With LSB, the operator chooses the frequency; FreeDV does not compensate the dial. CAT settings still apply.");
     m_radioSidebandDefault->SetToolTip(sidebandHelp);
     m_radioSidebandLsb->SetToolTip(sidebandHelp);
     sbSizer3_33->Add(m_radioSidebandDefault, 0, wxLEFT | wxRIGHT | wxTOP, 5);

@@ -801,24 +801,6 @@ void HamlibRigController::setModeImpl_(IRigFrequencyController::Mode mode, bool 
         return;
     }
 
-    if (receiveOnly)
-    {
-        // With save/restore disabled the dial, rather than reporting config,
-        // owns the starting frequency. Preserve it even on the first change.
-        freq_t frequency = 0;
-        const int cacheTimeout = rig_get_cache_timeout_ms(tmpRig, HAMLIB_CACHE_FREQ);
-        rig_set_cache_timeout_ms(tmpRig, HAMLIB_CACHE_FREQ, 0);
-        const int result = rig_get_freq(tmpRig, RIG_VFO_CURR, &frequency);
-        rig_set_cache_timeout_ms(tmpRig, HAMLIB_CACHE_FREQ, cacheTimeout);
-        if (result != RIG_OK || frequency <= 0)
-        {
-            noteModeReadback_(UNKNOWN);
-            onRigError(this, "Cannot preserve dial frequency before sideband change");
-            return;
-        }
-        currFreq_ = frequencyToPreserve_(static_cast<uint64_t>(frequency));
-    }
-
     if (pttSet_)
     {
         // If transmitting, temporarily stop transmitting so we can change the mode.
@@ -841,7 +823,7 @@ void HamlibRigController::setModeImpl_(IRigFrequencyController::Mode mode, bool 
     }
 
     vfo_t currVfo = getWritableVfo_();
-    setModeHelper_(currVfo, hamlibMode, receiveOnly && mode == DIGL, receiveOnly);
+    setModeHelper_(currVfo, hamlibMode, receiveOnly && mode == DIGL, !receiveOnly);
 
     if (pttSet_)
     {
@@ -1103,7 +1085,7 @@ freqAttempt:
 }
 
 void HamlibRigController::setModeHelper_(vfo_t currVfo, rmode_t mode, bool allowLsbFallback,
-    bool requireFrequencyPreservation)
+    bool restoreFrequency)
 {
     bool setOkay = false;
     
@@ -1172,22 +1154,17 @@ modeAttempt:
     {
         currMode_ = mode;
 
-        // We request the frequency to be set again to work around an issue with the 
+        // Default requests the frequency again to work around an issue with the
         // FTDX10 where mode changes between LSB and USB cause the VFO frequency to shift
         // by 700 Hz. This ensures that the frequency we're currently set to is in sync
-        // with the VFO frequency.
-        if (currFreq_ > 0)
+        // with the VFO frequency. The LSB override never compensates a mode
+        // change: its operator owns the dial, including radio-specific offsets.
+        if (restoreFrequency && currFreq_ > 0)
         {
             result = rig_set_freq(tmpRig, currVfo, currFreq_);
             if (result != RIG_OK)
             {
                 log_debug("rig_set_freq: error = %s ", rigerror(result));
-                if (requireFrequencyPreservation && !errorEncountered_)
-                {
-                    onRigError(this, std::string("Could not preserve dial frequency after sideband change: ") +
-                        HAMLIB_FRIENDLY_ERROR_FN(result));
-                    errorEncountered_ = true;
-                }
             }
         }
 

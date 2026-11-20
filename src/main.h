@@ -710,9 +710,6 @@ class MainFrame : public TopFrame
         void setConfiguration_(wxConfigBase* config);
 
         HamlibRigController::Mode getCurrentMode_();
-        IRigFrequencyController::Mode analogTransitionOldMode_ = IRigFrequencyController::UNKNOWN;
-        uint64_t analogTransitionFrequency_ = 0;
-        std::chrono::steady_clock::time_point analogTransitionDeadline_;
         
         void performFreeDVOn_();
         void performFreeDVOff_();

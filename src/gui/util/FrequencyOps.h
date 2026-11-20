@@ -68,16 +68,6 @@ inline bool IsUpperRadioSideband(IRigFrequencyController::Mode mode)
     return mode == IRigFrequencyController::USB || mode == IRigFrequencyController::DIGU;
 }
 
-// Preserve the same RF passband when changing between confirmed sidebands.
-// Unknown old state cannot justify moving the user's dial frequency.
-inline int RadioSidebandFrequencyShift(IRigFrequencyController::Mode oldMode,
-    IRigFrequencyController::Mode newMode)
-{
-    if (IsUpperRadioSideband(oldMode) && IsLowerRadioSideband(newMode)) return 3000;
-    if (IsLowerRadioSideband(oldMode) && IsUpperRadioSideband(newMode)) return -3000;
-    return 0;
-}
-
 inline const char* RadioSidebandModeLabel(IRigFrequencyController::Mode mode)
 {
     switch (mode)

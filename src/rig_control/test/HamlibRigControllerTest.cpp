@@ -116,7 +116,7 @@ struct RadioFaults
     // Whether a faulted get_vfo reports that VFO information isn't available
     // right now (-RIG_ENAVAIL) rather than outright refusing the request.
     static inline std::atomic<bool> getVfoUnavailable { false };
-    static inline std::atomic<int> diglError { 0 }, diglRequests { 0 }, pttRequests { 0 }, modeRequests { 0 };
+    static inline std::atomic<int> diglError { 0 }, diglRequests { 0 }, pttRequests { 0 }, modeRequests { 0 }, frequencyRequests { 0 };
     static inline std::atomic<bool> shiftFrequencyOnMode { false };
 
     static inline struct rig_caps hookedCaps;
@@ -133,6 +133,7 @@ struct RadioFaults
         diglRequests = 0;
         pttRequests = 0;
         modeRequests = 0;
+        frequencyRequests = 0;
         shiftFrequencyOnMode = false;
     }
 
@@ -146,6 +147,7 @@ struct RadioFaults
             return setPtt.shouldFail() ? -RIG_EIO : realCaps->set_ptt(r, vfo, ptt);
         };
         hookedCaps.set_freq = [](RIG* r, vfo_t vfo, freq_t freq) -> int {
+            ++frequencyRequests;
             return setFreq.shouldFail() ? -RIG_EIO : realCaps->set_freq(r, vfo, freq);
         };
         hookedCaps.get_freq = [](RIG* r, vfo_t vfo, freq_t* freq) -> int {
@@ -624,12 +626,12 @@ bool sidebandOverrideNeverUnkeysTransmit()
     return f.radioReports(7177000, IRigFrequencyController::DIGL) && f.noErrors();
 }
 
-bool sidebandPreservesDialDespiteRadioModeOffset()
+bool defaultModePreservesDialDespiteRadioModeOffset()
 {
     Fixture f;
     if (!f.connectToFaultyRadioOn(7177000, IRigFrequencyController::USB)) return false;
     RadioFaults::shiftFrequencyOnMode = true;
-    f.controller.setMode(IRigFrequencyController::DIGL, true);
+    f.controller.setMode(IRigFrequencyController::DIGL);
     return f.radioReports(7177000, IRigFrequencyController::DIGL) &&
         RadioFaults::diglRequests > 0 && f.radioIsOn(7177000, RIG_MODE_PKTLSB) && f.noErrors();
 }
@@ -645,14 +647,30 @@ bool frequencyOnlyRejectsSidebandRequests()
     return RadioFaults::modeRequests == before && f.noErrors();
 }
 
-bool sidebandFrequencyPreservationFailureIsReported()
+bool sidebandModeNeverWritesFrequency()
 {
-    Fixture f;
-    if (!f.connectToFaultyRadioOn(7177000, IRigFrequencyController::USB)) return false;
-    RadioFaults::shiftFrequencyOnMode = true;
-    RadioFaults::setFreq.always();
-    f.controller.setMode(IRigFrequencyController::DIGL, true);
-    return f.reportsOneError("Could not preserve dial frequency after sideband change");
+    for (const int error : {0, -RIG_ENAVAIL})
+    {
+        Fixture f;
+        if (!f.connectToFaultyRadioOn(7177000, IRigFrequencyController::USB)) return false;
+        RadioFaults::shiftFrequencyOnMode = true;
+        RadioFaults::diglError = error;
+        RadioFaults::setFreq.always(); // A mode request must not even try a frequency write.
+        const int before = RadioFaults::frequencyRequests;
+        f.controller.setMode(IRigFrequencyController::DIGL, true);
+        const auto expected = error == 0 ? IRigFrequencyController::DIGL : IRigFrequencyController::LSB;
+        // Report a radio's own offset honestly; the operator handles tuning.
+        if (!f.radioReports(7177700, expected) || RadioFaults::frequencyRequests != before ||
+            !f.noErrors()) return false;
+        // Analog USB and direct LSB requests under the override also leave
+        // the radio's own dial changes alone, with no corrective CAT writes.
+        f.controller.setMode(IRigFrequencyController::USB, true);
+        if (!f.radioReports(7178400, IRigFrequencyController::USB)) return false;
+        f.controller.setMode(IRigFrequencyController::LSB, true);
+        if (!f.radioReports(7179100, IRigFrequencyController::LSB) ||
+            RadioFaults::frequencyRequests != before || !f.noErrors()) return false;
+    }
+    return true;
 }
 
 bool requestedModeIsNotConfirmedWithoutReadback()
@@ -2178,9 +2196,9 @@ int main()
     executeTestCase("diglFallsBackOnlyForUnsupportedCommands", diglFallsBackOnlyForUnsupportedCommands);
     executeTestCase("diglDoesNotFallBackOnCommunicationFailure", diglDoesNotFallBackOnCommunicationFailure);
     executeTestCase("sidebandOverrideNeverUnkeysTransmit", sidebandOverrideNeverUnkeysTransmit);
-    executeTestCase("sidebandPreservesDialDespiteRadioModeOffset", sidebandPreservesDialDespiteRadioModeOffset);
+    executeTestCase("defaultModePreservesDialDespiteRadioModeOffset", defaultModePreservesDialDespiteRadioModeOffset);
     executeTestCase("frequencyOnlyRejectsSidebandRequests", frequencyOnlyRejectsSidebandRequests);
-    executeTestCase("sidebandFrequencyPreservationFailureIsReported", sidebandFrequencyPreservationFailureIsReported);
+    executeTestCase("sidebandModeNeverWritesFrequency", sidebandModeNeverWritesFrequency);
     executeTestCase("requestedModeIsNotConfirmedWithoutReadback", requestedModeIsNotConfirmedWithoutReadback);
     executeTestCase("diglTriesCommandWhenCapabilityListOmitsIt", diglTriesCommandWhenCapabilityListOmitsIt);
     executeTestCase("setsEachSupportedMode", setsEachSupportedMode);

@@ -15,6 +15,8 @@ struct FakeOmniRig : IRigX
     HRESULT readResult = S_OK;
     int diglRequests = 0, modeRequests = 0, pttRequests = 0;
     bool ignoreWrites = false;
+    bool shiftFrequencyOnMode = false;
+    int frequencyRequests = 0;
     bool staleFrequencyReadback = false;
 
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, void**) override { return E_NOINTERFACE; }
@@ -35,7 +37,7 @@ struct FakeOmniRig : IRigX
     HRESULT STDMETHODCALLTYPE get_StatusStr(BSTR*) override { return E_NOTIMPL; }
     HRESULT STDMETHODCALLTYPE get_Freq(long* value) override
     { *value = staleFrequencyReadback ? 7177000 : frequency; return S_OK; }
-    HRESULT STDMETHODCALLTYPE put_Freq(long value) override { frequency = value; return S_OK; }
+    HRESULT STDMETHODCALLTYPE put_Freq(long value) override { ++frequencyRequests; frequency = value; return S_OK; }
     HRESULT STDMETHODCALLTYPE get_FreqA(long* value) override { return get_Freq(value); }
     HRESULT STDMETHODCALLTYPE put_FreqA(long value) override { return put_Freq(value); }
     HRESULT STDMETHODCALLTYPE get_FreqB(long* value) override { return get_Freq(value); }
@@ -66,7 +68,7 @@ struct FakeOmniRig : IRigX
         if (!ignoreWrites)
         {
             mode = value;
-            frequency += 700; // Simulate radios with sideband-specific offsets.
+            if (shiftFrequencyOnMode) frequency += 700; // Radio-owned offset, never compensated.
         }
         return S_OK;
     }
@@ -189,7 +191,26 @@ bool qsyPreservedWithDelayedReadback()
     OmniRigControllerTestAccess::run(f.controller, [&]() { f.radio.staleFrequencyReadback = true; });
     f.controller.setFrequency(14236000);
     f.set(Mode::DIGL);
-    return f.radio.frequency == 14236000 && f.radio.mode == PM_DIG_L;
+    return f.radio.frequency == 14236000 && f.radio.mode == PM_DIG_L && f.radio.frequencyRequests == 1;
+}
+
+bool sidebandDoesNotCompensateRadioOffsets()
+{
+    for (const HRESULT error : {S_OK, E_NOTIMPL})
+    {
+        Fixture f;
+        f.radio.shiftFrequencyOnMode = true;
+        f.radio.diglResult = error;
+        f.attach();
+        f.set(Mode::DIGL);
+        if (f.radio.frequencyRequests != 0 || f.radio.frequency != 7177700 ||
+            f.controller.getConfirmedMode() != (error == S_OK ? Mode::DIGL : Mode::LSB)) return false;
+        f.set(Mode::USB);
+        f.set(Mode::LSB);
+        if (f.radio.frequencyRequests != 0 || f.radio.frequency != 7179100 ||
+            f.controller.getConfirmedMode() != Mode::LSB) return false;
+    }
+    return true;
 }
 
 bool transmitAndFrequencyOnlyBlockSidebandChanges()
@@ -220,6 +241,7 @@ int main()
     executeTestCase("unreadableOfflineOrFailedModesAreUnknown", unreadableOfflineOrFailedModesAreUnknown);
     executeTestCase("acceptedCommandDoesNotConfirmRequestedMode", acceptedCommandDoesNotConfirmRequestedMode);
     executeTestCase("qsyPreservedWithDelayedReadback", qsyPreservedWithDelayedReadback);
+    executeTestCase("sidebandDoesNotCompensateRadioOffsets", sidebandDoesNotCompensateRadioOffsets);
     executeTestCase("transmitAndFrequencyOnlyBlockSidebandChanges", transmitAndFrequencyOnlyBlockSidebandChanges);
     return testResult();
 }

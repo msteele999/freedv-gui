@@ -2325,7 +2325,9 @@ def test_menus():
             app.menu("Help/About FreeDV")
             boxes = app.message_boxes(clear=True)
             check_equal([box["caption"] for box in boxes], ["About"], "Message displayed")
-            check(boxes[0]["message"].startswith("FreeDV GUI ") and "freedv-gui git hash:" in boxes[0]["message"],
+            check(boxes[0]["message"].startswith("FreeDV W2MWS RADEV2 Experimental v.9\n") and
+                  "FreeDV GUI 3.0.0-dev-W2MWS-radev2.9" in boxes[0]["message"] and
+                  "freedv-gui git hash:" in boxes[0]["message"] and "Using Hamlib" in boxes[0]["message"],
                   "About says %r" % boxes[0]["message"])
 
             # Settings > Export Configuration
@@ -2933,8 +2935,11 @@ def test_radio_sideband_selection():
                     for name, value in (("main.radioSidebandLsb", 1), ("main.radioSidebandDefault", 0),
                                         ("main.radioSidebandLsb", 1)):
                         app.click(name)
-                        check_equal(freedvtest.read_config(app.config_path)["/Modem/RadioSideband"],
-                                    str(value), "Immediately saved preference")
+                        # Click is acknowledged before its event handler runs.
+                        # Wait for the immediate save to finish, without using
+                        # shutdown to flush configuration or masking a missing key.
+                        app.wait_until(lambda: freedvtest.read_config(app.config_path).get("/Modem/RadioSideband") ==
+                                       str(value), description="sideband preference saved while stopped")
                         check_equal(app.get("main.cboReportFrequency")["value"], frequency, "Dial frequency")
                         check_equal(app.state()["running"], False, "Stopped modem")
                         check_equal(label(app, "main.textRadioSidebandMode"), "CAT Off", "Unchanged CAT state")
@@ -3006,18 +3011,18 @@ def test_radio_sideband_cat():
                         mode_is(digital)
                         app.wait_until(lambda: app.get("main.cboReportFrequency")["value"] == "7.1770",
                                        description="restored digital dial")
-                        # At 20m the override changes sidebands for analog voice;
-                        # the confirmed transition should shift and then restore.
+                        # At 20m the override changes sidebands for analog voice,
+                        # but the operator alone chooses the dial frequency.
                         app.set_value("main.cboReportFrequency", "14.2360")
                         mode_is(digital)
                         app.click("main.btnAnalog")
                         mode_is("USB")
                         app.wait_until(lambda: app.get("main.cboReportFrequency")["value"] ==
-                                       ("14.2330" if sideband else "14.2360"), description="20m analog dial")
+                                       "14.2360", description="20m analog dial unchanged")
                         app.click("main.btnAnalog")
                         mode_is(digital)
                         app.wait_until(lambda: app.get("main.cboReportFrequency")["value"] == "14.2360",
-                                       description="20m digital dial restored")
+                                       description="20m digital dial unchanged")
                         stop_modem(app)
                         app.wait_until(lambda: label(app, "main.textRadioSidebandMode") == "Unknown",
                                        description="disconnected CAT status")

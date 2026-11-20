@@ -417,31 +417,6 @@ void MainFrame::onFrequencyModeChange_(IRigFrequencyController* source, uint64_t
         auto activeRig = snapshotRigFrequencyController();
         if (!activeRig || activeRig.get() != source) return;
         updateRadioSidebandStatus_();
-        // Under the override, move the dial only after the new sideband has
-        // actually been read back. Never infer a shift from a failed request.
-        if (analogTransitionFrequency_ != 0)
-        {
-            const auto target = getCurrentMode_();
-            const bool matches = (IsLowerRadioSideband(target) && IsLowerRadioSideband(mode)) ||
-                (IsUpperRadioSideband(target) && IsUpperRadioSideband(mode));
-            if (g_tx.load(std::memory_order_acquire) || txChangeoverOccurring_ || m_btnTogTune->GetValue() ||
-                std::chrono::steady_clock::now() > analogTransitionDeadline_ ||
-                !wxGetApp().appConfiguration.rigControlConfiguration.hamlibEnableFreqModeChanges ||
-                wxGetApp().appConfiguration.rigControlConfiguration.hamlibEnableFreqChangesOnly ||
-                wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency.get() != analogTransitionFrequency_)
-                analogTransitionFrequency_ = 0;
-            else if (matches && activeRig->getConfirmedMode() == mode)
-            {
-                const auto original = analogTransitionFrequency_;
-                analogTransitionFrequency_ = 0;
-                const int shift = RadioSidebandFrequencyShift(analogTransitionOldMode_, mode);
-                if (freq == original && shift != 0 && (shift > 0 || original > static_cast<uint64_t>(-shift)))
-                {
-                    activeRig->setFrequency(static_cast<uint64_t>(static_cast<int64_t>(original) + shift), true);
-                    return; // The frequency readback updates reporting and the field.
-                }
-            }
-        }
         if (firstFreqUpdateOnConnect_)
         {
             firstFreqUpdateOnConnect_ = false;
@@ -603,7 +578,6 @@ void MainFrame::onRadioConnected_(IRigController*)
 void MainFrame::onRadioDisconnected_(IRigController*)
 {
     CallAfter([&]() {
-        analogTransitionFrequency_ = 0;
         updateRadioSidebandStatus_();
         m_txtModeStatus->SetLabel(_("unk"));
         m_txtModeStatus->Enable(false);
@@ -1854,7 +1828,6 @@ void MainFrame::OnTogBtnAnalogClick (wxCommandEvent& event)
     const bool lsbOverride = wxGetApp().appConfiguration.getRadioSideband() == RadioSideband::LSB;
     if (lsbOverride && (g_tx.load(std::memory_order_acquire) || txChangeoverOccurring_ || m_btnTogTune->GetValue()))
         return;
-    analogTransitionFrequency_ = 0;
     auto oldMode = getCurrentMode_();
 
     if (g_analog.load(std::memory_order_relaxed) == 0) {
@@ -1890,16 +1863,7 @@ void MainFrame::OnTogBtnAnalogClick (wxCommandEvent& event)
         auto currentMode = getCurrentMode_();
 
         constexpr int LSB_USB_FREQ_SHIFT_HZ = 3000;
-        if (lsbOverride)
-        {
-            analogTransitionOldMode_ = rigController->getConfirmedMode();
-            if (IsLowerRadioSideband(analogTransitionOldMode_) || IsUpperRadioSideband(analogTransitionOldMode_))
-            {
-                analogTransitionFrequency_ = wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency.get();
-                analogTransitionDeadline_ = std::chrono::steady_clock::now() + std::chrono::seconds(3);
-            }
-        }
-        else if (currentMode == HamlibRigController::LSB && g_analog)
+        if (!lsbOverride && currentMode == HamlibRigController::LSB && g_analog)
         {
             // If analog is enabled, we should add +3 kHz to the frequency to 
             // ensure we're still listening to the same passband that we were
@@ -1908,7 +1872,7 @@ void MainFrame::OnTogBtnAnalogClick (wxCommandEvent& event)
                 wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency + LSB_USB_FREQ_SHIFT_HZ;
             rigController->setFrequency(wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency);
         }
-        else if (oldMode == HamlibRigController::LSB && !g_analog)
+        else if (!lsbOverride && oldMode == HamlibRigController::LSB && !g_analog)
         {
             // Revert previous mode shift.
             wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency = 

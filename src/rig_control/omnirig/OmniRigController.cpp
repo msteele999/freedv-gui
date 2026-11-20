@@ -383,8 +383,7 @@ void OmniRigController::setModeImpl_(IRigFrequencyController::Mode mode, bool re
     {
         if (receiveOnly)
         {
-            // Refresh the radio-owned dial before preserving it. Do not use
-            // an optimistic mode write as evidence of actual radio state.
+            // Check connection/readback availability without changing the dial.
             const bool readFrequency = requestCurrentFrequencyModeImpl_();
             RigStatusX status = ST_NOTRESPONDING;
             if (!readFrequency || rig->get_Status(&status) != S_OK || status != ST_ONLINE)
@@ -405,14 +404,6 @@ void OmniRigController::setModeImpl_(IRigFrequencyController::Mode mode, bool re
             omniRigMode = PM_SSB_L;
             diglFallbackRequested_ = true;
         }
-        // Save the dial before the mode command. A mode may have a different
-        // carrier offset, even when the application hasn't requested a QSY.
-        const auto frequency = receiveOnly ? frequencyToPreserve_(currFreq_) : currFreq_;
-        if (receiveOnly && frequency == 0)
-        {
-            onRigError(this, "Cannot preserve dial frequency before sideband change");
-            return;
-        }
         noteModeReadback_(UNKNOWN);
         auto result = rig->put_Mode(omniRigMode);
         if (receiveOnly && omniRigMode == PM_DIG_L && (writableParams_ & PM_SSB_L) &&
@@ -428,14 +419,6 @@ void OmniRigController::setModeImpl_(IRigFrequencyController::Mode mode, bool re
 
             // Note: wait required to ensure that change takes effect.
             std::this_thread::sleep_for(OMNI_RIG_WAIT_TIME);
-
-            if (receiveOnly)
-            {
-                // Force the existing VFO-aware frequency setter to reassert
-                // the saved dial, without ever changing reporting config.
-                currFreq_ = 0;
-                setFrequencyImpl_(frequency);
-            }
 
             if (!destroying_)
             {

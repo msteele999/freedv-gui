@@ -133,9 +133,16 @@ def test_control():
             # Analog mode is a different mode on the radio, too.
             digital = radio.mode()
             app.click("main.btnAnalog")
-            time.sleep(2)
+            wait_for(lambda: radio.mode() == "LSB" and radio.frequency() == 3628000,
+                     "Default analog mode must apply its existing 3 kHz shift")
+            wait_for_frequency(app, "3.6280", "Default analog frequency readback")
             check_equal(errors(app), [], "Errors displayed in analog mode")
             app.click("main.btnAnalog")
+            # The click reply precedes completion of CAT and UI readback.
+            # Do not start TX/Stop with the analog frequency still displayed.
+            wait_for(lambda: radio.mode() == digital and radio.frequency() == 3625000,
+                     "Default digital mode must reverse the existing analog shift")
+            wait_for_frequency(app, "3.6250", "Default digital frequency readback")
 
             # Stopping lets go of the radio, with it not transmitting.
             app.click("main.btnPTT")

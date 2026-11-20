@@ -128,7 +128,7 @@ private:
     vfo_t getWritableVfo_();
     void setFrequencyHelper_(vfo_t currVfo, uint64_t frequencyHz);
     void setModeHelper_(vfo_t currVfo, rmode_t mode, bool allowLsbFallback = false,
-        bool requireFrequencyPreservation = false);
+        bool restoreFrequency = true);
     
     void connectImpl_();
     void disconnectImpl_();

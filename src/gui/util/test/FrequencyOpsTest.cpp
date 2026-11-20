@@ -131,21 +131,6 @@ bool radioSidebandOverride()
     return true;
 }
 
-bool shiftsOnlyBetweenConfirmedOppositeSidebands()
-{
-    for (const auto lower : {Mode::LSB, Mode::DIGL})
-        for (const auto upper : {Mode::USB, Mode::DIGU})
-            if (RadioSidebandFrequencyShift(lower, upper) != -3000 ||
-                RadioSidebandFrequencyShift(upper, lower) != 3000) return false;
-    for (const auto lower : {Mode::LSB, Mode::DIGL})
-        for (const auto other : {Mode::LSB, Mode::DIGL})
-            if (RadioSidebandFrequencyShift(lower, other) != 0) return false;
-    for (const auto mode : {Mode::USB, Mode::DIGU, Mode::LSB, Mode::DIGL, Mode::UNKNOWN})
-        if (RadioSidebandFrequencyShift(Mode::UNKNOWN, mode) != 0 ||
-            RadioSidebandFrequencyShift(mode, Mode::UNKNOWN) != 0) return false;
-    return true;
-}
-
 bool radioModeLabels()
 {
     return std::string(RadioSidebandModeLabel(Mode::DIGU)) == "DIG-U" &&
@@ -161,7 +146,6 @@ bool radioModeLabels()
 int main()
 {
     executeTestCase("radioSidebandOverride", radioSidebandOverride);
-    executeTestCase("shiftsOnlyBetweenConfirmedOppositeSidebands", shiftsOnlyBetweenConfirmedOppositeSidebands);
     executeTestCase("radioModeLabels", radioModeLabels);
     executeTestCase("lowerSidebandBelow10MHzAnalog", lowerSidebandBelow10MHzAnalog);
     executeTestCase("upperSidebandBelow10MHzDigital", upperSidebandBelow10MHzDigital);

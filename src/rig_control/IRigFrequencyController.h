@@ -117,15 +117,6 @@ protected:
         requestedFrequency_.store(frequency, std::memory_order_release);
     }
 
-    // A mode command immediately following QSY must preserve that requested
-    // dial, even if an asynchronous backend still reports its previous dial.
-    uint64_t frequencyToPreserve_(uint64_t observed) const
-    {
-        const auto requested = requestedFrequency_.load(std::memory_order_acquire);
-        return requested != 0 && nowMs_() - requestedAtMs_.load(std::memory_order_acquire) <= PENDING_FREQUENCY_TIMEOUT_MS
-            ? requested : observed;
-    }
-
 private:
     static constexpr int64_t PENDING_FREQUENCY_TIMEOUT_MS = 3000;
 
