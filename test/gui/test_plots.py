@@ -55,6 +55,25 @@ def show(app, tab):
     time.sleep(0.3)
 
 
+def check_tuning_limit(app, action, limit, what):
+    """Check each 10 Hz step and one clamped step, from anywhere in the range."""
+    previous = tuned_to(app)  # Also orders this read after the positioning event.
+    direction = 10 if limit == HIGHEST else -10
+    # A fractional mouse position is platform/layout dependent and may land
+    # on an axis label. Do not assume it leaves fewer than 200 steps to go:
+    # crossing the full 3000 Hz range needs 300, plus one to check the clamp.
+    for _ in range(int((HIGHEST - LOWEST) / 10) + 1):
+        action()
+        expected = max(LOWEST, min(HIGHEST, previous + direction))
+        now = tuned_to(app)  # The state request follows completion of the injected event.
+        check_equal(now, expected, what + " (10 Hz step)")
+        if previous == limit:
+            check_equal(now, limit, what + " (clamped)")
+            return
+        previous = now
+    raise AssertionError(what + " did not reach and clamp at %s" % limit)
+
+
 # ---------------------------------------------------------------------------
 # Scenarios
 # ---------------------------------------------------------------------------
@@ -114,28 +133,18 @@ def test_tuning():
                 # edge, which can be the frequency axis's labels instead.)
                 for rotation, limit in [(1, HIGHEST), (-1, LOWEST)]:
                     app.mouse(plot, "left_dclick", x=0.95 if rotation > 0 else 0.25, y=0.5)
-                    previous = None
-                    for notch in range(200):
-                        app.mouse(plot, "wheel", rotation=rotation)
-                        now = tuned_to(app)
-                        if now == previous:
-                            break
-                        previous = now
-                    check_equal(previous, limit, "Furthest that the %s's wheel goes" % tab)
+                    check_tuning_limit(app, lambda: app.mouse(plot, "wheel", rotation=rotation), limit,
+                                       "Furthest that the %s's wheel goes" % tab)
 
                 # The arrow keys stop at either end as well. (Again not too
                 # near the left edge: on macOS the Spectrum's labels take up
                 # more than its first 12%.)
                 for key, x, limit in [("Up", 0.95, HIGHEST), ("Down", 0.25, LOWEST)]:
+                    app.activate("main")
+                    app.focus(plot)
                     app.mouse(plot, "left_dclick", x=x, y=0.5)
-                    previous = None
-                    for press in range(200):
-                        app.key(plot, key)
-                        now = tuned_to(app)
-                        if now == previous:
-                            break
-                        previous = now
-                    check_equal(previous, limit, "Furthest that the %s key goes on the %s" % (key, tab))
+                    check_tuning_limit(app, lambda: app.key(plot, key), limit,
+                                       "Furthest that the %s key goes on the %s" % (key, tab))
                 app.mouse(plot, "middle_down")
 
                 # Other things the mouse does there are harmless.
@@ -251,15 +260,11 @@ def test_waterfall_colours():
 
                     # The arrow keys stop at either end.
                     for key, x, limit in [("Up", 0.95, HIGHEST), ("Down", 0.25, LOWEST)]:
+                        app.activate("main")
+                        app.focus(plot)
                         app.mouse(plot, "left_dclick", x=x, y=0.5)
-                        previous = None
-                        for press in range(200):
-                            app.key(plot, key)
-                            now = tuned_to(app)
-                            if now == previous:
-                                break
-                            previous = now
-                        check_equal(previous, limit, "Furthest that the %s key goes" % key)
+                        check_tuning_limit(app, lambda: app.key(plot, key), limit,
+                                           "Furthest that the %s key goes" % key)
 
                     # Held at the bottom long enough for the periodic
                     # redraws to catch up with where it's tuned.

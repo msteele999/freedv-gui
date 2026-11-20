@@ -17,6 +17,7 @@ struct FakeOmniRig : IRigX
     bool ignoreWrites = false;
     bool shiftFrequencyOnMode = false;
     int frequencyRequests = 0;
+    int vfoAFrequencyRequests = 0;
     bool staleFrequencyReadback = false;
 
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, void**) override { return E_NOINTERFACE; }
@@ -39,7 +40,8 @@ struct FakeOmniRig : IRigX
     { *value = staleFrequencyReadback ? 7177000 : frequency; return S_OK; }
     HRESULT STDMETHODCALLTYPE put_Freq(long value) override { ++frequencyRequests; frequency = value; return S_OK; }
     HRESULT STDMETHODCALLTYPE get_FreqA(long* value) override { return get_Freq(value); }
-    HRESULT STDMETHODCALLTYPE put_FreqA(long value) override { return put_Freq(value); }
+    HRESULT STDMETHODCALLTYPE put_FreqA(long value) override
+    { ++vfoAFrequencyRequests; frequency = value; return S_OK; }
     HRESULT STDMETHODCALLTYPE get_FreqB(long* value) override { return get_Freq(value); }
     HRESULT STDMETHODCALLTYPE put_FreqB(long value) override { return put_Freq(value); }
     HRESULT STDMETHODCALLTYPE get_RitOffset(long*) override { return E_NOTIMPL; }
@@ -186,12 +188,26 @@ bool acceptedCommandDoesNotConfirmRequestedMode()
 
 bool qsyPreservedWithDelayedReadback()
 {
+    std::atomic<uint64_t> reportedFrequency{0};
     Fixture f;
+    f.controller.onFreqModeChange += [&](IRigFrequencyController*, uint64_t frequency, Mode) {
+        reportedFrequency.store(frequency);
+    };
     f.attach();
     OmniRigControllerTestAccess::run(f.controller, [&]() { f.radio.staleFrequencyReadback = true; });
     f.controller.setFrequency(14236000);
+    OmniRigControllerTestAccess::poll(f.controller);
+    // The stale VFO-A readback legitimately triggers the existing VFO-less
+    // QSY retry. Neither write is sideband compensation.
+    if (f.radio.frequency != 14236000 || f.radio.vfoAFrequencyRequests != 1 ||
+        f.radio.frequencyRequests != 1 || reportedFrequency.load() != 7177000) return false;
     f.set(Mode::DIGL);
-    return f.radio.frequency == 14236000 && f.radio.mode == PM_DIG_L && f.radio.frequencyRequests == 1;
+    // Changing mode must add no frequency writes, even while readback lags.
+    if (f.radio.frequency != 14236000 || f.radio.mode != PM_DIG_L ||
+        f.radio.vfoAFrequencyRequests != 1 || f.radio.frequencyRequests != 1) return false;
+    OmniRigControllerTestAccess::run(f.controller, [&]() { f.radio.staleFrequencyReadback = false; });
+    OmniRigControllerTestAccess::poll(f.controller);
+    return reportedFrequency.load() == 14236000 && f.controller.getConfirmedMode() == Mode::DIGL;
 }
 
 bool sidebandDoesNotCompensateRadioOffsets()
@@ -203,11 +219,11 @@ bool sidebandDoesNotCompensateRadioOffsets()
         f.radio.diglResult = error;
         f.attach();
         f.set(Mode::DIGL);
-        if (f.radio.frequencyRequests != 0 || f.radio.frequency != 7177700 ||
+        if (f.radio.frequencyRequests != 0 || f.radio.vfoAFrequencyRequests != 0 || f.radio.frequency != 7177700 ||
             f.controller.getConfirmedMode() != (error == S_OK ? Mode::DIGL : Mode::LSB)) return false;
         f.set(Mode::USB);
         f.set(Mode::LSB);
-        if (f.radio.frequencyRequests != 0 || f.radio.frequency != 7179100 ||
+        if (f.radio.frequencyRequests != 0 || f.radio.vfoAFrequencyRequests != 0 || f.radio.frequency != 7179100 ||
             f.controller.getConfirmedMode() != Mode::LSB) return false;
     }
     return true;
