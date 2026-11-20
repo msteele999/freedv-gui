@@ -1120,18 +1120,11 @@ void HamlibRigController::setModeHelper_(vfo_t currVfo, rmode_t mode, bool allow
         return;
     }
 
-    if (allowLsbFallback && mode == RIG_MODE_PKTLSB)
-    {
-        rmode_t supported = RIG_MODE_NONE;
-        for (const auto& range : tmpRig->caps->rx_range_list1) supported |= range.modes;
-        for (const auto& range : tmpRig->caps->rx_range_list2) supported |= range.modes;
-        // An empty capability list is inconclusive; try the actual command.
-        if ((supported & RIG_MODE_LSB) && !(supported & RIG_MODE_PKTLSB))
-        {
-            mode = RIG_MODE_LSB;
-            diglFallbackRequested_ = true;
-        }
-    }
+    // Hamlib's receive-range mode masks are not exhaustive (the Dummy
+    // backend, for example, accepts PKTLSB without advertising it there).
+    // Try the requested mode and use the command result to decide whether
+    // it is unsupported. A capability omission must not bypass a command
+    // that could succeed, or hide a communication failure behind fallback.
 
 modeAttempt:
     noteModeReadback_(UNKNOWN);

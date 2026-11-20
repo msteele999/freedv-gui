@@ -585,9 +585,14 @@ bool diglDoesNotFallBackOnCommunicationFailure()
         Fixture f;
         if (!f.connectToFaultyRadioOn(7177000, IRigFrequencyController::USB)) return false;
         RadioFaults::diglError = error;
+        const int modeRequests = RadioFaults::modeRequests;
         f.controller.setMode(IRigFrequencyController::DIGL, true);
         f.waitUntilIdle();
-        if (f.controller.getConfirmedMode() != IRigFrequencyController::UNKNOWN ||
+        // A failed DIGL command must actually be attempted, with no LSB
+        // request afterwards (including after the current-VFO retry).
+        if (RadioFaults::diglRequests == 0 ||
+            RadioFaults::modeRequests - modeRequests != RadioFaults::diglRequests ||
+            f.controller.getConfirmedMode() != IRigFrequencyController::UNKNOWN ||
             !f.radioIsOn(7177000, RIG_MODE_USB) || !f.reportsOneError("Could not set mode")) return false;
     }
     return true;
@@ -609,7 +614,8 @@ bool sidebandOverrideNeverUnkeysTransmit()
         f.controller.setMode(IRigFrequencyController::LSB, true);
         f.controller.setFrequency(14236000, true);
         f.waitUntilIdle();
-        if (RadioFaults::pttRequests != pttRequests || RadioFaults::modeRequests != modeRequests) return false;
+        if (RadioFaults::pttRequests != pttRequests || RadioFaults::modeRequests != modeRequests ||
+            !f.radioIsOn(7177000, RIG_MODE_USB)) return false;
         if (external) f.controller.setTransmitActive(false);
         else f.controller.ptt(false);
         f.waitUntilIdle();
@@ -624,7 +630,8 @@ bool sidebandPreservesDialDespiteRadioModeOffset()
     if (!f.connectToFaultyRadioOn(7177000, IRigFrequencyController::USB)) return false;
     RadioFaults::shiftFrequencyOnMode = true;
     f.controller.setMode(IRigFrequencyController::DIGL, true);
-    return f.radioReports(7177000, IRigFrequencyController::DIGL) && f.noErrors();
+    return f.radioReports(7177000, IRigFrequencyController::DIGL) &&
+        RadioFaults::diglRequests > 0 && f.radioIsOn(7177000, RIG_MODE_PKTLSB) && f.noErrors();
 }
 
 bool frequencyOnlyRejectsSidebandRequests()
@@ -658,7 +665,7 @@ bool requestedModeIsNotConfirmedWithoutReadback()
     return f.controller.getConfirmedMode() == IRigFrequencyController::UNKNOWN;
 }
 
-bool diglUsesAdvertisedCapabilities()
+bool diglTriesCommandWhenCapabilityListOmitsIt()
 {
     Fixture f;
     if (!f.connectToFaultyRadioOn(7177000, IRigFrequencyController::USB)) return false;
@@ -667,8 +674,10 @@ bool diglUsesAdvertisedCapabilities()
         for (auto& range : RadioFaults::hookedCaps.rx_range_list2) range.modes &= ~RIG_MODE_PKTLSB;
     });
     f.controller.setMode(IRigFrequencyController::DIGL, true);
-    return f.radioReports(7177000, IRigFrequencyController::LSB) &&
-        RadioFaults::diglRequests == 0 && f.noErrors();
+    // Removing PKTLSB from the range lists does not remove the driver's
+    // support for it. Successful commands take precedence over those lists.
+    return f.radioReports(7177000, IRigFrequencyController::DIGL) &&
+        RadioFaults::diglRequests > 0 && f.noErrors();
 }
 
 bool rigListIsPopulated()
@@ -961,6 +970,20 @@ bool restoreOnDisconnect(bool restore, bool freqOnly)
 
     f.controller.setFrequency(NEW_FREQ);
     f.controller.setMode(newMode);
+    if (freqOnly)
+    {
+        // A frequency-only controller must reject the mode request above.
+        // Model an operator changing the radio itself instead, so disconnect
+        // is tested against an independently changed mode that must survive.
+        f.waitUntilIdle();
+        if (!f.radioReports(NEW_FREQ, origMode)) return false;
+        int result = -RIG_EINTERNAL;
+        f.onRadio([&](RIG* rig) {
+            const auto mode = newMode == IRigFrequencyController::DIGU ? RIG_MODE_PKTUSB : RIG_MODE_LSB;
+            result = rig_set_mode(rig, RIG_VFO_CURR, mode, RIG_PASSBAND_NOCHANGE);
+        });
+        if (result != RIG_OK) return false;
+    }
     if (!f.radioReports(NEW_FREQ, newMode)) return false;
 
     f.controller.disconnect();
@@ -2159,7 +2182,7 @@ int main()
     executeTestCase("frequencyOnlyRejectsSidebandRequests", frequencyOnlyRejectsSidebandRequests);
     executeTestCase("sidebandFrequencyPreservationFailureIsReported", sidebandFrequencyPreservationFailureIsReported);
     executeTestCase("requestedModeIsNotConfirmedWithoutReadback", requestedModeIsNotConfirmedWithoutReadback);
-    executeTestCase("diglUsesAdvertisedCapabilities", diglUsesAdvertisedCapabilities);
+    executeTestCase("diglTriesCommandWhenCapabilityListOmitsIt", diglTriesCommandWhenCapabilityListOmitsIt);
     executeTestCase("setsEachSupportedMode", setsEachSupportedMode);
     executeTestCase("appliesModeSetBeforeConnecting", appliesModeSetBeforeConnecting);
     executeTestCase("appliesFrequencySetBeforeConnecting", appliesFrequencySetBeforeConnecting);
