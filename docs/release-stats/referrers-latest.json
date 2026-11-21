@@ -1,69 +1,69 @@
 {
   "data": [
     {
-      "count": 70,
-      "referrer": "hamradio.my",
-      "self_referral": false,
-      "uniques": 30
-    },
-    {
-      "count": 70,
+      "count": 82,
       "referrer": "ja4joe.livedoor.blog",
       "self_referral": false,
-      "uniques": 23
+      "uniques": 26
     },
     {
-      "count": 61,
+      "count": 75,
+      "referrer": "hamradio.my",
+      "self_referral": false,
+      "uniques": 31
+    },
+    {
+      "count": 62,
       "referrer": "tonaru.net",
       "self_referral": false,
       "uniques": 12
     },
     {
-      "count": 26,
+      "count": 29,
       "referrer": "groups.io",
       "self_referral": false,
-      "uniques": 13
+      "uniques": 14
     },
     {
-      "count": 20,
+      "count": 24,
       "referrer": "mail3.spectrum.net",
       "self_referral": false,
       "uniques": 1
     },
     {
-      "count": 17,
+      "count": 20,
       "referrer": "reddit.com",
       "self_referral": false,
-      "uniques": 12
+      "uniques": 15
     },
     {
-      "count": 15,
+      "count": 17,
       "referrer": "github.com",
       "self_referral": true,
-      "uniques": 13
+      "uniques": 15
     },
     {
-      "count": 8,
+      "count": 12,
       "referrer": "blog.livedoor.jp",
+      "self_referral": false,
+      "uniques": 6
+    },
+    {
+      "count": 10,
+      "referrer": "t.co",
       "self_referral": false,
       "uniques": 4
     },
     {
-      "count": 8,
-      "referrer": "t.co",
+      "count": 3,
+      "referrer": "qso.freedv.org",
       "self_referral": false,
       "uniques": 3
-    },
-    {
-      "count": 3,
-      "referrer": "reporter-radev2.k6aq.net",
-      "self_referral": false,
-      "uniques": 2
     }
   ],
   "error": null,
-  "last_attempt_at": "2026-11-20T15:35:38Z",
-  "observed_at": "2026-11-20T15:35:38Z",
+  "last_attempt_at": "2026-11-21T14:46:09Z",
+  "observed_at": "2026-11-21T14:46:09Z",
   "repository": "msteele999/freedv-gui",
   "schema_version": 1,
   "status": "fresh",
