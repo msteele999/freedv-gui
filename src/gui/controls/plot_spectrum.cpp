@@ -467,11 +467,20 @@ void PlotSpectrum::OnDoubleClickCommon(wxMouseEvent& event)
     pt.x -= PLOT_BORDER + leftOffset_;
     pt.y -= PLOT_BORDER;
 
+    const wxSize clientSize = GetClientSize();
+    log_info("Spectrum double-click: position=(%d,%d) client=(%d,%d) leftOffset=%d "
+             "grid=(%d,%d) relative=(%d,%d) inside=%d clickTuneEnabled=%d",
+        event.GetX(), event.GetY(), clientSize.GetWidth(), clientSize.GetHeight(), leftOffset_,
+        m_rGrid.GetWidth(), m_rGrid.GetHeight(), pt.x, pt.y,
+        (pt.x >= 0) && (pt.x <= m_rGrid.GetWidth()) && (pt.y >= 0), m_clickTune);
+
     // valid click if inside of plot
     if ((pt.x >= 0) && (pt.x <= m_rGrid.GetWidth()) && (pt.y >=0) && m_clickTune) {
         float freq_hz_to_px = (float)m_rGrid.GetWidth()/(MAX_F_HZ-MIN_F_HZ);
         int clickFreq = (int)((float)pt.x/freq_hz_to_px);
         clickFreq -= clickFreq % 10;
+        log_info("Spectrum double-click: hzPerPixel=%.6f roundedFrequency=%d",
+            1.0 / freq_hz_to_px, clickFreq);
 
         // see PlotWaterfall::OnMouseDown()
 

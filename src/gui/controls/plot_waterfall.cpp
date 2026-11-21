@@ -878,12 +878,23 @@ void PlotWaterfall::OnDoubleClickCommon(wxMouseEvent& event)
     pt.x -= PLOT_BORDER + leftOffset_;
     pt.y -= PLOT_BORDER;
 
+    // Keep the widget and cached plot dimensions visible when diagnosing a
+    // click on an axis margin or a plot whose native layout has changed.
+    const wxSize clientSize = GetClientSize();
+    log_info("Waterfall double-click: position=(%d,%d) client=(%d,%d) leftOffset=%d "
+             "image=(%d,%d) grid=(%d,%d) relative=(%d,%d) inside=%d",
+        event.GetX(), event.GetY(), clientSize.GetWidth(), clientSize.GetHeight(), leftOffset_,
+        m_imgWidth, m_imgHeight, m_rGrid.GetWidth(), m_rGrid.GetHeight(), pt.x, pt.y,
+        (pt.x >= 0) && (pt.x <= m_imgWidth) && (pt.y >= 0));
+
     // valid click if inside of plot
     if ((pt.x >= 0) && (pt.x <= m_imgWidth) && (pt.y >=0)) 
     {
         float freq_hz_to_px = (float)m_imgWidth/(MAX_F_HZ-MIN_F_HZ);
         int clickFreq = (int)((float)pt.x/freq_hz_to_px);
         clickFreq -= clickFreq % 10;
+        log_info("Waterfall double-click: hzPerPixel=%.6f roundedFrequency=%d",
+            1.0 / freq_hz_to_px, clickFreq);
         
         // communicate back to other threads
         clickTune(clickFreq);

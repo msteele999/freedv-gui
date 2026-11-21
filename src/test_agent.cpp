@@ -2281,7 +2281,29 @@ void TestAgent::commandMouse_(yyjson_val* id, yyjson_val* request)
         event.m_wheelRotation = 120 * (yyjson_is_int(rotation) ? yyjson_get_int(rotation) : 1);
         event.m_linesPerAction = 3;
     }
-    window->ProcessWindowEvent(event);
+    const bool tracePlotTuning =
+        (window->GetName() == "main.plotWaterfall" || window->GetName() == "main.plotSpectrum") &&
+        (found->second == wxEVT_LEFT_DCLICK || found->second == wxEVT_RIGHT_DCLICK);
+    if (tracePlotTuning)
+    {
+        log_info("GUI plot mouse: target=%s event=%s fraction=(%.6f,%.6f) client=(%d,%d) "
+                 "position=(%d,%d) scale=%.2f lsb=%d rxOffsetBefore=%.1f txOffsetBefore=%.1f",
+            ToUtf8_(window->GetName()).c_str(), eventName,
+            yyjson_is_num(x) ? yyjson_get_num(x) : 0.5,
+            yyjson_is_num(y) ? yyjson_get_num(y) : 0.5,
+            size.GetWidth(), size.GetHeight(), position.x, position.y,
+            window->GetContentScaleFactor(),
+            wxGetApp().appConfiguration.getRadioSideband() == RadioSideband::LSB,
+            g_RxFreqOffsetHz.load(std::memory_order_relaxed),
+            g_TxFreqOffsetHz.load(std::memory_order_relaxed));
+    }
+    const bool handled = window->ProcessWindowEvent(event);
+    if (tracePlotTuning)
+    {
+        log_info("GUI plot mouse result: handled=%d rxOffsetAfter=%.1f txOffsetAfter=%.1f",
+            handled, g_RxFreqOffsetHz.load(std::memory_order_relaxed),
+            g_TxFreqOffsetHz.load(std::memory_order_relaxed));
+    }
 
     // A following state request must observe the completed mouse handler,
     // including any native event processing it may perform on macOS.
