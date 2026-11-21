@@ -4,31 +4,31 @@
 <g font-family="Segoe UI, Arial, sans-serif" fill="#0f172a">
 <text x="20" y="29" font-size="20" fill="#0f172a" text-anchor="start">Downloads by platform</text>
 <text x="20" y="49" font-size="12" fill="#475569" text-anchor="start">All published assets · cumulative downloads</text>
-<path d="M 120 158 L 120.000 75.000 A 83 83 0 1 1 63.038 218.368 Z" fill="#2563eb" stroke="#ffffff" stroke-width="2"/>
+<path d="M 120 158 L 120.000 75.000 A 83 83 0 1 1 61.158 216.537 Z" fill="#2563eb" stroke="#ffffff" stroke-width="2"/>
 <rect x="250" y="75" width="12" height="12" rx="2" fill="#2563eb"/>
 <text x="274" y="85" font-size="13" fill="#0f172a" text-anchor="start">Windows x64</text>
-<text x="698" y="85" font-size="13" fill="#0f172a" text-anchor="end">554 (62.0%)</text>
-<path d="M 120 158 L 63.038 218.368 A 83 83 0 0 1 43.529 190.268 Z" fill="#0891b2" stroke="#ffffff" stroke-width="2"/>
+<text x="698" y="85" font-size="13" fill="#0f172a" text-anchor="end">566 (62.5%)</text>
+<path d="M 120 158 L 61.158 216.537 A 83 83 0 0 1 42.712 188.259 Z" fill="#0891b2" stroke="#ffffff" stroke-width="2"/>
 <rect x="250" y="104" width="12" height="12" rx="2" fill="#0891b2"/>
 <text x="274" y="114" font-size="13" fill="#0f172a" text-anchor="start">Windows ARM64</text>
-<text x="698" y="114" font-size="13" fill="#0f172a" text-anchor="end">59 (6.6%)</text>
-<path d="M 120 158 L 43.529 190.268 A 83 83 0 0 1 57.569 103.306 Z" fill="#15803d" stroke="#ffffff" stroke-width="2"/>
+<text x="698" y="114" font-size="13" fill="#0f172a" text-anchor="end">59 (6.5%)</text>
+<path d="M 120 158 L 42.712 188.259 A 83 83 0 0 1 58.191 102.605 Z" fill="#15803d" stroke="#ffffff" stroke-width="2"/>
 <rect x="250" y="133" width="12" height="12" rx="2" fill="#15803d"/>
 <text x="274" y="143" font-size="13" fill="#0f172a" text-anchor="start">Linux x64</text>
-<text x="698" y="143" font-size="13" fill="#0f172a" text-anchor="end">159 (17.8%)</text>
-<path d="M 120 158 L 57.569 103.306 A 83 83 0 0 1 73.751 89.079 Z" fill="#65a30d" stroke="#ffffff" stroke-width="2"/>
+<text x="698" y="143" font-size="13" fill="#0f172a" text-anchor="end">159 (17.6%)</text>
+<path d="M 120 158 L 58.191 102.605 A 83 83 0 0 1 74.293 88.719 Z" fill="#65a30d" stroke="#ffffff" stroke-width="2"/>
 <rect x="250" y="162" width="12" height="12" rx="2" fill="#65a30d"/>
 <text x="274" y="172" font-size="13" fill="#0f172a" text-anchor="start">Linux ARM64</text>
 <text x="698" y="172" font-size="13" fill="#0f172a" text-anchor="end">37 (4.1%)</text>
-<path d="M 120 158 L 73.751 89.079 A 83 83 0 0 1 100.901 77.227 Z" fill="#7c3aed" stroke="#ffffff" stroke-width="2"/>
+<path d="M 120 158 L 74.293 88.719 A 83 83 0 0 1 101.150 77.169 Z" fill="#7c3aed" stroke="#ffffff" stroke-width="2"/>
 <rect x="250" y="191" width="12" height="12" rx="2" fill="#7c3aed"/>
 <text x="274" y="201" font-size="13" fill="#0f172a" text-anchor="start">macOS</text>
-<text x="698" y="201" font-size="13" fill="#0f172a" text-anchor="end">51 (5.7%)</text>
-<path d="M 120 158 L 100.901 77.227 A 83 83 0 0 1 120.000 75.000 Z" fill="#64748b" stroke="#ffffff" stroke-width="2"/>
+<text x="698" y="201" font-size="13" fill="#0f172a" text-anchor="end">51 (5.6%)</text>
+<path d="M 120 158 L 101.150 77.169 A 83 83 0 0 1 120.000 75.000 Z" fill="#64748b" stroke="#ffffff" stroke-width="2"/>
 <rect x="250" y="220" width="12" height="12" rx="2" fill="#64748b"/>
 <text x="274" y="230" font-size="13" fill="#0f172a" text-anchor="start">Other / Unknown</text>
-<text x="698" y="230" font-size="13" fill="#0f172a" text-anchor="end">33 (3.7%)</text>
+<text x="698" y="230" font-size="13" fill="#0f172a" text-anchor="end">33 (3.6%)</text>
 <circle cx="120" cy="158" r="55" fill="#ffffff"/>
-<text x="120" y="156" font-size="19" fill="#0f172a" text-anchor="middle">893</text>
+<text x="120" y="156" font-size="19" fill="#0f172a" text-anchor="middle">905</text>
 <text x="120" y="176" font-size="11" fill="#475569" text-anchor="middle">downloads</text>
 </g></svg>

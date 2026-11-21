@@ -1,11 +1,11 @@
 {
-  "last_attempt_at": "2026-11-21T22:02:15Z",
-  "last_successful_collection_at": "2026-11-21T22:02:15Z",
-  "observed_at": "2026-11-21T22:02:15Z",
+  "last_attempt_at": "2026-11-21T23:40:41Z",
+  "last_successful_collection_at": "2026-11-21T23:40:41Z",
+  "observed_at": "2026-11-21T23:40:41Z",
   "release_collection": {
     "error": null,
-    "last_attempt_at": "2026-11-21T22:02:15Z",
-    "observed_at": "2026-11-21T22:02:15Z",
+    "last_attempt_at": "2026-11-21T23:40:41Z",
+    "observed_at": "2026-11-21T23:40:41Z",
     "status": "fresh"
   },
   "releases": [
@@ -1101,7 +1101,7 @@
         },
         {
           "asset_type": "installer",
-          "download_count": 60,
+          "download_count": 61,
           "filename": "FreeDV-3.0.0-dev-2026-11-16-dea0-windows-x86_64.exe",
           "id": 757066556,
           "is_zip": false,
@@ -1133,7 +1133,7 @@
         }
       ],
       "classification": "stable",
-      "download_count": 104,
+      "download_count": 105,
       "id": 447845806,
       "is_w2mws": true,
       "name": "FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release 19",
@@ -1229,7 +1229,7 @@
         },
         {
           "asset_type": "installer",
-          "download_count": 6,
+          "download_count": 17,
           "filename": "FreeDV-W2MWS-RADEV2.9-windows-x86_64.exe",
           "id": 776190822,
           "is_zip": false,
@@ -1237,7 +1237,7 @@
         }
       ],
       "classification": "experimental",
-      "download_count": 14,
+      "download_count": 25,
       "id": 453829441,
       "is_w2mws": true,
       "name": "FreeDV W2MWS RADEV2 Experimental v3.0-dev-W2MWS-radev2.9",
@@ -1254,8 +1254,8 @@
       "subscribers": 0
     },
     "error": null,
-    "last_attempt_at": "2026-11-21T22:02:15Z",
-    "observed_at": "2026-11-21T22:02:15Z",
+    "last_attempt_at": "2026-11-21T23:40:41Z",
+    "observed_at": "2026-11-21T23:40:41Z",
     "status": "fresh"
   },
   "schema_version": 2,
@@ -1264,23 +1264,23 @@
     "assets": 114,
     "by_asset_type": {
       "archive": 226,
-      "installer": 667,
+      "installer": 679,
       "other": 0
     },
     "by_classification": {
-      "experimental": 488,
+      "experimental": 499,
       "other": 0,
-      "stable": 405
+      "stable": 406
     },
     "by_platform": {
       "Linux ARM64": 37,
       "Linux x64": 159,
       "Other / Unknown": 33,
       "Windows ARM64": 59,
-      "Windows x64": 554,
+      "Windows x64": 566,
       "macOS": 51
     },
-    "downloads": 893,
+    "downloads": 905,
     "releases": 27,
     "zip_downloads": 226
   },
@@ -1565,8 +1565,8 @@
       "window_days": 14
     },
     "error": null,
-    "last_attempt_at": "2026-11-21T22:02:15Z",
-    "observed_at": "2026-11-21T22:02:15Z",
+    "last_attempt_at": "2026-11-21T23:40:41Z",
+    "observed_at": "2026-11-21T23:40:41Z",
     "status": "fresh"
   }
 }
