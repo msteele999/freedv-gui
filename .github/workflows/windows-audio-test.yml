@@ -162,6 +162,21 @@ jobs:
       run: |
           .\TestFreeDVRadeLoss.ps1 -RadioToComputerDevice "${{env.RADIO_TO_COMPUTER_DEVICE}}" -ComputerToRadioDevice "${{env.COMPUTER_TO_RADIO_DEVICE}}" -MicrophoneToComputerDevice "${{env.MICROPHONE_TO_COMPUTER_DEVICE}}" -ComputerToSpeakerDevice "${{env.COMPUTER_TO_SPEAKER_DEVICE}}" -LossThreshold ${{ inputs['loss-threshold'] }} *>&1 | Tee-Object -FilePath rade_loss.log
 
+    # Reporting reuses test.wav, so preserve the failed loss round trip first.
+    - name: Upload failed RADE Loss evidence
+      uses: actions/upload-artifact@v7
+      if: ${{ !cancelled() && steps.test-rade-loss.outcome == 'failure' }}
+      with:
+        name: rade-loss-failure-${{ inputs['sanitizer-mode'] && format('{0}-{1}', matrix.sanitizer_name, matrix.arch) || matrix.arch }}
+        path: |
+          ${{github.workspace}}/FreeDV-Install-Location/bin/rade_loss.log
+          ${{github.workspace}}/FreeDV-Install-Location/bin/tx_in.wav
+          ${{github.workspace}}/FreeDV-Install-Location/bin/test.wav
+          ${{github.workspace}}/FreeDV-Install-Location/bin/test_stripped.wav
+          ${{github.workspace}}/FreeDV-Install-Location/bin/txfeatures.f32
+          ${{github.workspace}}/FreeDV-Install-Location/bin/rxfeatures.f32
+        if-no-files-found: warn
+
     # Assemble the RADE integration verification report from the run above.
     # Once per OS (x86_64 leg only); the baseline comes from the
     # rade-loss-baseline job. Only meaningful for the standard build --

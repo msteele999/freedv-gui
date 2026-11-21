@@ -179,7 +179,7 @@ else
     $fails++
 }
 
-Write-Host "Mode: RADEV2, Passed: $passes, Failures: $fails"
+Write-Host "RADE Reporting - Mode: RADEV2, Passed: $passes, Failures: $fails"
 
 if ($fails -gt 0) {
     throw "Test failed"

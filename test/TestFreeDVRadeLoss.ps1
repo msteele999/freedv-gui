@@ -200,6 +200,7 @@ function Invoke-RadeLossAttempt {
     $process.WaitForExit()
 
     Write-Host "$err_output"
+    Write-Host "$output"
 
     $rxExitCode = $process.ExitCode
 
@@ -329,6 +330,7 @@ function Test-RadeLoss {
     $process.WaitForExit()
 
     Write-Host "$err_output"
+    Write-Host "$output"
 
     $txExitCode = $process.ExitCode
 
@@ -389,7 +391,7 @@ else
     $fails++
 }
 
-Write-Host "Mode: RADEV2, Passed: $passes, Failures: $fails"
+Write-Host "RADE Loss - Mode: RADEV2, Passed: $passes, Failures: $fails"
 
 if ($fails -gt 0) {
     throw "Test failed"

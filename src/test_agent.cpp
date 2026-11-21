@@ -2269,8 +2269,6 @@ void TestAgent::commandMouse_(yyjson_val* id, yyjson_val* request)
         (int)((yyjson_is_num(x) ? yyjson_get_num(x) : 0.5) * size.GetWidth()),
         (int)((yyjson_is_num(y) ? yyjson_get_num(y) : 0.5) * size.GetHeight()));
 
-    replyOk_(id, yyjson_mut_doc_new(nullptr));
-
     wxMouseEvent event(found->second);
     event.SetEventObject(window);
     event.SetId(window->GetId());
@@ -2284,6 +2282,10 @@ void TestAgent::commandMouse_(yyjson_val* id, yyjson_val* request)
         event.m_linesPerAction = 3;
     }
     window->ProcessWindowEvent(event);
+
+    // A following state request must observe the completed mouse handler,
+    // including any native event processing it may perform on macOS.
+    replyOk_(id, yyjson_mut_doc_new(nullptr));
 }
 
 void TestAgent::commandQuit_(yyjson_val* id)

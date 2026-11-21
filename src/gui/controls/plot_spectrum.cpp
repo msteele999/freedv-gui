@@ -459,9 +459,9 @@ void PlotSpectrum::drawGraticuleFast(wxGraphicsContext* ctx, bool repaintDataOnl
 void PlotSpectrum::OnDoubleClickCommon(wxMouseEvent& event)
 {
     m_mouseDown = true;
-    wxClientDC dc(this);
-
-    wxPoint pt(event.GetLogicalPosition(dc));
+    // Mouse events and the plot geometry both use client coordinates. A
+    // wxClientDC adds an unnecessary native drawing-context transform on macOS.
+    wxPoint pt(event.GetPosition());
 
     // map x coord to edges of actual plot
     pt.x -= PLOT_BORDER + leftOffset_;
