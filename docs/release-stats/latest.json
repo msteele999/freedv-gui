@@ -1,11 +1,11 @@
 {
-  "last_attempt_at": "2026-11-21T14:46:09Z",
-  "last_successful_collection_at": "2026-11-21T14:46:09Z",
-  "observed_at": "2026-11-21T14:46:09Z",
+  "last_attempt_at": "2026-11-21T22:02:15Z",
+  "last_successful_collection_at": "2026-11-21T22:02:15Z",
+  "observed_at": "2026-11-21T22:02:15Z",
   "release_collection": {
     "error": null,
-    "last_attempt_at": "2026-11-21T14:46:09Z",
-    "observed_at": "2026-11-21T14:46:09Z",
+    "last_attempt_at": "2026-11-21T22:02:15Z",
+    "observed_at": "2026-11-21T22:02:15Z",
     "status": "fresh"
   },
   "releases": [
@@ -1073,7 +1073,7 @@
         },
         {
           "asset_type": "archive",
-          "download_count": 128,
+          "download_count": 129,
           "filename": "FreeDV-W2MWS-RADEV2.7-windows-x86_64.zip",
           "id": 739629074,
           "is_zip": true,
@@ -1081,7 +1081,7 @@
         }
       ],
       "classification": "experimental",
-      "download_count": 178,
+      "download_count": 179,
       "id": 442998804,
       "is_w2mws": true,
       "name": "FreeDV W2MWS RADEV2.7 (Experimental)",
@@ -1093,7 +1093,7 @@
       "assets": [
         {
           "asset_type": "installer",
-          "download_count": 9,
+          "download_count": 10,
           "filename": "FreeDV-3.0.0-dev-2026-11-16-dea0-windows-aarch64.exe",
           "id": 757066553,
           "is_zip": false,
@@ -1101,7 +1101,7 @@
         },
         {
           "asset_type": "installer",
-          "download_count": 56,
+          "download_count": 60,
           "filename": "FreeDV-3.0.0-dev-2026-11-16-dea0-windows-x86_64.exe",
           "id": 757066556,
           "is_zip": false,
@@ -1133,7 +1133,7 @@
         }
       ],
       "classification": "stable",
-      "download_count": 99,
+      "download_count": 104,
       "id": 447845806,
       "is_w2mws": true,
       "name": "FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release 19",
@@ -1145,7 +1145,7 @@
       "assets": [
         {
           "asset_type": "installer",
-          "download_count": 6,
+          "download_count": 7,
           "filename": "FreeDV-W2MWS-RADEV2.8-linux-arm64.AppImage",
           "id": 760112346,
           "is_zip": false,
@@ -1177,7 +1177,7 @@
         },
         {
           "asset_type": "installer",
-          "download_count": 120,
+          "download_count": 122,
           "filename": "FreeDV-W2MWS-RADEV2.8-windows-x86_64.exe",
           "id": 760112348,
           "is_zip": false,
@@ -1185,13 +1185,65 @@
         }
       ],
       "classification": "experimental",
-      "download_count": 181,
+      "download_count": 184,
       "id": 449018348,
       "is_w2mws": true,
       "name": "FreeDV W2MWS RADEV2 Experimental v3.0-dev-W2MWS-radev2.8",
       "prerelease": true,
       "published_at": "2026-11-17T18:13:29Z",
       "tag": "v3.0-dev-W2MWS-radev2.8"
+    },
+    {
+      "assets": [
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-W2MWS-RADEV2.9-linux-arm64.AppImage",
+          "id": 776190826,
+          "is_zip": false,
+          "platform": "Linux ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 2,
+          "filename": "FreeDV-W2MWS-RADEV2.9-linux-x86_64.AppImage",
+          "id": 776190823,
+          "is_zip": false,
+          "platform": "Linux x64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 4,
+          "filename": "FreeDV-W2MWS-RADEV2.9-macos.dmg",
+          "id": 776190825,
+          "is_zip": false,
+          "platform": "macOS"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 1,
+          "filename": "FreeDV-W2MWS-RADEV2.9-windows-arm64.exe",
+          "id": 776190829,
+          "is_zip": false,
+          "platform": "Windows ARM64"
+        },
+        {
+          "asset_type": "installer",
+          "download_count": 6,
+          "filename": "FreeDV-W2MWS-RADEV2.9-windows-x86_64.exe",
+          "id": 776190822,
+          "is_zip": false,
+          "platform": "Windows x64"
+        }
+      ],
+      "classification": "experimental",
+      "download_count": 14,
+      "id": 453829441,
+      "is_w2mws": true,
+      "name": "FreeDV W2MWS RADEV2 Experimental v3.0-dev-W2MWS-radev2.9",
+      "prerelease": true,
+      "published_at": "2026-11-21T16:41:12Z",
+      "tag": "v3.0-dev-W2MWS-radev2.9"
     }
   ],
   "repository": "msteele999/freedv-gui",
@@ -1202,35 +1254,35 @@
       "subscribers": 0
     },
     "error": null,
-    "last_attempt_at": "2026-11-21T14:46:09Z",
-    "observed_at": "2026-11-21T14:46:09Z",
+    "last_attempt_at": "2026-11-21T22:02:15Z",
+    "observed_at": "2026-11-21T22:02:15Z",
     "status": "fresh"
   },
   "schema_version": 2,
   "status": "collected",
   "totals": {
-    "assets": 109,
+    "assets": 114,
     "by_asset_type": {
-      "archive": 225,
-      "installer": 645,
+      "archive": 226,
+      "installer": 667,
       "other": 0
     },
     "by_classification": {
-      "experimental": 470,
+      "experimental": 488,
       "other": 0,
-      "stable": 400
+      "stable": 405
     },
     "by_platform": {
-      "Linux ARM64": 35,
-      "Linux x64": 157,
+      "Linux ARM64": 37,
+      "Linux x64": 159,
       "Other / Unknown": 33,
-      "Windows ARM64": 57,
-      "Windows x64": 541,
-      "macOS": 47
+      "Windows ARM64": 59,
+      "Windows x64": 554,
+      "macOS": 51
     },
-    "downloads": 870,
-    "releases": 26,
-    "zip_downloads": 225
+    "downloads": 893,
+    "releases": 27,
+    "zip_downloads": 226
   },
   "traffic": {
     "data": {
@@ -1513,8 +1565,8 @@
       "window_days": 14
     },
     "error": null,
-    "last_attempt_at": "2026-11-21T14:46:09Z",
-    "observed_at": "2026-11-21T14:46:09Z",
+    "last_attempt_at": "2026-11-21T22:02:15Z",
+    "observed_at": "2026-11-21T22:02:15Z",
     "status": "fresh"
   }
 }
