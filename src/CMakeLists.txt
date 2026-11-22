@@ -108,8 +108,11 @@ endif(UNITTEST)
 # In addition, there are some required OSX-specific code files for platform specific handling.
 include(${CMAKE_SOURCE_DIR}/cmake/BuildSpeechModels.cmake)
 if(APPLE)
-    set(RES_FILES freedv.icns)
-    set_source_files_properties(freedv.icns PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+    # The icon: Assets.car for macOS 11 and later (CFBundleIconName), and
+    # freedv.icns for whatever only reads CFBundleIconFile. Both are made
+    # from contrib/icon/FreeDV.icon by contrib/icon/update-icons.sh.
+    set(RES_FILES freedv.icns Assets.car)
+    set_source_files_properties(freedv.icns Assets.car PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
     list(APPEND RES_FILES ${FREEDV_SPEECH_MODELS})
     set_source_files_properties(${FREEDV_SPEECH_MODELS} PROPERTIES
         MACOSX_PACKAGE_LOCATION "Resources/models" HEADER_FILE_ONLY TRUE)
@@ -364,7 +367,7 @@ if(APPLE)
         COMMAND rm -rf dist_tmp FreeDV.dmg || true
         COMMAND DYLD_LIBRARY_PATH=${portaudio_BINARY_DIR}:${DYLD_LIBRARY_PATH} ${CMAKE_SOURCE_DIR}/macdylibbundler/dylibbundler ARGS -od -b -x FreeDV.app/Contents/MacOS/FreeDV -d FreeDV.app/Contents/libs -p @loader_path/../libs/ -i /usr/lib ${PORTAUDIO_BUNDLE_ARG} -s ${rade_BINARY_DIR}/src -s ${CMAKE_BINARY_DIR}/bin -s `dirname ${CLANG_SANITIZER_FILE}` -ns
         COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/clean-duplicate-rpaths.sh FreeDV.app/
-        COMMAND cp ARGS ${CMAKE_CURRENT_SOURCE_DIR}/freedv.icns FreeDV.app/Contents/Resources
+        COMMAND cp ARGS ${CMAKE_CURRENT_SOURCE_DIR}/freedv.icns ${CMAKE_CURRENT_SOURCE_DIR}/Assets.car FreeDV.app/Contents/Resources
         COMMAND rm ARGS -rf FreeDV.app/Contents/Frameworks
         COMMAND mkdir ARGS FreeDV.app/Contents/Frameworks
 

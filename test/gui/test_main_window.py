@@ -70,6 +70,16 @@ def check_equal(actual, expected, what):
     check(actual == expected, "%s is %r, expected %r" % (what, actual, expected))
 
 
+def readable_file_level(path, what):
+    """file_level(), failing the test if the file can't be read as a WAV
+    file at all (as when it was never closed, which is where its header gets
+    its lengths)."""
+    try:
+        return file_level(path)
+    except Exception as error:
+        raise AssertionError("%s isn't a readable WAV file (%s)" % (what, error))
+
+
 def label(app, name):
     return app.get(name)["label"].replace("&", "")
 
@@ -140,11 +150,15 @@ def check_audible(device, what):
     check(measured > AUDIBLE, "%s (level %d)" % (what, measured))
 
 
+def check_no_errors(log):
+    errors = [line for line in log.splitlines() if " ERROR " in line or " FATAL " in line]
+    check_equal(errors, [], "Errors logged by FreeDV")
+
+
 def quit_and_check_log(app):
     check_equal(app.message_boxes(), [], "Errors displayed")
     check_equal(app.quit(), 0, "FreeDV's exit code")
-    errors = [line for line in app.log().splitlines() if " ERROR " in line or " FATAL " in line]
-    check_equal(errors, [], "Errors logged by FreeDV")
+    check_no_errors(app.log())
 
 
 # ---------------------------------------------------------------------------
@@ -1781,6 +1795,20 @@ def test_tune_level_per_band():
             saved = freedvtest.read_config(app.config_path)
             check_equal(saved.get("/Audio/tuneLevelByBand/20m"), "-10", "Saved tune attenuation for 20m")
 
+        # A saved level that's beyond the limits comes back at the limit.
+        beyond = settings(Reporting__Frequency=7177000)
+        beyond["/Audio/tuneLevelByBand/20m"] = -400
+        with freedvtest.start(settings=beyond) as app:
+            app.wait_for_window("main")
+            start_modem(app)
+            app.set_value("main.cboReportFrequency", "14.2360")
+            app.click("main.btnTune")
+            app.wait_until(lambda: tx_level(app) == "-30.0dB", timeout=5,
+                           description="the tune attenuation saved beyond the limit to come back at -30.0dB")
+            app.click("main.btnTune")
+            stop_modem(app)
+            quit_and_check_log(app)
+
 
 def test_reporting_without_callsign():
     """Reporting turned on without saying who's reporting."""
@@ -1923,6 +1951,42 @@ def test_frequency_units():
             check_equal(app.quit(), 0, "FreeDV's exit code")
     finally:
         shutil.rmtree(folder, ignore_errors=True)
+
+
+def test_invalid_frequency():
+    """The frequency box in the main window, filled with what a user can
+    type: words, a negative, something far too big or too small to round to
+    a frequency, and nothing. What's typed goes to the reporters and, with
+    rig control on, to the rig, so an entry that isn't a frequency mustn't
+    have one invented from it: the radio's still on the one it had, so
+    that's kept. Emptying the box is how there comes to be no frequency."""
+    extra = dict(Reporting__Enable=True, Reporting__Callsign=CALLSIGN, Reporting__GridSquare="DM12",
+                 Reporting__Frequency=14236000)
+
+    def frequency(app):
+        return app.state()["config"]["reporting"]["reportingFrequency"]
+
+    with audio_devices():
+        with freedvtest.start(settings=settings(**extra)) as app:
+            app.wait_for_window("main")
+            for entered in ["abc", "-14.2", "1e400", "999999999999999999999999", "0.00001", "14.2abc"]:
+                app.set_value("main.cboReportFrequency", entered)
+                app.key("main.cboReportFrequency", "Enter")
+                check_equal(app.message_boxes(), [], "Errors displayed after entering %r" % entered)
+                check_equal(frequency(app), 14236000, "Frequency after entering %r" % entered)
+
+            app.set_value("main.cboReportFrequency", "")
+            app.key("main.cboReportFrequency", "Enter")
+            check_equal(frequency(app), 0, "Frequency after emptying the box")
+
+            # A real frequency is still taken after all that.
+            app.set_value("main.cboReportFrequency", "7.0700")
+            app.key("main.cboReportFrequency", "Enter")
+            check_equal(app.get("main.cboReportFrequency")["value"].replace(",", ""), "7.0700",
+                        "Frequency after the invalid entries")
+            quit_and_check_log(app)
+            check_equal(freedvtest.read_config(app.config_path).get("/Reporting/Frequency"), "7070000",
+                        "Frequency saved")
 
 
 def test_default_config():
@@ -2185,6 +2249,25 @@ def test_time_out_timer():
             stop_modem(app)
             quit_and_check_log(app)
 
+        # A time-out no longer than the warning's own 15 seconds: the warning
+        # is up as soon as transmitting starts, and putting it off sets the
+        # beep going again while the first one is still being played.
+        with freedvtest.start(settings=settings(Rig__TotTimerSecs=15)) as app:
+            app.wait_for_window("main")
+            start_modem(app)
+            app.click("main.btnPTT")
+            wait_for_transmit(app)
+            app.wait_for_window("totWarning", timeout=5)
+            app.click("totWarning.btnExtend")
+            app.wait_for_window_closed("totWarning")
+            app.wait_for_window("totWarning", timeout=5)
+            check(app.log().count("Playing TOT beep") >= 2, "The beep wasn't started again after putting it off")
+            app.click("main.btnPTT")
+            wait_for_transmit(app, False)
+            check(not app.window_exists("totWarning"), "The time-out warning is still there")
+            stop_modem(app)
+            quit_and_check_log(app)
+
 
 def test_voice_keyer_time_out():
     """The time-out timer stops the voice keyer too, when what it's sending
@@ -2262,6 +2345,24 @@ def test_ptt_key_time_out():
             stop_modem(app)
             quit_and_check_log(app)
 
+        # Letting go of the key once the time-out's warning window has the
+        # keyboard ends the transmission too: the warning belongs to the same
+        # transmission rather than taking the keyboard away from it.
+        with freedvtest.start(settings=settings(Rig__PttMomentaryMode=True, Rig__PttKeyCode=WXK_F5,
+                                                Rig__TotTimerSecs=18)) as app:
+            app.wait_for_window("main")
+            app.activate("main")
+            start_modem(app)
+            app.key("main.notebook", "F5", hold=True)
+            wait_for_transmit(app)
+            app.wait_for_window("totWarning", timeout=10)
+            app.activate("totWarning")
+            app.key("totWarning.btnExtend", "F5", release=True)
+            wait_for_transmit(app, False)
+            check(not app.window_exists("totWarning"), "The time-out warning is still there")
+            stop_modem(app)
+            quit_and_check_log(app)
+
         # Letting go of the key while TX is still starting must not leave the
         # rig keyed. A delay before TX begins makes that window easy to hit.
         with freedvtest.start(settings=settings(Rig__PttMomentaryMode=True, Rig__PttKeyCode=WXK_F5,
@@ -2306,6 +2407,13 @@ def test_menus():
             app.wait_for_window("main")
             title = app.get("main")["label"]
             check(title.startswith("FreeDV ") and "(freedv.conf)" in title, "Window title is %r" % title)
+
+            # File > Keep On Top, which is only offered where it works.
+            if sys.platform != "linux":
+                app.menu("File/Keep On Top")
+                check_equal(app.menu_checked("File/Keep On Top"), True, "Keep On Top checked")
+                app.menu("File/Keep On Top")
+                check_equal(app.menu_checked("File/Keep On Top"), False, "Keep On Top unchecked again")
 
             def callsign():
                 return app.state()["config"]["reporting"]["reportingCallsign"]
@@ -2742,6 +2850,54 @@ def test_duplex_while_running():
             quit_and_check_log(app)
 
 
+def test_audio_while_running():
+    """The sound devices can be changed while FreeDV is running: the audio
+    restarts with the new ones. Changed while transmitting, that waits until
+    FreeDV is back on receive. With what it sends to the radio fed back into
+    the radio's input, it only hears itself once listening there."""
+    def times_applied(app):
+        return app.log().count("Applying settings changed while running")
+
+    with audio_devices(), Loopback(RADIO_TX, RADIO_RX):
+        # Listening to the microphone's device to begin with.
+        start_settings = settings(Rig__HalfDuplex=False)
+        start_settings["/Audio/soundCard1InDeviceName"] = VirtualAudioDevices.input_name(MICROPHONE)
+        with freedvtest.start(settings=start_settings) as app:
+            app.wait_for_window("main")
+            start_modem(app)
+
+            app.click("main.btnPTT")
+            wait_for_transmit(app)
+            time.sleep(10)
+            check_equal(app.state()["sync"], 0, "Sync with its own transmission while listening elsewhere")
+
+            # Changed while transmitting: saved, but kept until it's done.
+            change_settings(app, "RX Audio", lcSoundCard1InDevice=VirtualAudioDevices.input_label(RADIO_RX))
+            check_equal(freedvtest.read_config(app.config_path).get("/Audio/soundCard1InDeviceName"),
+                        VirtualAudioDevices.input_name(RADIO_RX), "Saved radio input device")
+            time.sleep(3)
+            check(transmitting(app), "Stopped transmitting when the settings were changed")
+            check_audible(RADIO_TX_MONITOR, "Nothing sent to the radio after the settings were changed")
+            check_equal(times_applied(app), 0, "Times the settings were applied while transmitting")
+
+            app.click("main.btnPTT")
+            wait_for_transmit(app, False)
+            app.wait_until(lambda: times_applied(app) == 1, timeout=15,
+                           description="the settings to be applied once back on receive")
+            app.wait_until(lambda: app.get("main.btnOnOff")["enabled"], description="the settings to be applied")
+            check(app.state()["running"], "Changing the sound devices stopped FreeDV")
+            check_equal(app.message_boxes(), [], "Errors displayed applying the settings")
+
+            app.click("main.btnPTT")
+            wait_for_transmit(app)
+            app.wait_until(lambda: app.state()["sync"] == 1, timeout=20,
+                           description="FreeDV to sync to its own transmission on the new radio input")
+            app.click("main.btnPTT")
+            wait_for_transmit(app, False)
+            stop_modem(app)
+            quit_and_check_log(app)
+
+
 def test_exit_while_tuning():
     """File > Exit with Tune on stops the tone first."""
     with audio_devices():
@@ -2755,6 +2911,159 @@ def test_exit_while_tuning():
             errors = [line for line in app.log().splitlines() if " ERROR " in line or " FATAL " in line]
             check_equal(errors, [], "Errors logged by FreeDV")
         check_silent(RADIO_TX_MONITOR, "Something is still being sent to the radio")
+
+
+def test_exit_during_on_off():
+    """Closing the window, or choosing File > Exit, while Start or Stop Modem
+    is still being carried out: FreeDV refuses, so that the window isn't
+    destroyed from under the worker doing it. (The test agent holds each
+    worker until the close has been tried, so it can't finish first.) A close
+    that can't be refused waits for the worker instead of refusing."""
+    with audio_devices():
+        with freedvtest.start(settings=settings()) as app:
+            app.wait_for_window("main")
+
+            try:
+                # Closing while the modem is starting.
+                app.command("hold_on_off", hold=True)
+                app.click("main.btnOnOff")
+                check_equal(app.get("main.btnOnOff")["enabled"], False, "Start Modem while starting")
+                app.close("main")
+                check(app.window_exists("main"), "FreeDV closed while the modem was still starting")
+                app.command("hold_on_off", hold=False)
+                app.wait_until(lambda: app.get("main.btnOnOff")["enabled"], timeout=20,
+                               description="the modem to start")
+                check(app.state()["running"], "FreeDV isn't running after a close refused while starting")
+
+                # File > Exit while the modem is stopping.
+                app.command("hold_on_off", hold=True)
+                app.click("main.btnOnOff")
+                check_equal(app.get("main.btnOnOff")["enabled"], False, "Stop Modem while stopping")
+                app.menu(EXIT_MENU_ITEM)
+                check(app.window_exists("main"), "FreeDV exited while the modem was still stopping")
+            finally:
+                app.command("hold_on_off", hold=False)
+            app.wait_until(lambda: app.get("main.btnOnOff")["enabled"], timeout=20,
+                           description="the modem to stop")
+            check_equal(app.state()["running"], False, "Running once the stop that was waited for is done")
+
+            quit_and_check_log(app)
+
+        # A close that can't be refused -- a log out, or the window manager
+        # forcing the window away -- can't be turned down, so FreeDV waits for
+        # the Start that's still being carried out and closes once it's done.
+        with freedvtest.start(settings=settings()) as app:
+            app.wait_for_window("main")
+
+            app.command("hold_on_off", hold=True)
+            app.click("main.btnOnOff")
+            check_equal(app.get("main.btnOnOff")["enabled"], False, "Start Modem while starting")
+            app.close("main", force=True)
+            # The close is now waiting for the Start, pumping the event loop
+            # as it does so; that's what lets this release through, while
+            # the close itself is still being carried out.
+            app.command("hold_on_off", hold=False)
+            check_equal(app.wait_for_exit(), 0, "FreeDV's exit code (close waited for the start)")
+            log = app.log()
+            check_no_errors(log)
+            # Had it given up waiting, it would only have warned and gone on
+            # regardless -- the close this is here to see not happening.
+            check("On/Off still running" not in log,
+                  "The close gave up waiting for the Start to finish")
+
+
+def test_udp_reporting_while_running():
+    """UDP reporting turned on and off while the modem is running: reporting
+    restarts with it, which is what makes the Log QSO button usable."""
+    extra = dict(Reporting__Enable=True, Reporting__Callsign=CALLSIGN, Reporting__GridSquare="DM12",
+                 Reporting__Frequency=14236000)
+    with audio_devices():
+        with freedvtest.start(settings=settings(**extra)) as app:
+            app.wait_for_window("main")
+            start_modem(app)
+            check_equal(app.get("main.btnLogQSO")["enabled"], False, "Log QSO before UDP reporting is turned on")
+
+            change_settings(app, "Reporting", ckboxUDPReportingEnable=True)
+            app.wait_until(lambda: app.get("main.btnLogQSO")["enabled"], timeout=20,
+                           description="the Log QSO button to come up with UDP reporting on")
+            check_equal(freedvtest.read_config(app.config_path).get("/Reporting/UDP/Enable"), "1",
+                        "Saved UDP reporting")
+            check_equal(app.message_boxes(), [], "Errors displayed turning UDP reporting on")
+
+            # Back off again: with nothing to send contacts to, there's no
+            # logging program to log one with.
+            change_settings(app, "Reporting", ckboxUDPReportingEnable=False)
+            app.wait_until(lambda: not app.get("main.btnLogQSO")["enabled"], timeout=20,
+                           description="the Log QSO button to go with UDP reporting off")
+            stop_modem(app)
+            quit_and_check_log(app)
+
+
+def first_icon_resource(binary):
+    """The name of the first icon in a Windows program's resources: the one
+    Explorer and the taskbar show for the program itself."""
+    import ctypes
+    from ctypes import wintypes
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.LoadLibraryExW.restype = wintypes.HMODULE
+    kernel32.LoadLibraryExW.argtypes = [wintypes.LPCWSTR, wintypes.HANDLE, wintypes.DWORD]
+    kernel32.FreeLibrary.argtypes = [wintypes.HMODULE]
+    callback_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HMODULE, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
+    kernel32.EnumResourceNamesW.argtypes = [wintypes.HMODULE, ctypes.c_void_p, callback_type, ctypes.c_void_p]
+    LOAD_LIBRARY_AS_DATAFILE, RT_GROUP_ICON = 0x2, 14
+    module = kernel32.LoadLibraryExW(os.path.abspath(binary), None, LOAD_LIBRARY_AS_DATAFILE)
+    check(module, "Couldn't open %s for its resources (%d)" % (binary, ctypes.get_last_error()))
+    names = []
+
+    def found(_module, _kind, name, _param):
+        # A number (MAKEINTRESOURCE) is below 0x10000; anything else is a name.
+        names.append("#%d" % name if name < 0x10000 else ctypes.wstring_at(name))
+        return False  # The first is all that's wanted.
+
+    try:
+        kernel32.EnumResourceNamesW(module, RT_GROUP_ICON, callback_type(found), None)
+    finally:
+        kernel32.FreeLibrary(module)
+    return names[0] if names else None
+
+
+def test_window_icon():
+    """FreeDV's icon on its windows, for their title bars and the taskbar or
+    window switcher, in each size that's drawn for them (see contrib/icon).
+    macOS shows the app bundle's icon instead, which test_macos_app_icon.sh
+    checks."""
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+    from icon_images import looks_like_freedv_icon
+    if sys.platform == "darwin":
+        raise freedvtest.audio.Unavailable("macOS shows the app bundle's icon (see test/test_macos_app_icon.sh)")
+
+    if sys.platform == "win32":
+        # What Explorer and the taskbar show for freedv.exe: the first icon
+        # in it, by name, which has to be FreeDV's and not one of wx.rc's.
+        check_equal(first_icon_resource(freedvtest.default_binary()), "FREEDV", "freedv.exe's first icon")
+
+    def check_icons(window):
+        icons = app.get(window)["icons"]
+        sizes = sorted(icon["size"][0] for icon in icons)
+        check_equal(sizes, [16, 24, 32, 48, 64, 96, 128, 256] if sys.platform != "win32" else [16, 24, 32, 48, 64, 96, 256],
+                    "Sizes of the icon on the %s window" % window)
+        for icon in icons:
+            width, height = icon["size"]
+            check_equal(width, height, "The %s window's %dx%d icon is square" % (window, width, height))
+            points = {(width // 2, height // 2): icon["center"], (0, 0): icon["corner"],
+                      (width // 4, height // 2): icon["left"], (width // 2, height // 4): icon["above"]}
+            problem = looks_like_freedv_icon(lambda x, y: tuple(points[(x, y)]), width, height)
+            check(problem is None, "The %s window's %dx%d icon isn't FreeDV's: %s" % (window, width, height, problem))
+
+    with audio_devices():
+        with freedvtest.start(settings=settings()) as app:
+            app.wait_for_window("main")
+            check_icons("main")
+            app.menu("Tools/FreeDV Reporter")
+            app.wait_for_window("reporter")
+            check_icons("reporter")
+            check_equal(app.message_boxes(), [], "Messages displayed")
+            quit_and_check_log(app)
 
 
 def test_old_settings():
@@ -2814,6 +3123,231 @@ def test_bad_command_line():
         shutil.rmtree(folder, ignore_errors=True)
 
 
+def test_restart_cycles():
+    """Start Modem and Stop Modem over and over, receiving in between, which
+    takes the audio pipeline and the modems down and builds them again."""
+    with audio_devices(), Loopback(RADIO_TX, RADIO_RX):
+        with freedvtest.start(settings=settings(Rig__HalfDuplex=False)) as app:
+            app.wait_for_window("main")
+            for cycle in range(1, 4):
+                start_modem(app)
+                app.click("main.btnPTT")
+                wait_for_transmit(app)
+                app.wait_until(lambda: app.state()["sync"] == 1, timeout=20,
+                               description="FreeDV to sync during cycle %d" % cycle)
+                app.click("main.btnPTT")
+                wait_for_transmit(app, False)
+                stop_modem(app)
+                check_equal(app.state()["sync"], 0, "Sync after stopping in cycle %d" % cycle)
+                check_silent(RADIO_TX_MONITOR, "Something is still being sent to the radio after cycle %d" % cycle)
+                check_silent(SPEAKER_MONITOR,
+                             "Something is still being played through the speaker after cycle %d" % cycle)
+            quit_and_check_log(app)
+
+
+def test_stop_while_playing_file():
+    """Stopping the modem, and quitting, while a file stands in for the radio."""
+    folder = tempfile.mkdtemp(prefix="freedvtest-files-")
+    try:
+        tone = os.path.join(folder, "tone.wav")
+        write_tone(tone, seconds=10, rate=8000)
+        with audio_devices():
+            with freedvtest.start(settings=settings()) as app:
+                app.wait_for_window("main")
+                start_modem(app)
+                # Analog mode, so that what's in the file can be heard.
+                app.click("main.btnAnalog")
+                app.choose_next_path(tone, loop=True)
+                app.menu("Tools/Start Play File - From Radio...")
+                check_audible(SPEAKER_MONITOR, "The file isn't being played")
+                app.path_dialogs(clear=True)
+
+                stop_modem(app)
+                check_silent(SPEAKER_MONITOR, "The file is still being played after stopping the modem")
+                check_equal(app.get("main")["status"], "", "Status after stopping the modem")
+
+                # Starting again starts from scratch rather than taking over
+                # the file that stopped, which needs the menu item's own name
+                # to be back to what starts playing.
+                start_modem(app)
+                app.menu("Tools/Start Play File - From Radio...")
+                check_equal(app.path_dialogs(clear=True), ["Play File - From Radio"], "File choosers displayed")
+                stop_modem(app)
+                quit_and_check_log(app)
+
+            # Quitting while a file is being played stops it on the way out.
+            with freedvtest.start(settings=settings()) as app:
+                app.wait_for_window("main")
+                start_modem(app)
+                app.click("main.btnAnalog")
+                app.choose_next_path(tone, loop=True)
+                app.menu("Tools/Start Play File - From Radio...")
+                check_audible(SPEAKER_MONITOR, "The file isn't being played")
+                app.menu(EXIT_MENU_ITEM)
+                check_equal(app.wait_for_exit(), 0, "FreeDV's exit code while playing a file")
+                check_silent(SPEAKER_MONITOR, "The file is still being played after quitting")
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
+def test_flapping_transmit():
+    """XMIT clicked again while a transmission is still ending, and the mode
+    switched part way through: the state machine has to settle down either
+    way, with nothing left being sent."""
+    with audio_devices():
+        with freedvtest.start(settings=settings()) as app:
+            app.wait_for_window("main")
+            start_modem(app)
+            for cycle in range(1, 4):
+                app.click("main.btnPTT")
+                wait_for_transmit(app)
+                app.click("main.btnPTT")
+                # During the changeover, which takes a while and processes
+                # events of its own.
+                check_equal(label(app, "main.btnPTT"), "TX Ending", "PTT button's label while ending")
+                app.click("main.btnAnalog")
+                app.click("main.btnPTT")
+                wait_for_transmit(app, False)
+                check_equal(transmitting(app), False, "Transmitting after cycle %d" % cycle)
+                check_equal(app.get("main.btnPTT")["value"], False, "PTT button pressed after cycle %d" % cycle)
+                check_equal(label(app, "main.btnPTT"), "XMIT", "PTT button's label after cycle %d" % cycle)
+                check_equal(app.get("main.btnOnOff")["enabled"], True, "Start/Stop button after cycle %d" % cycle)
+                check_silent(RADIO_TX_MONITOR, "Something is still being sent to the radio after cycle %d" % cycle)
+            check_equal(app.state()["analog"], True, "Analog mode")
+            stop_modem(app)
+            quit_and_check_log(app)
+
+
+def test_stop_while_recording():
+    """Stopping the modem, and quitting, while a recording is going: either
+    way the files have to be closed, which is where their lengths get
+    written."""
+    folder = tempfile.mkdtemp(prefix="freedvtest-files-")
+    try:
+        folders = [os.path.join(folder, name) for name in ("stop", "exit")]
+        for raw_folder in folders:
+            os.mkdir(raw_folder)
+
+        def check_recorded(raw_folder):
+            recorded = sorted(f for f in os.listdir(raw_folder) if f.endswith(".wav"))
+            check(len(recorded) == 1, "Recordings in %s are %r" % (raw_folder, recorded))
+            for path in recorded:
+                level, seconds = readable_file_level(os.path.join(raw_folder, path), path)
+                check(level > AUDIBLE and seconds >= 2,
+                      "%s is %.1f s at level %d" % (path, seconds, level))
+
+        with audio_devices():
+            with freedvtest.start(settings=settings(QuickRecord__SavePath=folders[0])) as app:
+                app.wait_for_window("main")
+                start_modem(app)
+                with Tone(RADIO_RX):
+                    app.click("main.btnRecord")
+                    app.wait_for_window("beginRecording")
+                    app.click("beginRecording.btnStart")
+                    app.wait_for_window_closed("beginRecording")
+                    check_equal(app.get("main.btnRecord")["value"], True, "Record button pressed")
+                    time.sleep(3)
+
+                    stop_modem(app)
+                    check_equal(app.get("main.btnRecord")["value"], False, "Record button pressed after stopping")
+                    check_equal(app.get("main")["status"], "", "Status after stopping")
+                check_recorded(folders[0])
+                quit_and_check_log(app)
+
+            with freedvtest.start(settings=settings(QuickRecord__SavePath=folders[1])) as app:
+                app.wait_for_window("main")
+                start_modem(app)
+                with Tone(RADIO_RX):
+                    app.click("main.btnRecord")
+                    app.wait_for_window("beginRecording")
+                    app.click("beginRecording.btnStart")
+                    app.wait_for_window_closed("beginRecording")
+                    time.sleep(3)
+                    app.menu(EXIT_MENU_ITEM)
+                    check_equal(app.wait_for_exit(), 0, "FreeDV's exit code while recording")
+                check_recorded(folders[1])
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
+def test_voice_keyer_recording_stop():
+    """Stopping the modem while a voice keyer file is being recorded: the take
+    has to be finished off, as its lengths are only written when it closes."""
+    folder = tempfile.mkdtemp(prefix="freedvtest-vk-")
+    try:
+        take = os.path.join(folder, "take.wav")
+        with audio_devices():
+            with freedvtest.start(settings=settings()) as app:
+                app.wait_for_window("main")
+                start_modem(app)
+                with Tone(MICROPHONE):
+                    app.choose_next_path(take)
+                    app.context_menu("main.btnVoiceKeyer", choose="Record new voice keyer file...")
+                    check_equal(app.get("main")["status"], "Recording file %s from microphone" % take, "Status")
+                    time.sleep(2)
+                    stop_modem(app)
+                    check_equal(app.get("main")["status"], "", "Status after stopping")
+                measured, seconds = readable_file_level(take, "The take")
+                check(measured > AUDIBLE and seconds >= 1,
+                      "The take is %.1f s at level %d" % (seconds, measured))
+                quit_and_check_log(app)
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
+def test_voice_keyer_recording_while_running():
+    """The sound devices changed while a voice keyer file is being recorded:
+    the change waits, as it does while transmitting, so the take carries on
+    from the microphone it started on. Once it's finished, the audio
+    restarts with the new devices."""
+    def times_applied(app):
+        return app.log().count("Applying settings changed while running")
+
+    folder = tempfile.mkdtemp(prefix="freedvtest-vk-")
+    try:
+        take = os.path.join(folder, "take.wav")
+        with audio_devices():
+            start_settings = settings(Rig__HalfDuplex=False)
+            start_settings["/Audio/soundCard1InDeviceName"] = VirtualAudioDevices.input_name(MICROPHONE)
+            with freedvtest.start(settings=start_settings) as app:
+                app.wait_for_window("main")
+                start_modem(app)
+                with Tone(MICROPHONE):
+                    app.choose_next_path(take)
+                    app.context_menu("main.btnVoiceKeyer", choose="Record new voice keyer file...")
+                    check_equal(app.get("main")["status"], "Recording file %s from microphone" % take, "Status")
+                    time.sleep(2)
+
+                    # Saved, but kept until the take is done.
+                    change_settings(app, "RX Audio", lcSoundCard1InDevice=VirtualAudioDevices.input_label(RADIO_RX))
+                    check_equal(freedvtest.read_config(app.config_path).get("/Audio/soundCard1InDeviceName"),
+                                VirtualAudioDevices.input_name(RADIO_RX), "Saved radio input device")
+                    time.sleep(3)
+                    check_equal(times_applied(app), 0, "Times the settings were applied while recording")
+                    check_equal(app.get("main")["status"], "Recording file %s from microphone" % take,
+                                "Status while the change waits")
+
+                    app.click("main.btnVoiceKeyer")
+                    check_equal(app.get("main")["status"], "", "Status after the take")
+                    app.wait_until(lambda: times_applied(app) == 1, timeout=15,
+                                   description="the settings to be applied once the take is done")
+                    app.wait_until(lambda: app.get("main.btnOnOff")["enabled"], description="the settings to be applied")
+
+                check(app.state()["running"], "Changing the sound devices stopped FreeDV")
+                check_equal(app.message_boxes(), [], "Errors displayed applying the settings")
+                for button in ["main.btnVoiceKeyer", "main.btnAnalog"]:
+                    check_equal(app.get(button)["enabled"], True, button + " enabled after the audio restarted")
+                # The whole take, the time the change waited included, from
+                # the one microphone.
+                measured, seconds = readable_file_level(take, "The take")
+                check(measured > AUDIBLE and seconds >= 4,
+                      "The take is %.1f s at level %d" % (seconds, measured))
+                stop_modem(app)
+                quit_and_check_log(app)
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
 SCENARIOS = {
     "transmit": test_transmit,
     "ptt_key": test_ptt_key,
@@ -2839,6 +3373,7 @@ SCENARIOS = {
     "reporting_without_callsign": test_reporting_without_callsign,
     "band_names": test_band_names,
     "frequency_units": test_frequency_units,
+    "invalid_frequency": test_invalid_frequency,
     "config_migration_failure": test_config_migration_failure,
     "default_config": test_default_config,
     "appearance_change": test_appearance_change,
@@ -2852,9 +3387,19 @@ SCENARIOS = {
     "receive_reports": test_receive_reports,
     "test_tone": test_test_tone,
     "duplex_while_running": test_duplex_while_running,
+    "audio_while_running": test_audio_while_running,
+    "restart_cycles": test_restart_cycles,
+    "stop_while_playing_file": test_stop_while_playing_file,
+    "flapping_transmit": test_flapping_transmit,
+    "stop_while_recording": test_stop_while_recording,
+    "voice_keyer_recording_stop": test_voice_keyer_recording_stop,
+    "voice_keyer_recording_while_running": test_voice_keyer_recording_while_running,
     "exit_while_tuning": test_exit_while_tuning,
+    "exit_during_on_off": test_exit_during_on_off,
+    "udp_reporting_while_running": test_udp_reporting_while_running,
     "old_settings": test_old_settings,
     "bad_command_line": test_bad_command_line,
+    "window_icon": test_window_icon,
 }
 
 
