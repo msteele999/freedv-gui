@@ -1,40 +1,40 @@
 {
   "data": [
     {
-      "count": 490,
+      "count": 558,
       "path": "/msteele999/freedv-gui/releases",
       "title": "/releases",
-      "uniques": 104
+      "uniques": 122
     },
     {
-      "count": 257,
+      "count": 289,
       "path": "/msteele999/freedv-gui",
       "title": "Overview",
-      "uniques": 88
+      "uniques": 97
     },
     {
-      "count": 250,
+      "count": 259,
       "path": "/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.7",
       "title": "/releases/tag/v3.0-dev-W2MWS-radev2.7",
-      "uniques": 85
+      "uniques": 90
     },
     {
-      "count": 130,
+      "count": 155,
       "path": "/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.8",
       "title": "/releases/tag/v3.0-dev-W2MWS-radev2.8",
-      "uniques": 51
+      "uniques": 61
     },
     {
-      "count": 128,
+      "count": 151,
       "path": "/msteele999/freedv-gui/actions",
       "title": "/actions",
-      "uniques": 10
+      "uniques": 11
     },
     {
-      "count": 105,
+      "count": 119,
       "path": "/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS.19",
       "title": "/releases/tag/v3.0-dev-W2MWS.19",
-      "uniques": 46
+      "uniques": 50
     },
     {
       "count": 75,
@@ -43,27 +43,27 @@
       "uniques": 40
     },
     {
-      "count": 55,
+      "count": 56,
       "path": "/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.6",
       "title": "/releases/tag/v3.0-dev-W2MWS-radev2.6",
-      "uniques": 23
+      "uniques": 24
+    },
+    {
+      "count": 26,
+      "path": "/msteele999/freedv-gui/tree/v3.0-dev-W2MWS-radev2.7",
+      "title": "/tree/v3.0-dev-W2MWS-radev2.7",
+      "uniques": 9
     },
     {
       "count": 24,
       "path": "/msteele999/freedv-gui/issues",
       "title": "/issues",
       "uniques": 7
-    },
-    {
-      "count": 24,
-      "path": "/msteele999/freedv-gui/tree/v3.0-dev-W2MWS-radev2.7",
-      "title": "/tree/v3.0-dev-W2MWS-radev2.7",
-      "uniques": 8
     }
   ],
   "error": null,
-  "last_attempt_at": "2026-11-21T23:40:41Z",
-  "observed_at": "2026-11-21T23:40:41Z",
+  "last_attempt_at": "2026-11-22T14:41:47Z",
+  "observed_at": "2026-11-22T14:41:47Z",
   "repository": "msteele999/freedv-gui",
   "schema_version": 1,
   "status": "fresh",
