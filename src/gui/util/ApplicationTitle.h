@@ -7,7 +7,7 @@
 // version used by logging, reporting, packaging and release tags separate.
 inline wxString GetFreeDVApplicationTitle()
 {
-    return wxT("FreeDV W2MWS RADEV2 Experimental v.9");
+    return wxT("FreeDV W2MWS RADEV2 Experimental v.10");
 }
 
 #endif // FREEDV_APPLICATION_TITLE_H

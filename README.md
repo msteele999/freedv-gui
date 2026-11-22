@@ -12,6 +12,8 @@ Join the [FreeDV W2MWS Groups.io community](https://groups.io/g/FreeDV-W2MWS) fo
 
 Download the latest builds from [GitHub Releases](https://github.com/msteele999/freedv-gui/releases).
 
+View [release download statistics](RELEASE-STATISTICS.md).
+
 ## What's Different in This Fork?
 
 The integrated version combines two major areas of development: a modernized user interface and real-time decoded speech transcription.

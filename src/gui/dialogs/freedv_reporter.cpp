@@ -35,6 +35,7 @@
 #include "../controls/MsgListPopup.h"
 #include "../theme/FreeDVTheme.h"
 #include "../util/FrequencyOps.h"
+#include "../util/AppIcon.h"
 #include "../util/GridSquare.h"
 #include "../util/WindowPositionRestore.h"
 
@@ -84,6 +85,35 @@ using namespace std::placeholders;
 static bool isSortingColumn_(const wxDataViewColumn* sortingColumn, unsigned int modelCol)
 {
     return sortingColumn != nullptr && sortingColumn->GetModelColumn() == modelCol;
+}
+
+// A station's frequency as the Frequency column shows it, in the units chosen
+// in Settings, followed by the sideband it's on if it's said ("14.2360 USB").
+// (The column's sorted and filtered by the frequency itself, not this.)
+static wxString frequencyDisplayString_(uint64_t frequencyHz, IReporter::Sideband sideband)
+{
+    wxString frequencyString;
+    if (wxGetApp().appConfiguration.reportingConfiguration.reportingFrequencyAsKhz)
+    {
+        frequencyString = wxNumberFormatter::ToString(frequencyHz / 1000.0, 1);
+    }
+    else
+    {
+        frequencyString = wxNumberFormatter::ToString(frequencyHz / 1000.0 / 1000.0, 4);
+    }
+
+    switch (sideband)
+    {
+        case IReporter::Sideband::USB:
+            frequencyString += wxT(" USB");
+            break;
+        case IReporter::Sideband::LSB:
+            frequencyString += wxT(" LSB");
+            break;
+        default:
+            break;
+    }
+    return frequencyString;
 }
 
 void FreeDVReporterDialog::createColumn_(int col, bool visible)
@@ -423,6 +453,7 @@ FreeDVReporterDialog::FreeDVReporterDialog(wxWindow* parent, wxWindowID id, cons
     sectionSizer->Add(reportingSettingsSizer, 0, static_cast<int>(wxALL) | static_cast<int>(wxEXPAND) | wxFIXED_MINSIZE, 2);
     
     this->SetMinSize(GetBestSize());
+    SetFreeDVIcons(this);
 
     // Menu bar
     menuBar_ = new wxMenuBar();
@@ -1461,6 +1492,7 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::updateHighlights()
         auto curDate = wxDateTime::Now().ToUTC();
 
         wxDataViewItem currentSelection = parent_->m_listSpots->GetSelection();
+        bool selectionRemoved = false;
 
         // Looked up once per pass rather than for every row.
         const wxColour windowColor = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW);
@@ -1474,6 +1506,9 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::updateHighlights()
         {
             if (item.second->isPendingDelete)
             {
+                // GCOVR_EXCL_START: every place that sets isPendingDelete
+                // clears isVisible in the same handler, so no row is ever
+                // both; the removal below has already happened by then.
                 if (item.second->isVisible)
                 {
                     setColumnAutosize_(false);
@@ -1489,8 +1524,10 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::updateHighlights()
                     {
                         // Selection is no longer valid.
                         currentSelection = wxDataViewItem(nullptr);
+                        selectionRemoved = true;
                     }
                 }
+                // GCOVR_EXCL_STOP
                 continue;
             }
             auto reportData = item.second;
@@ -1570,6 +1607,7 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::updateHighlights()
                     {
                         // Selection no longer valid
                         currentSelection = wxDataViewItem(nullptr);
+                        selectionRemoved = true;
                     }
                 }
                 sortOnNextTimerInterval = true;
@@ -1602,6 +1640,15 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::updateHighlights()
         if (itemsChanged.size() > 0)
         {
             ItemsChanged(itemsChanged);
+        }
+
+        if (selectionRemoved)
+        {
+            // The selected row has gone. macOS moves the list's selection
+            // on to the row that took its place, which the user never
+            // chose; leave nothing selected instead, as the other
+            // platforms do.
+            parent_->CallAfter([this]() { parent_->DeselectItem(); });
         }
         
         if (contentChanged || columnsNeedWidthCheck_ || columnsNeedAutosize_)
@@ -1721,22 +1768,28 @@ void FreeDVReporterDialog::OnItemDoubleClick(wxDataViewEvent& event)
     {
         FreeDVReporterDataModel* model = (FreeDVReporterDataModel*)spotsDataModel_.get();
         auto frequency = model->getFrequency(event.GetItem());
+        auto sideband = model->getSideband(event.GetItem());
         auto rigController = snapshotRigFrequencyController();
         if (rigController &&
             (wxGetApp().appConfiguration.rigControlConfiguration.hamlibEnableFreqModeChanges || 
             wxGetApp().appConfiguration.rigControlConfiguration.hamlibEnableFreqChangesOnly))
         {
+            // On their sideband too, where they've said, while there (as the
+            // main window then picks the mode: see MainFrame::getCurrentMode_()).
+            wxGetApp().followSideband(frequency, sideband);
+
             rigController->setFrequency(frequency);
 
             if (wxGetApp().appConfiguration.rigControlConfiguration.hamlibEnableFreqModeChanges)
             {
                 bool useAnalog = g_analog.load(std::memory_order_relaxed);
-                rigController->setMode(
-                    GetModeForFrequency(
-                        frequency, 
-                        wxGetApp().appConfiguration.rigControlConfiguration.hamlibUseAnalogModes, 
-                        useAnalog, wxGetApp().appConfiguration.getRadioSideband()),
-                    wxGetApp().appConfiguration.getRadioSideband() == RadioSideband::LSB);
+                const auto mode = GetModeForSideband(
+                    frequency, sideband,
+                    wxGetApp().appConfiguration.rigControlConfiguration.hamlibUseAnalogModes,
+                    useAnalog, wxGetApp().appConfiguration.getRadioSideband());
+                rigController->setMode(mode,
+                    wxGetApp().appConfiguration.getRadioSideband() == RadioSideband::LSB ||
+                    IsLowerRadioSideband(mode));
             }
         }
         DeselectItem();
@@ -2934,6 +2987,7 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::setReporter(std::shared_ptr<
         reporter_->setOnUserConnectFn(FreeDVReporter::ConnectionDataFn());
         reporter_->setOnUserDisconnectFn(FreeDVReporter::ConnectionDataFn());
         reporter_->setOnFrequencyChangeFn(FreeDVReporter::FrequencyChangeFn());
+        reporter_->setOnSidebandChangeFn(FreeDVReporter::SidebandChangeFn());
         reporter_->setOnTransmitUpdateFn(FreeDVReporter::TxUpdateFn());
         reporter_->setOnReceiveUpdateFn(FreeDVReporter::RxUpdateFn());
 
@@ -2969,6 +3023,7 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::setReporter(std::shared_ptr<
             reporter_->setOnUserConnectFn(std::bind(&FreeDVReporterDialog::FreeDVReporterDataModel::onUserConnectFn_, this, _1, _2, _3, _4, _5, _6, _7));
             reporter_->setOnUserDisconnectFn(std::bind(&FreeDVReporterDialog::FreeDVReporterDataModel::onUserDisconnectFn_, this, _1, _2, _3, _4, _5, _6, _7));
             reporter_->setOnFrequencyChangeFn(std::bind(&FreeDVReporterDialog::FreeDVReporterDataModel::onFrequencyChangeFn_, this, _1, _2, _3, _4, _5));
+            reporter_->setOnSidebandChangeFn(std::bind(&FreeDVReporterDialog::FreeDVReporterDataModel::onSidebandChangeFn_, this, _1, _2));
             reporter_->setOnTransmitUpdateFn(std::bind(&FreeDVReporterDialog::FreeDVReporterDataModel::onTransmitUpdateFn_, this, _1, _2, _3, _4, _5, _6, _7));
             reporter_->setOnReceiveUpdateFn(std::bind(&FreeDVReporterDialog::FreeDVReporterDataModel::onReceiveUpdateFn_, this, _1, _2, _3, _4, _5, _6, _7));
 
@@ -3002,6 +3057,12 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::clearAllEntries_()
     assert(wxThread::IsMain());
 
     columnsNeedWidthCheck_ = true;
+
+    // Every row is about to go, so a selection can't survive this either.
+    if (parent_->m_listSpots->GetSelection().IsOk())
+    {
+        parent_->CallAfter([this]() { parent_->DeselectItem(); });
+    }
 
     for (auto& row : allReporterData_)
     {
@@ -3392,6 +3453,7 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::refreshAllRows()
     wxDataViewItemArray itemsAdded;
     wxDataViewItemArray itemsDeleted;
     wxDataViewItem currentSelection = parent_->m_listSpots->GetSelection();
+    bool selectionRemoved = false;
     
     for (auto& kvp : allReporterData_)
     {
@@ -3401,18 +3463,7 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::refreshAllRows()
     	}
 
         bool updated = false;
-        double frequencyUserReadable = kvp.second->frequency / 1000.0;
-        wxString frequencyString;
-        
-        if (wxGetApp().appConfiguration.reportingConfiguration.reportingFrequencyAsKhz)
-        {
-            frequencyString = wxNumberFormatter::ToString(frequencyUserReadable, 1);
-        }
-        else
-        {
-            frequencyUserReadable /= 1000.0;
-            frequencyString = wxNumberFormatter::ToString(frequencyUserReadable, 4);
-        }
+        wxString frequencyString = frequencyDisplayString_(kvp.second->frequency, kvp.second->sideband);
         
         updated |= kvp.second->freqString != frequencyString;
         kvp.second->freqString = frequencyString;
@@ -3461,6 +3512,7 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::refreshAllRows()
                 {
                     // Selection no longer valid
                     currentSelection = wxDataViewItem(nullptr);
+                    selectionRemoved = true;
                 }
             }
             sortOnNextTimerInterval = true;
@@ -3481,6 +3533,12 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::refreshAllRows()
             parent_->CallAfter([&, currentSelection]() {
                 parent_->m_listSpots->Select(currentSelection);
             });
+        }
+        else if (selectionRemoved)
+        {
+            // As in updateHighlights(): don't let macOS move the selection
+            // on to a row the user never chose.
+            parent_->CallAfter([this]() { parent_->DeselectItem(); });
         }
     }
     
@@ -3673,21 +3731,30 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::onUserConnectFn_(std::string
         // defer visibility until timer update
         temp->isVisible = false;
         temp->isPendingUpdate = false;
-
-        if (allReporterData_.find(sid) != allReporterData_.end() && !isConnected_ &&
-            !allReporterData_.at(sid)->isPendingDelete)
-        {
-            log_warn("Received duplicate user during connection process");
-            delete temp;
-            return;
-        }
-        
         temp->isPendingDelete = false;
-        
+
         auto existsIter = allReporterData_.find(sid);
         if (existsIter != allReporterData_.end())
         {
+            if (!existsIter->second->isPendingDelete)
+            {
+                // Duplicate of a user we already have (and may be showing).
+                // Keep the existing entry: freeing it here would leave the
+                // list control holding a dangling item.
+                if (!isConnected_)
+                {
+                    log_warn("Received duplicate user during connection process");
+                }
+                else
+                {
+                    log_warn("Received duplicate user %s with SID %s", callsign.c_str(), sid.c_str());
+                }
+                delete temp;
+                return;
+            }
+
             // Pending deletion prior to reconnect, so go ahead and delete now.
+            // (Pending-delete entries have already been removed from the list.)
             delete existsIter->second;
         }
         allReporterData_[sid] = temp;
@@ -3736,6 +3803,9 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::onUserDisconnectFn_(std::str
             auto item = iter->second;
             if (item->isVisible)
             {
+                wxDataViewItem dvi(item);
+                bool wasSelected = parent_->m_listSpots->GetSelection().GetID() == dvi.GetID();
+
 #if !defined(__linux__)
                 // For non-Linux/GTK, isVisible must be set to false prior to removal
                 // to avoid referencing deallocated memory during table updates (i.e.
@@ -3743,7 +3813,6 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::onUserDisconnectFn_(std::str
                 item->isVisible = false;
 #endif // !defined(__linux__)
                 
-                wxDataViewItem dvi(item);
                 ItemDeleted(wxDataViewItem(nullptr), dvi);
                 
 #if defined(__linux__)
@@ -3754,6 +3823,14 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::onUserDisconnectFn_(std::str
 #endif // defined(__linux__)
 
                 columnsNeedWidthCheck_ = true;
+
+                if (wasSelected)
+                {
+                    // As in updateHighlights(): leave nothing selected rather
+                    // than whatever row macOS moves the selection on to, and
+                    // turn off Request QSY with it.
+                    parent_->CallAfter([this]() { parent_->DeselectItem(); });
+                }
             }
             item->isPendingDelete = true;
             item->deleteTime = wxDateTime::Now();
@@ -3786,21 +3863,10 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::onFrequencyChangeFn_(std::st
                 return;
             }
 
-            double frequencyUserReadable = frequencyHz / 1000.0;
             wxGetApp().appConfiguration.callsignWatchlist.Observe(
                 sid, iter->second->callsign, wxString::FromUTF8(lastUpdate.c_str()),
                 "frequency", wxString::Format("%llu", static_cast<unsigned long long>(frequencyHz)));
-            wxString frequencyString;
-            
-            if (wxGetApp().appConfiguration.reportingConfiguration.reportingFrequencyAsKhz)
-            {
-                frequencyString = wxNumberFormatter::ToString(frequencyUserReadable, 1);
-            }
-            else
-            {
-                frequencyUserReadable /= 1000.0;
-                frequencyString = wxNumberFormatter::ToString(frequencyUserReadable, 4);
-            }
+            wxString frequencyString = frequencyDisplayString_(frequencyHz, iter->second->sideband);
             auto lastUpdateTime = makeValidTime_(lastUpdate, iter->second->lastUpdateDate);
 
             auto sortingColumn = parent_->m_listSpots->GetSortingColumn();
@@ -3820,6 +3886,39 @@ void FreeDVReporterDialog::FreeDVReporterDataModel::onFrequencyChangeFn_(std::st
                 iter->second->isPendingUpdate = isDataChanged;
                 sortOnNextTimerInterval |= isChanged;
             }
+        }
+    };
+
+    fnQueue_.push_back(std::move(handler));
+}
+
+void FreeDVReporterDialog::FreeDVReporterDataModel::onSidebandChangeFn_(std::string sid, IReporter::Sideband sideband)
+{
+    std::unique_lock<std::mutex> lk(fnQueueMtx_);
+    CallbackHandler handler;
+    handler.sid = std::move(sid);
+    handler.sideband = sideband;
+    handler.fn = [this](CallbackHandler& handler) {
+        std::unique_lock<std::recursive_mutex> lk(const_cast<std::recursive_mutex&>(dataMtx_));
+
+        auto iter = allReporterData_.find(handler.sid);
+        if (iter == allReporterData_.end() || iter->second->isPendingDelete ||
+            iter->second->sideband == handler.sideband)
+        {
+            return;
+        }
+
+        // (Always comes after the frequency it's on; the server sends the
+        // two together.)
+        iter->second->sideband = handler.sideband;
+        if (iter->second->frequency > 0)
+        {
+            iter->second->freqString = frequencyDisplayString_(iter->second->frequency, handler.sideband);
+        }
+
+        if (iter->second->isVisible)
+        {
+            iter->second->isPendingUpdate = true;
         }
     };
 

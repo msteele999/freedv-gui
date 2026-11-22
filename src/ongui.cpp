@@ -159,7 +159,8 @@ void MainFrame::OnToolsSetupWizard(wxCommandEvent&)
 
 void MainFrame::OnToolsSetupWizardUI(wxUpdateUIEvent& event)
 {
-    event.Enable(!m_RxRunning.load(std::memory_order_acquire));
+    // (m_RxRunning is briefly clear while settings are applied, as the audio restarts.)
+    event.Enable(!m_RxRunning.load(std::memory_order_acquire) && !applyingSettings_);
 }
 
 //-------------------------------------------------------------------------
@@ -192,9 +193,17 @@ void MainFrame::OnToolsOptions(wxCommandEvent& event)
 
     wxUnusedVar(event);
 
+    if (optionsDlg != nullptr && optionsDlg->IsModal())
+    {
+        // Already showing: e.g. applying what it saved couldn't find a sound
+        // card, which opens Settings to fix that.
+        optionsDlg->Raise();
+        return;
+    }
+
     if (optionsDlg == nullptr)
     {
-        optionsDlg = new OptionsDlg(NULL);
+        optionsDlg = new OptionsDlg(this);
         // Initialize the session-active state so controls are displayed
         // correctly in case a session is already running.
         optionsDlg->setSessionActive(m_RxRunning.load(std::memory_order_acquire));
@@ -307,7 +316,11 @@ void MainFrame::OnToolsOptions(wxCommandEvent& event)
                 wxString newFreq = "";
                 wxString freq = m_lastReportedCallsignListView->GetItemText(index, 1);
                 double freqDouble = 0;
-                wxNumberFormatter::FromString(freq, &freqDouble);
+                if (!wxNumberFormatter::FromString(freq, &freqDouble) || !std::isfinite(freqDouble))
+                {
+                    // A row with no frequency stays that way.
+                    continue;
+                }
 
                 if (wxGetApp().appConfiguration.reportingConfiguration.reportingFrequencyAsKhz)
                 {
@@ -324,8 +337,9 @@ void MainFrame::OnToolsOptions(wxCommandEvent& event)
             }
         }
 
-        // Initialize FreeDV Reporter if required.
-        if (!m_RxRunning.load(std::memory_order_acquire))
+        // Initialize FreeDV Reporter if required. While running, it's done
+        // if need be as the new settings are applied (see onSettingsChanged_()).
+        if (!m_RxRunning.load(std::memory_order_acquire) && !applyingSettings_)
         {
             initializeFreeDVReporter_();
         }
@@ -423,6 +437,30 @@ void MainFrame::onFrequencyModeChange_(IRigFrequencyController* source, uint64_t
             return;
         }
 
+        // The sideband goes to the reporters along with the frequency, so
+        // only when that's the radio's: one typed in (manual frequency
+        // reporting) may well not be what the radio is on.
+        IReporter::Sideband sideband = IReporter::Sideband::UNKNOWN;
+        if (!wxGetApp().appConfiguration.reportingConfiguration.reportingEnabled ||
+            !wxGetApp().appConfiguration.reportingConfiguration.manualFrequencyReporting)
+        {
+            if (mode == IRigFrequencyController::USB || mode == IRigFrequencyController::DIGU)
+            {
+                sideband = IReporter::Sideband::USB;
+            }
+            else if (mode == IRigFrequencyController::LSB || mode == IRigFrequencyController::DIGL)
+            {
+                sideband = IReporter::Sideband::LSB;
+            }
+        }
+        // (Sent ahead of the frequency below, so for a moment the new sideband
+        // goes with the old frequency: the reverse order has the same moment
+        // the other way round. The server batches the two, so its clients
+        // usually see both at once. Where the frequency isn't sent below, the
+        // radio's frequency is stale or isn't being reported, and FreeDV's
+        // still reporting the frequency it was on.)
+        reportSideband_(sideband);
+
         // Update string value.
         switch(mode)
         {
@@ -471,18 +509,19 @@ void MainFrame::onFrequencyModeChange_(IRigFrequencyController* source, uint64_t
 
         auto newFreq = wholeFreq * 100;
 
-        // Widest 60 meter allocation is 5.250-5.450 MHz per https://en.wikipedia.org/wiki/60-meter_band.
-        bool is60MeterBand = newFreq >= 5250000 && newFreq <= 5450000;
-
-        // Update color based on the mode and current frequency.
-        bool isUsbFreq = newFreq >= 10000000 || is60MeterBand;
-        bool isLsbFreq = newFreq < 10000000 && !is60MeterBand;
-
-        bool isMatchingMode =
-            (!g_analog && (wxGetApp().appConfiguration.getRadioSideband() == RadioSideband::LSB
-                ? IsLowerRadioSideband(mode) : IsUpperRadioSideband(mode))) ||
-            (g_analog && isUsbFreq && (mode == IRigFrequencyController::USB)) ||
-            (g_analog && isLsbFreq && (mode == IRigFrequencyController::LSB));
+        // Update color based on the mode and current frequency: the mode FreeDV
+        // would put the radio in there (on the usual sideband, or a station's
+        // after going to it), or for digital, either mode on that sideband.
+        auto expectedMode = GetModeForSideband(
+            newFreq, wxGetApp().followedSidebandAt(newFreq),
+            wxGetApp().appConfiguration.rigControlConfiguration.hamlibUseAnalogModes, g_analog,
+            wxGetApp().appConfiguration.getRadioSideband());
+        bool isSidebandMode =
+            mode == IRigFrequencyController::USB || mode == IRigFrequencyController::DIGU ||
+            mode == IRigFrequencyController::LSB || mode == IRigFrequencyController::DIGL;
+        bool isMatchingMode = g_analog ?
+            (mode == expectedMode) :
+            (isSidebandMode && IsLowerSidebandMode(mode) == IsLowerSidebandMode(expectedMode));
 
         if (isMatchingMode)
         {
@@ -522,6 +561,9 @@ void MainFrame::onFrequencyModeChange_(IRigFrequencyController* source, uint64_t
             // here.
             auto oldFreq = wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency.get();
             wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency = newFreq;
+            // (The radio tuned elsewhere, e.g. by its own dial: as when a
+            // frequency's typed in, see OnChangeReportFrequency().)
+            wxGetApp().forgetFollowedSidebandUnlessAt(newFreq);
             if (oldFreq != newFreq)
             {
                 for (auto& ptr : wxGetApp().m_reporters)
@@ -570,7 +612,8 @@ void MainFrame::onRadioConnected_(IRigController*)
         if (wxGetApp().appConfiguration.rigControlConfiguration.hamlibEnableFreqModeChanges)
         {
             rigController->setMode(getCurrentMode_(),
-                wxGetApp().appConfiguration.getRadioSideband() == RadioSideband::LSB);
+                wxGetApp().appConfiguration.getRadioSideband() == RadioSideband::LSB ||
+                IsLowerRadioSideband(getCurrentMode_()));
         }
     }
 }
@@ -581,7 +624,29 @@ void MainFrame::onRadioDisconnected_(IRigController*)
         updateRadioSidebandStatus_();
         m_txtModeStatus->SetLabel(_("unk"));
         m_txtModeStatus->Enable(false);
+
+        // Nothing's known about the sideband without the radio.
+        reportSideband_(IReporter::Sideband::UNKNOWN);
     });
+}
+
+//-------------------------------------------------------------------------
+// reportSideband_(): tells the reporters which sideband the radio is on
+// (UNKNOWN if not known), if that's changed. On the UI thread, as
+// m_reporters is changed there.
+//-------------------------------------------------------------------------
+void MainFrame::reportSideband_(IReporter::Sideband sideband)
+{
+    if (sideband == reportedSideband_)
+    {
+        return;
+    }
+
+    reportedSideband_ = sideband;
+    for (auto& ptr : wxGetApp().m_reporters)
+    {
+        ptr->sidebandChange(sideband);
+    }
 }
 
 //-------------------------------------------------------------------------
@@ -798,7 +863,8 @@ void MainFrame::OnDeleteConfig(wxCommandEvent&)
 //-------------------------------------------------------------------------
 void MainFrame::OnDeleteConfigUI( wxUpdateUIEvent& event )
 {
-    event.Enable(!m_RxRunning.load(std::memory_order_acquire));
+    // (m_RxRunning is briefly clear while settings are applied, as the audio restarts.)
+    event.Enable(!m_RxRunning.load(std::memory_order_acquire) && !applyingSettings_);
 }
 
 //-------------------------------------------------------------------------
@@ -1382,6 +1448,16 @@ void MainFrame::togglePTT(void) {
     {
         return;
     }
+
+    // Settings are being applied, which can mean the audio is being
+    // restarted: there's nothing to transmit with until that's done. The
+    // PTT button is disabled meanwhile; this covers the PTT key and a PTT
+    // input port, which go straight here.
+    if (applyingSettings_)
+    {
+        m_btnTogPTT->SetValue(g_tx.load(std::memory_order_acquire));
+        return;
+    }
     txChangeoverOccurring_ = true;
 
     // If we're playing a RX file, we want to stop it before TX.
@@ -1814,8 +1890,11 @@ void MainFrame::OnTogBtnTune(wxCommandEvent&)
 HamlibRigController::Mode MainFrame::getCurrentMode_()
 {
     bool useAnalog = g_analog.load(std::memory_order_relaxed);
-    return GetModeForFrequency(
-        wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency, 
+    uint64_t frequency = wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency;
+    // (On the sideband of a station FreeDV's gone to, while it's there.)
+    return GetModeForSideband(
+        frequency,
+        wxGetApp().followedSidebandAt(frequency),
         wxGetApp().appConfiguration.rigControlConfiguration.hamlibUseAnalogModes,
         useAnalog, wxGetApp().appConfiguration.getRadioSideband());
 }
@@ -1862,8 +1941,11 @@ void MainFrame::OnTogBtnAnalogClick (wxCommandEvent& event)
         // Request mode change on the radio side
         auto currentMode = getCurrentMode_();
 
+        // The shift is for going between sidebands: digital is usually on
+        // USB, but on a station's own sideband after going to it (and then
+        // stays on it in analog too).
         constexpr int LSB_USB_FREQ_SHIFT_HZ = 3000;
-        if (!lsbOverride && currentMode == HamlibRigController::LSB && g_analog)
+        if (!lsbOverride && IsLowerSidebandMode(currentMode) && !IsLowerSidebandMode(oldMode) && g_analog)
         {
             // If analog is enabled, we should add +3 kHz to the frequency to 
             // ensure we're still listening to the same passband that we were
@@ -1872,7 +1954,7 @@ void MainFrame::OnTogBtnAnalogClick (wxCommandEvent& event)
                 wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency + LSB_USB_FREQ_SHIFT_HZ;
             rigController->setFrequency(wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency);
         }
-        else if (!lsbOverride && oldMode == HamlibRigController::LSB && !g_analog)
+        else if (!lsbOverride && IsLowerSidebandMode(oldMode) && !IsLowerSidebandMode(currentMode) && !g_analog)
         {
             // Revert previous mode shift.
             wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency = 
@@ -1880,7 +1962,7 @@ void MainFrame::OnTogBtnAnalogClick (wxCommandEvent& event)
             rigController->setFrequency(wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency);
         }
 
-        rigController->setMode(currentMode, lsbOverride);
+        rigController->setMode(currentMode, lsbOverride || IsLowerRadioSideband(currentMode));
     }
 
     g_State.store(0, std::memory_order_release);
@@ -1910,7 +1992,6 @@ void MainFrame::OnLogQSO(wxCommandEvent&)
     wxString logTime;
     wxString snrString;
     wxDateTime logTimeObj = wxDateTime::Now();
-    double dxFreqDouble = 0;
     uint64_t dxFreqHz = 0;
     double snr = ILogger::UNKNOWN_SNR;
     
@@ -1923,8 +2004,14 @@ void MainFrame::OnLogQSO(wxCommandEvent&)
         logTime = m_lastReportedCallsignListView->GetItemText(selected, 2);
         snrString = m_lastReportedCallsignListView->GetItemText(selected, 3);
         
-        wxNumberFormatter::FromString(dxFreq, &dxFreqDouble);
-        wxNumberFormatter::FromString(snrString, &snr);
+        // (Shown by FreeDV itself, but checked all the same: a row with no
+        // frequency, or one that isn't, is logged without one.)
+        dxFreqHz = ReportingConfiguration::DisplayedFrequencyToHz(
+            dxFreq, wxGetApp().appConfiguration.reportingConfiguration.reportingFrequencyAsKhz);
+        if (!wxNumberFormatter::FromString(snrString, &snr) || !std::isfinite(snr) || std::fabs(snr) > 1000)
+        {
+            snr = ILogger::UNKNOWN_SNR;
+        }
         
         wxString::const_iterator end;
         logTimeObj.ParseDateTime(logTime, &end);
@@ -1935,22 +2022,11 @@ void MainFrame::OnLogQSO(wxCommandEvent&)
             logTimeObj.MakeFromTimezone(wxDateTime::UTC);
         }
         
-        if (wxGetApp().appConfiguration.reportingConfiguration.reportingFrequencyAsKhz)
-        {
-            dxFreqDouble *= 1000;
-        }
-        else
-        {
-            dxFreqDouble *= 1000000;
-        }
-        
         // If connected to FreeDV Reporter, get DX grid
         if (m_reporterDialog != nullptr && dxFreq != "")
         {
             dxGrid = m_reporterDialog->getGridSquareForCallsign(dxCall);
         }
-        
-        dxFreqHz = (uint64_t)dxFreqDouble;
         
         log_info("Logging %s/%s at %" PRIu64 " Hz from main window drop-down list", (const char*)dxCall.ToUTF8(), (const char*)dxGrid.ToUTF8(), dxFreqHz);
     }
@@ -1963,19 +2039,12 @@ void MainFrame::OnLogQSO(wxCommandEvent&)
     }
     else
     {
+        // What's in the frequency box, if it's a frequency: one that isn't
+        // (words, a negative, one too big) is logged as no frequency, rather
+        // than one cast out of it.
         dxFreq = m_cboReportFrequency->GetValue();
-        wxNumberFormatter::FromString(dxFreq, &dxFreqDouble);
-        
-        if (wxGetApp().appConfiguration.reportingConfiguration.reportingFrequencyAsKhz)
-        {
-            dxFreqDouble *= 1000;
-        }
-        else
-        {
-            dxFreqDouble *= 1000000;
-        }
-        
-        dxFreqHz = (uint64_t)dxFreqDouble;
+        dxFreqHz = ReportingConfiguration::DisplayedFrequencyToHz(
+            dxFreq, wxGetApp().appConfiguration.reportingConfiguration.reportingFrequencyAsKhz);
         
         log_info("No rows selected, defaulting logging to %" PRIu64 " Hz", dxFreqHz);
     }
@@ -2070,47 +2139,32 @@ void MainFrame::OnChangeReportFrequency( wxCommandEvent& )
     wxString freqStr = m_cboReportFrequency->GetValue();
     auto oldFreq = wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency.get();
 
-    wxString oldFreqString;            
-    if (wxGetApp().appConfiguration.reportingConfiguration.reportingFrequencyAsKhz)
-    {
-        oldFreqString = wxNumberFormatter::ToString(oldFreq / 1000.0, 1);
-    }
-    else
-    {
-        oldFreqString = wxNumberFormatter::ToString(oldFreq / 1000.0 / 1000.0, 4);
-    }
+    wxString oldFreqString = reportFrequencyString_(oldFreq);
 
+    // Whether what's in the box can be used: empty (no frequency) or a
+    // frequency.
+    bool entryUsable = true;
     if (freqStr.Length() > 0)
     {
-        double tmp = 0;
-        wxNumberFormatter::FromString(freqStr, &tmp);
-        
-        if (wxGetApp().appConfiguration.reportingConfiguration.reportingFrequencyAsKhz)
-        {
-            wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency = round(tmp * 1000);
-        }
-        else
-        {
-            wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency = round(tmp * 1000 * 1000);
-        }
+        // Rounded to the nearest 100 Hz, as it's used.
+        uint64_t hz = ReportingConfiguration::DisplayedFrequencyToHz(
+            freqStr, wxGetApp().appConfiguration.reportingConfiguration.reportingFrequencyAsKhz);
+        hz = (hz + 50) / 100 * 100;
 
-        if (wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency > 0)
+        if (hz > 0)
         {
+            wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency = hz;
             m_cboReportFrequency->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT));
-
-            // Round to the nearest 100 Hz.
-            uint64_t wholeFreq = wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency / 100;
-            uint64_t remainder = wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency % 100;
-
-            if (remainder >= 50)
-            {
-                wholeFreq++;
-            }
-
-            wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency = wholeFreq * 100;
         }
         else
         {
+            // Not a frequency (words, a negative, one too big, or one that
+            // rounds to nothing), so it's shown as such. The radio's still
+            // on the frequency it had, so that's kept, and nothing is sent
+            // to the reporters or the rig, rather than a frequency being
+            // made up from what's typed (or what's half typed: this runs on
+            // each keystroke).
+            entryUsable = false;
             m_cboReportFrequency->SetForegroundColour(wxColor(*wxRED));
         }
     }
@@ -2120,9 +2174,13 @@ void MainFrame::OnChangeReportFrequency( wxCommandEvent& )
         m_cboReportFrequency->SetForegroundColour(wxColor(*wxRED));
     }
 
-    if (freqStr != oldFreqString)
+    if (entryUsable && freqStr != oldFreqString)
     {
         log_info("Request frequency change to %" PRIu64 " Hz", wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency.get());
+
+        // Somewhere other than the station whose sideband FreeDV went to:
+        // the sideband usual here, now and if FreeDV comes back.
+        wxGetApp().forgetFollowedSidebandUnlessAt(wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency);
 
         // Report current frequency to reporters
         for (auto& ptr : wxGetApp().m_reporters)
@@ -2140,7 +2198,8 @@ void MainFrame::OnChangeReportFrequency( wxCommandEvent& )
             if (wxGetApp().appConfiguration.rigControlConfiguration.hamlibEnableFreqModeChanges)
             {
                 rigController->setMode(getCurrentMode_(),
-                    wxGetApp().appConfiguration.getRadioSideband() == RadioSideband::LSB);
+                    wxGetApp().appConfiguration.getRadioSideband() == RadioSideband::LSB ||
+                IsLowerRadioSideband(getCurrentMode_()));
             }
         }
     }
@@ -2186,8 +2245,10 @@ void MainFrame::OnReportFrequencyKillFocus(wxFocusEvent& event)
 void MainFrame::OnSystemColorChanged(wxSysColourChangedEvent& event)
 {
     // Works around issues on wxWidgets with certain controls not changing colors
-    // when the user switches between light and dark mode.
-    if (wxGetApp().appConfiguration.reportingConfiguration.reportingFrequency > 0)
+    // when the user switches between light and dark mode. (Red for what's in
+    // the box, as when it was typed: a frequency kept from before something
+    // that isn't one was typed over it doesn't make that right.)
+    if (!reportFrequencyListString_(m_cboReportFrequency->GetValue()).IsEmpty())
     {
         m_cboReportFrequency->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT));
     }
@@ -2205,16 +2266,16 @@ void MainFrame::OnCenterRx(wxCommandEvent&)
 
 // The frequency typed or shown in the box as the predefined list shows it
 // (rounded to 100 Hz, as it's used), or empty if it isn't a frequency.
+wxString MainFrame::reportFrequencyString_(uint64_t hz)
+{
+    return wxGetApp().appConfiguration.reportingConfiguration.reportingFrequencyAsKhz ?
+        wxNumberFormatter::ToString(hz / 1000.0, 1) : wxNumberFormatter::ToString(hz / 1000.0 / 1000.0, 4);
+}
+
 wxString MainFrame::reportFrequencyListString_(wxString const& text)
 {
-    double value = 0;
-    if (!wxNumberFormatter::FromString(text, &value) || value <= 0)
-    {
-        return wxEmptyString;
-    }
-
     bool asKhz = wxGetApp().appConfiguration.reportingConfiguration.reportingFrequencyAsKhz;
-    uint64_t hz = round(value * (asKhz ? 1000.0 : 1000.0 * 1000.0));
+    uint64_t hz = ReportingConfiguration::DisplayedFrequencyToHz(text, asKhz);
     hz = (hz + 50) / 100 * 100;
     if (hz == 0)
     {
@@ -2258,8 +2319,14 @@ void MainFrame::OnReportFrequencyContextMenu(wxContextMenuEvent&)
     wxString units = wxGetApp().appConfiguration.reportingConfiguration.reportingFrequencyAsKhz ? _("kHz") : _("MHz");
 
     wxMenu menu;
-    wxMenuItem* addItem = menu.Append(wxID_ANY,
-        freq.IsEmpty() ? _("&Add frequency to list") : wxString::Format(_("&Add %s%s to list"), freq, units));
+    // Built a step at a time rather than with ?:, so that the choice isn't on
+    // the Format line, whose branches the coverage job doesn't count.
+    wxString addLabel = _("&Add frequency to list");
+    if (!freq.IsEmpty())
+    {
+        addLabel = wxString::Format(_("&Add %s%s to list"), freq, units);
+    }
+    wxMenuItem* addItem = menu.Append(wxID_ANY, addLabel);
     addItem->Enable(!freq.IsEmpty() && !listed);
     menu.Bind(wxEVT_MENU, [this, freq](wxCommandEvent&) { addReportFrequencyToList_(freq); }, addItem->GetId());
 
@@ -2415,12 +2482,14 @@ void MainFrame::OnToggleReporterVisibility (wxCommandEvent&)
 
 void MainFrame::OnToolsExportConfigUI(wxUpdateUIEvent& event)
 {
-    event.Enable(!m_RxRunning.load(std::memory_order_acquire));
+    // (m_RxRunning is briefly clear while settings are applied, as the audio restarts.)
+    event.Enable(!m_RxRunning.load(std::memory_order_acquire) && !applyingSettings_);
 }
 
 void MainFrame::OnToolsImportConfigUI(wxUpdateUIEvent& event)
 {
-    event.Enable(!m_RxRunning.load(std::memory_order_acquire));
+    // (m_RxRunning is briefly clear while settings are applied, as the audio restarts.)
+    event.Enable(!m_RxRunning.load(std::memory_order_acquire) && !applyingSettings_);
 }
 
 void MainFrame::OnToolsExportConfig(wxCommandEvent& event)
@@ -2499,7 +2568,8 @@ void MainFrame::OnToolsImportConfig(wxCommandEvent& event)
 
 void MainFrame::OnToolsLoadDefaultConfigUI(wxUpdateUIEvent& event)
 {
-    event.Enable(!m_RxRunning.load(std::memory_order_acquire));
+    // (m_RxRunning is briefly clear while settings are applied, as the audio restarts.)
+    event.Enable(!m_RxRunning.load(std::memory_order_acquire) && !applyingSettings_);
 }
 
 void MainFrame::OnToolsLoadDefaultConfig(wxCommandEvent& event)

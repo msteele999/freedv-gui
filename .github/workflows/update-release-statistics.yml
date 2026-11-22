@@ -1,0 +1,68 @@
+name: Update Release Statistics
+
+on:
+  schedule:
+    - cron: '23 6 * * *'
+  workflow_dispatch:
+
+# API collection performs GET requests only; this permission also lets the
+# final step commit the generated dashboard to the default branch.
+permissions:
+  contents: write
+
+concurrency:
+  group: release-statistics-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  update:
+    if: github.repository == 'msteele999/freedv-gui'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+
+    steps:
+      - name: Check out the default branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+
+      - name: Collect release and repository statistics
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_STATS_TOKEN: ${{ secrets.RELEASE_STATS_TOKEN }}
+        run: python scripts/release_stats.py
+
+      - name: Commit only generated statistics when changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          generated=(
+            RELEASE-STATISTICS.md
+            docs/release-stats/history.csv
+            docs/release-stats/latest.json
+            docs/release-stats/downloads-by-release.svg
+            docs/release-stats/downloads-by-platform.svg
+            docs/release-stats/traffic-trend.svg
+            docs/release-stats/repository-history.csv
+            docs/release-stats/traffic-daily.csv
+            docs/release-stats/referrers-latest.json
+            docs/release-stats/popular-pages-latest.json
+          )
+          git add -- "${generated[@]}"
+          if git diff --cached --quiet -- "${generated[@]}"; then
+            echo "Generated statistics are unchanged."
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit --only -m 'docs: update release download statistics' -- "${generated[@]}"
+          # Never force-push. If the branch advances, a later run can refresh it.
+          git push origin "HEAD:refs/heads/$DEFAULT_BRANCH"

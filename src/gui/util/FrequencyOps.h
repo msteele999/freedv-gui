@@ -24,6 +24,7 @@
 
 #include "../../rig_control/HamlibRigController.h"
 #include "../../config/RadioSideband.h"
+#include "reporting/IReporter.h"
 
 inline HamlibRigController::Mode GetModeForFrequency(uint64_t frequency, bool useAnalogModes, bool inAnalog,
     RadioSideband sideband = RadioSideband::Default)
@@ -77,6 +78,38 @@ inline const char* RadioSidebandModeLabel(IRigFrequencyController::Mode mode)
     case IRigFrequencyController::USB: return "USB";
     case IRigFrequencyController::LSB: return "LSB";
     default: return "Unknown";
+    }
+}
+
+// Whether a mode is on the lower sideband.
+inline bool IsLowerSidebandMode(HamlibRigController::Mode mode)
+{
+    return mode == HamlibRigController::LSB || mode == HamlibRigController::DIGL;
+}
+
+// The mode to use on a frequency to be on the given sideband (e.g. another
+// station's, when going to it): as GetModeForFrequency(), but on that
+// sideband rather than the one usual there, in the radio's data mode for it
+// when that's what GetModeForFrequency() would use. UNKNOWN gives what
+// GetModeForFrequency() does.
+inline HamlibRigController::Mode GetModeForSideband(
+    uint64_t frequency, IReporter::Sideband sideband, bool useAnalogModes, bool inAnalog,
+    RadioSideband preference = RadioSideband::Default)
+{
+    // Explicit digital LSB takes precedence; Default follows the station.
+    // In analog, the experimental preference leaves voice policy alone.
+    if (!inAnalog && preference == RadioSideband::LSB)
+        return GetModeForFrequency(frequency, useAnalogModes, inAnalog, preference);
+
+    bool analogMode = useAnalogModes || inAnalog;
+    switch (sideband)
+    {
+        case IReporter::Sideband::USB:
+            return analogMode ? HamlibRigController::USB : HamlibRigController::DIGU;
+        case IReporter::Sideband::LSB:
+            return analogMode ? HamlibRigController::LSB : HamlibRigController::DIGL;
+        default:
+            return GetModeForFrequency(frequency, useAnalogModes, inAnalog, preference);
     }
 }
 

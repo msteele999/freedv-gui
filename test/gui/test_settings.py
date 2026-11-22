@@ -11,6 +11,7 @@ freedvtest/audio.py for the audio devices it needs.
 """
 
 import contextlib
+import glob
 import os
 import shutil
 import sys
@@ -143,6 +144,15 @@ def audio_settings():
 
 def device_labels(app, control):
     return [item["label"] for item in app.get(name(control))["items"]]
+
+
+def other_serial_ports():
+    """The serial ports FreeDV finds on Linux by name rather than through
+    /sys/class/tty (USB adapters by their ID, and Bluetooth ones): what a
+    port list should offer besides those."""
+    if not sys.platform.startswith("linux"):
+        return []
+    return sorted(glob.glob("/dev/serial/by-id/*") + glob.glob("/dev/rfcomm*"))
 
 
 def start_modem(app):
@@ -354,7 +364,7 @@ def test_audio_tests():
         app.wait_until(lambda: label(app, button) == "Test", timeout=30, description="the audio test to finish")
         check_enabled(app, ["btnSoundCard1InTest", "btnSoundCard1OutTest"], True)
 
-    with audio_devices():
+    with audio_devices() as devices:
         with freedvtest.start(settings=audio_settings()) as app:
             open_settings(app, "RX Audio")
             check_enabled(app, ["btnSoundCard1InTest", "btnSoundCard1OutTest"], True)
@@ -427,8 +437,37 @@ def test_audio_tests():
                         ["Please select an audio output device first.", "Please select an audio input device first."],
                         "Messages displayed")
             check_equal(label(app, "btnSoundCard1OutTest"), "Test", "Test button's label")
-            press_cancel(app)
 
+            # A device that's gone since it was chosen: there's nothing for
+            # the test to play through, and saving what's chosen keeps the
+            # sample rate that was recorded for it, as there's no device left
+            # to look one up on. (Only where devices can be taken away.)
+            if not freedvtest.audio.FIXED_DEVICES:
+                set_value(app, "lcSoundCard1OutDevice", SPEAKER)
+                devices.remove(SPEAKER)
+                app.click(name("btnSoundCard1OutTest"))
+                app.wait_until(lambda: label(app, "btnSoundCard1OutTest") == "Test", timeout=15,
+                               description="the test of a device that's gone to finish")
+                check_equal(app.message_boxes(), [], "Messages displayed for a device that's gone")
+                press_apply(app)
+                check_saved(app, {"/Audio/soundCard2OutDeviceName": SPEAKER,
+                                  "/Audio/soundCard2OutSampleRate": 48000})
+
+                # Saving what was chosen for a device that's gone leaves
+                # nothing chosen at all, so there's nothing for the test to
+                # play through.
+                check_values(app, {"tcSoundCard1OutDevice": ""})
+                app.click(name("btnSoundCard1OutTest"))
+                check_equal([box["message"] for box in app.message_boxes(clear=True)],
+                            ["Please select an audio output device first."],
+                            "Message displayed when no output device is chosen")
+
+            # FreeDV exiting while an audio test is still running waits for
+            # it rather than leaving it going as the window goes with it.
+            set_value(app, "lcSoundCard1OutDevice", RADIO_TX)
+            app.click(name("btnSoundCard1OutTest"))
+            check_equal(label(app, "btnSoundCard1OutTest"), "Playing", "Test button's label while testing")
+            press_cancel(app)
             quit_and_check_log(app)
 
     # A speaker that runs at a different sample rate from what's recorded:
@@ -475,6 +514,12 @@ def test_radio():
         open_settings(app, "Radio")
         rig = find_rig(app, "Yaesu FT-991")
         icom = find_rig(app, "Icom IC-7300")
+
+        # Every list of serial ports offers the ones found by name too.
+        for control in ["cbSerialPort", "cbPttSerialPort", "cbCtlDevicePath", "cbCtlDevicePathPttIn"]:
+            listed = device_labels(app, control)
+            check_equal([port for port in other_serial_ports() if port not in listed], [],
+                        "Serial ports missing from %s" % control)
 
         # Nothing's usable until the way of keying the radio is chosen.
         check_values(app, {"ckUseHamlibPTT": False, "ckUseSerialPTT": False, "ckUsePTTInput": False})
@@ -534,6 +579,36 @@ def test_radio():
         check_enabled(app, PTT_INPUT_CONTROLS, True)
         set_value(app, "cbCtlDevicePathPttIn", "/dev/ttyFreeDVTest3")
         set_value(app, "ckCTSPos", True)
+
+        # What's saved as the radio's address and rate: only what reads as a
+        # number, with an empty address meaning Hamlib's own. The field holds
+        # at most two hex characters, so an address too big for a byte can't be
+        # typed in; only the configuration file can bring that about.
+        press_apply(app)
+        check_saved(app, {"/Hamlib/IcomCIVHex": 0x94, "/Hamlib/SerialRate": 19200})
+        set_value(app, "tcIcomCIVHex", "zz")
+        press_apply(app)
+        check_saved(app, {"/Hamlib/IcomCIVHex": 0x94})
+        set_value(app, "tcIcomCIVHex", "")
+        press_apply(app)
+        check_saved(app, {"/Hamlib/IcomCIVHex": 0})
+        set_value(app, "tcIcomCIVHex", "94")
+
+        # A rate that isn't one is left as it was, and changing rig while
+        # "default" is chosen keeps it chosen.
+        set_value(app, "cbSerialRate", "fast")
+        press_apply(app)
+        check_saved(app, {"/Hamlib/SerialRate": 19200})
+
+        # Zero is a number, but not a rate.
+        set_value(app, "cbSerialRate", "0")
+        press_apply(app)
+        check_saved(app, {"/Hamlib/SerialRate": 19200})
+        set_value(app, "cbSerialRate", "default")
+        set_value(app, "cbRigName", rig)
+        check_values(app, {"cbSerialRate": "default"})
+        set_value(app, "cbRigName", icom)
+        set_value(app, "cbSerialRate", "19200")
 
         hamlib_values = {
             "ckUseHamlibPTT": True, "cbRigName": icom, "cbSerialPort": "/dev/ttyFreeDVTest2", "cbSerialRate": "19200",
@@ -612,6 +687,20 @@ def test_ptt_test():
         check_equal(app.message_boxes(), [], "Messages displayed by a successful RTS test")
         set_value(app, "cbPttMethod", "CAT")
 
+        # Keying by nothing at all: there's nothing for Hamlib to key, but
+        # the test still runs to the end. A serial rate that isn't one -- no
+        # digits, zero, or more than Hamlib can use -- is left for Hamlib to
+        # choose.
+        set_value(app, "cbPttMethod", "None")
+        for rate in ["notarate", "0", "9999999"]:
+            set_value(app, "cbSerialRate", rate)
+            app.click(name("buttonTestPTT"))
+            wait_for_test_to_finish(app)
+            check_equal(app.message_boxes(), [],
+                        "Messages displayed when there's nothing to key at %s baud" % rate)
+        set_value(app, "cbSerialRate", "default")
+        set_value(app, "cbPttMethod", "CAT")
+
         # Keying by tone can't be tested from here, which gets said.
         set_value(app, "ckLeftChannelVoxTone", True)
         app.click(name("buttonTestPTT"))
@@ -621,8 +710,11 @@ def test_ptt_test():
                     "Messages displayed")
         set_value(app, "ckLeftChannelVoxTone", False)
 
-        # A radio that isn't there.
-        set_value(app, "cbRigName", find_rig(app, "Yaesu FT-991"))
+        # A radio that isn't there -- an Icom, so that the address field is
+        # used too: what isn't a hex number is left as Hamlib's own rather
+        # than guessed at.
+        set_value(app, "cbRigName", find_rig(app, "Icom IC-7300"))
+        set_value(app, "tcIcomCIVHex", "zz")
         set_value(app, "cbSerialPort", "/dev/ttyFreeDVTestMissing")
         app.click(name("buttonTestPTT"))
         wait_for_test_to_finish(app)
@@ -854,6 +946,25 @@ def test_frequency_list():
         check_equal(frequencies(app), ["3.6250", "7.1770", "10.1360", "14.2360", "28.3300"],
                     "Frequencies listed")
 
+        # What's already listed is found by its value, not by the text shown:
+        # the same frequency written differently (or one that would be
+        # listed as it, at the tenth of a kHz the list shows) can't be added
+        # a second time, but it can be removed.
+        for text in ["10.136", "10.13600", "010.136", "10.13604"]:
+            set_value(app, "txtCtrlNewFrequency", text)
+            check_buttons(app, False, True)
+        app.click(name("freqListRemove"))
+        check_equal(frequencies(app), ["3.6250", "7.1770", "14.2360", "28.3300"],
+                    "Frequencies listed with 10.1360 removed")
+        check_values(app, {"txtCtrlNewFrequency": ""})
+        # One that only comes close is a different frequency.
+        set_value(app, "txtCtrlNewFrequency", "14.2361")
+        check_buttons(app, True, False)
+        set_value(app, "txtCtrlNewFrequency", "10.136")
+        app.click(name("freqListAdd"))
+        check_equal(frequencies(app), ["3.6250", "7.1770", "10.1360", "14.2360", "28.3300"],
+                    "Frequencies listed")
+
         # One that's already listed can be removed, whether it's typed in...
         set_value(app, "txtCtrlNewFrequency", "3.6250")
         check_buttons(app, False, True)
@@ -907,6 +1018,20 @@ def test_frequency_list():
                     ["3.6250", "7.1770", "10.1360", "14.2360", "28.3300"],
                     "Frequencies offered in the main window")
 
+        quit_and_check_log(app)
+
+    # What's read as the window is first built: the units of the frequency
+    # list, and which waterfall colours were chosen.
+    with freedvtest.start(settings={"/Reporting/FrequencyList": "3.625000,14.236000",
+                                    "/Reporting/FrequencyAsKHz": True,
+                                    "/Waterfall/Color": 2}) as app:
+        open_settings(app, "Rig Control")
+        check_equal(label(app, "labelEnterFreq"), "Enter frequency (kHz):", "Frequency entry label")
+        check_equal(frequencies(app), ["3625.0", "14236.0"], "Frequencies listed")
+        go_to_tab(app, "Display")
+        check_values(app, {"waterfallColorScheme1": False, "waterfallColorScheme2": False,
+                           "waterfallColorScheme3": True})
+        press_cancel(app)
         quit_and_check_log(app)
 
 
@@ -1313,8 +1438,8 @@ def test_modem_and_debugging():
         set_value(app, "statsResetTime", "25")
 
         go_to_tab(app, "Debugging")
-        check_values(app, {"txtCtrlFifoSize": "640", "ckboxVerbose": False, "ckboxFreeDVAPIVerbose": False,
-                           "experimentalFeatures": False, "ckboxTone": False})
+        check_values(app, {"txtCtrlFifoSize": "640", "ckboxVerbose": False, "experimentalFeatures": False,
+                           "ckboxTone": False})
 
         # The interfering tone's settings only apply when there is one.
         check_enabled(app, ["txtToneFreqHz", "txtToneAmplitude"], False)
@@ -1325,16 +1450,14 @@ def test_modem_and_debugging():
 
         set_value(app, "txtCtrlFifoSize", "480")
         set_value(app, "ckboxVerbose", True)
-        set_value(app, "ckboxFreeDVAPIVerbose", True)
         set_value(app, "experimentalFeatures", True)
-        for checkbox in ["ckboxTxRxThreadPriority", "ckboxTxRxDumpTiming", "ckboxTxRxDumpFifoState"]:
-            app.click(name(checkbox))
+        app.click(name("ckboxTxRxDumpFifoState"))
         app.click(name("BtnFifoReset"))
 
         press_ok(app)
         check_saved(app, {
             "/Rig/HalfDuplex": 0, "/Debug/showDecodeStats": 1, "/Stats/ResetTime": 25, "/Audio/fifoSize_ms": 480,
-            "/Debug/verbose": 1, "/Debug/APIverbose": 1, "/ExperimentalFeatures": 1,
+            "/Debug/verbose": 1, "/ExperimentalFeatures": 1,
         })
         check_equal(app.get("main.textBits")["shown"], True, "Decode stats shown in the main window")
 
@@ -1342,9 +1465,8 @@ def test_modem_and_debugging():
         open_settings(app, "Modem")
         check_values(app, {"ckHalfDuplex": False, "showDecodeStats": True, "statsResetTime": "25"})
         go_to_tab(app, "Debugging")
-        check_values(app, {"txtCtrlFifoSize": "480", "ckboxVerbose": True, "ckboxFreeDVAPIVerbose": True,
-                           "experimentalFeatures": True, "ckboxTone": True, "txtToneFreqHz": "1500",
-                           "txtToneAmplitude": "500"})
+        check_values(app, {"txtCtrlFifoSize": "480", "ckboxVerbose": True, "experimentalFeatures": True,
+                           "ckboxTone": True, "txtToneFreqHz": "1500", "txtToneAmplitude": "500"})
         set_value(app, "ckboxTone", False)
         set_value(app, "ckboxVerbose", False)
         go_to_tab(app, "Modem")
@@ -1354,6 +1476,157 @@ def test_modem_and_debugging():
         check_equal(app.get("main.textBits")["shown"], False, "Decode stats shown in the main window")
 
         quit_and_check_log(app)
+
+
+def test_invalid_numbers():
+    """The text fields that hold numbers, filled with what a user can put in
+    them: nothing, and in the ones with no filter, words. FreeDV keeps the
+    value it had instead of storing something made up, and still starts."""
+    settings = audio_settings()
+    # The UDP port fields are only reachable with reporting on, so it's on
+    # from the start, pointed at addresses nothing answers on.
+    settings.update({"/Reporting/Enable": True, "/Reporting/Callsign": "AA1ZZZ", "/Reporting/GridSquare": "DM12",
+                     "/Reporting/UDP/Enable": True, "/Reporting/UDP/Hostname": "192.0.2.1",
+                     "/Reporting/UDPBroadcast/Enable": True, "/Reporting/FreeDV/Hostname": NOWHERE,
+                     "/Reporting/FreeDV/UseTls": False})
+    with audio_devices():
+        with freedvtest.start(settings=settings) as app:
+            open_settings(app, "Debugging")
+            check_values(app, {"txtCtrlFifoSize": "640"})
+
+            # The FIFO size has no filter, so anything can be typed into it.
+            set_value(app, "txtCtrlFifoSize", "lots")
+            press_ok(app)
+            check_saved(app, {"/Audio/fifoSize_ms": 640})
+
+            # Empty is something a user gets to in every one of these fields.
+            open_settings(app, "Debugging")
+            check_values(app, {"txtCtrlFifoSize": "640"})
+            set_value(app, "txtCtrlFifoSize", "")
+            set_value(app, "ckboxTone", True)
+            set_value(app, "txtToneFreqHz", "")
+            set_value(app, "txtToneAmplitude", "")
+            press_ok(app)
+            check_saved(app, {"/Audio/fifoSize_ms": 640})
+            # The tone's aren't saved, so they're checked where they're shown.
+            open_settings(app, "Debugging")
+            check_values(app, {"txtToneFreqHz": "1000", "txtToneAmplitude": "500"})
+            press_cancel(app)
+
+            open_settings(app, "Voice Keyer")
+            set_value(app, "txtCtrlVoiceKeyerRxPause", "wait")
+            set_value(app, "txtCtrlVoiceKeyerRepeats", "")
+            press_ok(app)
+            check_saved(app, {"/VoiceKeyer/RxPause": 10, "/VoiceKeyer/Repeats": 5})
+
+            open_settings(app, "Reporting")
+            set_value(app, "udpPort", "port")
+            set_value(app, "udpBroadcastPort", "")
+            press_ok(app)
+            check_saved(app, {"/Reporting/UDP/Port": 2237, "/Reporting/UDPBroadcast/Port": 7177})
+
+            # Numbers that aren't ports: not the nearest port either.
+            open_settings(app, "Reporting")
+            set_value(app, "udpPort", "70000")
+            set_value(app, "udpBroadcastPort", "-1")
+            press_ok(app)
+            check_saved(app, {"/Reporting/UDP/Port": 2237, "/Reporting/UDPBroadcast/Port": 7177})
+
+            # Zero is a number, but not a port.
+            open_settings(app, "Reporting")
+            set_value(app, "udpPort", "0")
+            set_value(app, "udpBroadcastPort", "0")
+            press_ok(app)
+            check_saved(app, {"/Reporting/UDP/Port": 2237, "/Reporting/UDPBroadcast/Port": 7177})
+
+            open_settings(app, "Modem")
+            set_value(app, "statsResetTime", "")
+            press_ok(app)
+            check_saved(app, {"/Stats/ResetTime": 10})
+
+            open_settings(app, "Rig Control")
+            set_value(app, "txtTxRxDelayMilliseconds", "250")
+            set_value(app, "txtTOTTimerSecs", "90")
+            press_ok(app)
+            check_saved(app, {"/Audio/TxRxDelayMilliseconds": 250, "/Rig/TotTimerSecs": 90})
+
+            open_settings(app, "Rig Control")
+            set_value(app, "txtTxRxDelayMilliseconds", "")
+            set_value(app, "txtTOTTimerSecs", "")
+            press_ok(app)
+            check_saved(app, {"/Audio/TxRxDelayMilliseconds": 250, "/Rig/TotTimerSecs": 90})
+
+            # Numbers that are numbers, but far too big (or small) for what
+            # they're used for: brought within it rather than wrapped around
+            # into some other number, as the digits-only fields' longest
+            # runs of digits would be.
+            open_settings(app, "Debugging")
+            set_value(app, "txtCtrlFifoSize", "999999999")
+            set_value(app, "txtToneFreqHz", "99999999999")
+            set_value(app, "txtToneAmplitude", "99999999999")
+            press_ok(app)
+            check_saved(app, {"/Audio/fifoSize_ms": 10000})
+            open_settings(app, "Debugging")
+            check_values(app, {"txtToneFreqHz": "20000", "txtToneAmplitude": "32767"})
+            press_cancel(app)
+
+            open_settings(app, "Rig Control")
+            set_value(app, "txtTxRxDelayMilliseconds", "99999999999")
+            set_value(app, "txtTOTTimerSecs", "99999999999")
+            press_ok(app)
+            check_saved(app, {"/Audio/TxRxDelayMilliseconds": 10000, "/Rig/TotTimerSecs": 86400})
+
+            open_settings(app, "Voice Keyer")
+            set_value(app, "txtCtrlVoiceKeyerRxPause", "3000000000")
+            set_value(app, "txtCtrlVoiceKeyerRepeats", "-5")
+            press_ok(app)
+            check_saved(app, {"/VoiceKeyer/RxPause": 3600, "/VoiceKeyer/Repeats": 0})
+
+            open_settings(app, "Modem")
+            set_value(app, "statsResetTime", "99999999999")
+            press_ok(app)
+            check_saved(app, {"/Stats/ResetTime": 86400})
+
+            # The tone's frequency and amplitude are used as they stand, so
+            # start FreeDV with the junk still in the fields.
+            start_modem(app)
+            stop_modem(app)
+            quit_and_check_log(app)
+
+
+def test_out_of_range_config():
+    """Numbers in the configuration file that can't be used as they stand,
+    as anything can be written there: too big or small for what they're
+    used for, or for the type they're read into. Each is brought within its
+    range (or, where it doesn't fit its type at all, back to its default),
+    shown that way in Settings, and FreeDV still starts."""
+    settings = audio_settings()
+    settings.update({"/Reporting/Enable": True, "/Reporting/Callsign": "AA1ZZZ", "/Reporting/GridSquare": "DM12",
+                     "/Reporting/UDP/Enable": True, "/Reporting/UDP/Hostname": "192.0.2.1",
+                     "/Reporting/FreeDV/Hostname": NOWHERE, "/Reporting/FreeDV/UseTls": False,
+                     "/Reporting/UDP/Port": 70000,
+                     "/Audio/fifoSize_ms": 40000000,
+                     "/Audio/TxRxDelayMilliseconds": 99999,
+                     "/Rig/TotTimerSecs": -5,
+                     "/VoiceKeyer/Repeats": 99999999999,
+                     "/Stats/ResetTime": 99999999999})
+    with audio_devices():
+        with freedvtest.start(settings=settings) as app:
+            open_settings(app, "Debugging")
+            check_values(app, {"txtCtrlFifoSize": "10000"})
+            go_to_tab(app, "Rig Control")
+            check_values(app, {"txtTxRxDelayMilliseconds": "10000", "txtTOTTimerSecs": "0"})
+            go_to_tab(app, "Voice Keyer")
+            check_values(app, {"txtCtrlVoiceKeyerRepeats": "5"})
+            go_to_tab(app, "Modem")
+            check_values(app, {"statsResetTime": "10"})
+            go_to_tab(app, "Reporting")
+            check_values(app, {"udpPort": "65535"})
+            press_cancel(app)
+
+            start_modem(app)
+            stop_modem(app)
+            quit_and_check_log(app)
 
 
 def test_ptt_key_names():
@@ -1377,6 +1650,9 @@ def test_ptt_key_names():
                             (ord("q"), "Q"),
                             # F13 and F24 as they are everywhere but Linux, and as they are there
                             (340 + 12, "F13"), (340 + 23, "F24"), (436, "F13"), (447, "F24"),
+                            # Just past Linux's F13-F24, and something that
+                            # isn't a character
+                            (448, "Key(448)"), (31, "Key(31)"),
                             # Something FreeDV has no name for
                             (390, "Key(390)"), ("Space", "Space")]:
             choose(key)
@@ -1385,9 +1661,9 @@ def test_ptt_key_names():
 
         # Keys that only modify others aren't a choice; FreeDV keeps waiting.
         app.click(name("btnSetPTTKey"))
-        # (By number: Alt, Caps Lock, Num Lock, Scroll Lock, both Windows keys
-        # and the menu key.)
-        for modifier in ["Shift", "Control", 307, 311, 364, 365, 393, 394, 395]:
+        # (By number: Alt, Caps Lock, Num Lock, Scroll Lock, both Windows
+        # keys, the menu key, and a key event with no key in it.)
+        for modifier in ["Shift", "Control", 307, 311, 364, 365, 393, 394, 395, 0]:
             app.key(name("txtPTTKeyName"), modifier)
             check_values(app, {"txtPTTKeyName": "Press any key..."})
             check_equal(label(app, "btnSetPTTKey"), "Cancel", "PTT key button after pressing %s" % modifier)
@@ -1412,6 +1688,16 @@ def test_ptt_key_names():
         press_ok(app)
         check_saved(app, {"/Rig/PttKeyCode": 340 + 6})  # F7
         check_equal(app.quit(), 0, "FreeDV's exit code")
+
+    # Escape and Tab back out of choosing rather than being chosen, so they
+    # are only ever seen as the names of what's already in the configuration
+    # file.
+    for code, called in [(9, "Tab"), (27, "Escape")]:
+        with freedvtest.start(settings={"/Rig/PttKeyCode": code}) as app:
+            open_settings(app, "Rig Control")
+            check_values(app, {"txtPTTKeyName": called})
+            press_cancel(app)
+            quit_and_check_log(app)
 
 
 def test_auto_start():
@@ -1459,30 +1745,37 @@ def test_auto_start():
         shutil.rmtree(config_dir, ignore_errors=True)
 
 
+RUNNING_NOTES = [("RX Audio", "runningNoteRxAudio"), ("TX Audio", "runningNoteTxAudio"),
+                 ("Radio", "runningNoteRadio"), ("Rig Control", "runningNoteRigControl"),
+                 ("Debugging", "runningNoteDebug")]
+
+
+def check_running_notes(app, shown):
+    """Whether each page's note about FreeDV running is shown and, when it
+    is, that it's all on one line: there's room for it on every page."""
+    for tab, note in RUNNING_NOTES:
+        go_to_tab(app, tab)
+        info = app.get(name(note))
+        check_equal(info["shown"], shown, "Note on the %s page shown" % tab)
+        check("\n" not in info["label"], "Note on the %s page wraps at %d pixels: %r"
+              % (tab, info["clientSize"][0], info["label"]))
+
+
 def test_while_running():
-    """Some settings can't be changed while FreeDV is running, and some can
-    but only take effect the next time it's started, which the pages they're
-    on say."""
+    """Everything in Settings can be changed while FreeDV is running. The
+    pages where applying a change restarts the audio or reconnects to the
+    radio say so."""
     reporting = ["ckboxReportingEnable", "txt_callsign", "txt_grid_square", "ckboxManualFrequencyReporting",
                  "ckboxPskReporterEnable", "ckboxFreeDVReporterEnable", "useMetricDistances",
                  "freedvReporterHostname", "freedvReporterV2Hostname", "ckboxFreeDVReporterUseTls", "ckboxFreeDVReporterForceReceiveOnly",
                  "useCardinalDirections", "ckboxUDPReportingEnable", "ckboxUDPBroadcastEnable",
                  "ckbox_use_utc_time"]
     rig_control = ["ckboxEnableFreqModeChanges", "ckboxEnableFreqChangesOnly", "ckboxNoFreqModeChanges",
-                   "ckboxUseAnalogModes", "ckboxSaveRestoreFrequency"]
-    # Read each time they're used, so they can always be changed.
-    ptt = ["ckboxEnableSpacebarForPTT", "txtTxRxDelayMilliseconds"]
-    next_start_notes = [("RX Audio", "nextStartNoteRxAudio"), ("TX Audio", "nextStartNoteTxAudio"),
-                        ("Radio", "nextStartNoteRadio"), ("Debugging", "nextStartNoteDebug")]
+                   "ckboxUseAnalogModes", "ckboxSaveRestoreFrequency", "ckboxEnableSpacebarForPTT",
+                   "txtTxRxDelayMilliseconds"]
 
     def check_notes(shown):
-        for tab, note in next_start_notes:
-            go_to_tab(app, tab)
-            check_equal(app.get(name(note))["shown"], shown, "Note on the %s page shown" % tab)
-            # Each note fits on one line.
-            info = app.get(name(note))
-            check("\n" not in info["label"], "Note on the %s page wraps at %d pixels: %r"
-                  % (tab, info["clientSize"][0], info["label"]))
+        check_running_notes(app, shown)
 
     settings = audio_settings()
     settings.update({
@@ -1496,27 +1789,29 @@ def test_while_running():
             check_enabled(app, reporting, True)
             go_to_tab(app, "Rig Control")
             check_enabled(app, rig_control, True)
-            check_enabled(app, ptt, True)
             check_notes(False)
             press_cancel(app)
 
             start_modem(app)
             open_settings(app, "Reporting")
-            check_enabled(app, reporting, False)
+            check_enabled(app, reporting, True)
             go_to_tab(app, "Rig Control")
-            check_enabled(app, rig_control, False)
-            check_enabled(app, ptt, True)
+            check_enabled(app, rig_control, True)
             check_notes(True)
 
-            # Everything else still can be, and is saved.
+            # What's changed is saved, and FreeDV carries on running.
             go_to_tab(app, "Rig Control")
             set_value(app, "txtTxRxDelayMilliseconds", "250")
             go_to_tab(app, "Modem")
             set_value(app, "statsResetTime", "30")
+            go_to_tab(app, "Reporting")
+            set_value(app, "txt_callsign", "AB2YYY")
             press_ok(app)
+            app.wait_until(lambda: app.get("main.btnOnOff")["enabled"], description="the settings to be applied")
             check_saved(app, {"/Stats/ResetTime": 30, "/Audio/TxRxDelayMilliseconds": 250,
-                              "/Reporting/Enable": 1, "/Reporting/Callsign": "AA1ZZZ"})
+                              "/Reporting/Enable": 1, "/Reporting/Callsign": "AB2YYY"})
             check(app.state()["running"], "Changing settings stopped FreeDV")
+            check_equal(app.message_boxes(), [], "Errors displayed")
 
             stop_modem(app)
             open_settings(app, "Reporting")
@@ -1525,6 +1820,26 @@ def test_while_running():
             check_enabled(app, rig_control, True)
             check_notes(False)
             press_cancel(app)
+
+
+def test_opened_while_running():
+    """Settings opened for the first time once FreeDV is already running, so
+    that the notes are put up before the window has been shown, and the
+    pages given their sizes, at all."""
+    with audio_devices():
+        with freedvtest.start(settings=audio_settings()) as app:
+            start_modem(app)
+            open_settings(app, "RX Audio")
+            check_running_notes(app, True)
+            press_cancel(app)
+
+            # And once FreeDV stops and starts again with the window shut.
+            stop_modem(app)
+            start_modem(app)
+            open_settings(app, "RX Audio")
+            check_running_notes(app, True)
+            press_cancel(app)
+            stop_modem(app)
 
 
 SCENARIOS = {
@@ -1540,9 +1855,12 @@ SCENARIOS = {
     "voice_keyer": test_voice_keyer,
     "display": test_display,
     "modem_and_debugging": test_modem_and_debugging,
+    "invalid_numbers": test_invalid_numbers,
+    "out_of_range_config": test_out_of_range_config,
     "ptt_key_names": test_ptt_key_names,
     "auto_start": test_auto_start,
     "while_running": test_while_running,
+    "opened_while_running": test_opened_while_running,
 }
 
 
