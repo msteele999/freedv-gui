@@ -1,6 +1,7 @@
 // Copying a configuration and merging what was changed in a copy back into
 // it, as Settings does (see FreeDVConfiguration::mergeChangesFrom()).
 
+#include <memory>
 #include <set>
 #include <utility>
 #include <string>
@@ -145,40 +146,49 @@ bool editWinsOverChangeMadeMeanwhile()
 
 bool saysWhatChangesNeed()
 {
+    // ASan keeps separate stack slots for these large fixtures even though
+    // their block scopes do not overlap. Heap ownership keeps all eight
+    // from exhausting the Windows thread stack, with the same lifetimes.
     bool result = true;
     {
-        Merge m;
+        auto fixture = std::make_unique<Merge>();
+        auto& m = *fixture;
         m.edited.audioConfiguration.soundCard2In.deviceName = "Radio";
         m.edited.rigControlConfiguration.hamlibSerialPort = "/dev/ttyUSB0";
         result &= check("audio and radio", m.merge(), (uint32_t)(ConfigChange::RESTARTS_AUDIO | ConfigChange::RECONNECTS_RADIO));
         result &= check("events", m.eventsSeen, std::vector<uint32_t>{ ConfigChange::RESTARTS_AUDIO | ConfigChange::RECONNECTS_RADIO });
     }
     {
-        Merge m;
+        auto fixture = std::make_unique<Merge>();
+        auto& m = *fixture;
         m.edited.reportingConfiguration.udpReportingPort = 2238;
         m.edited.rigControlConfiguration.serialPTTInputPort = "/dev/ttyUSB1";
         result &= check("reporting and PTT input", m.merge(), (uint32_t)(ConfigChange::RESTARTS_REPORTING | ConfigChange::REOPENS_PTT_INPUT));
     }
     {
-        Merge m;
+        auto fixture = std::make_unique<Merge>();
+        auto& m = *fixture;
         m.edited.reportingConfiguration.reportingCallsign = "AA1ZZZ";
         result &= check("callsign", m.merge(), (uint32_t)(ConfigChange::RESTARTS_REPORTING | ConfigChange::RECONNECTS_FREEDV_REPORTER));
     }
     {
         // Given to RADE when the modem is opened.
-        Merge m;
+        auto fixture = std::make_unique<Merge>();
+        auto& m = *fixture;
         m.edited.debugVerbose = !m.live.debugVerbose.get();
         result &= check("verbose debugging", m.merge(), (uint32_t)ConfigChange::RESTARTS_AUDIO);
     }
     {
         // Kept by the running audio, which is told without restarting.
-        Merge m;
+        auto fixture = std::make_unique<Merge>();
+        auto& m = *fixture;
         m.edited.rigControlConfiguration.leftChannelVoxTone = true;
         result &= check("VOX tone", m.merge(), (uint32_t)ConfigChange::UPDATES_RUNNING_AUDIO);
     }
     {
         // Taken up as they're used: nothing to do, and no event.
-        Merge m;
+        auto fixture = std::make_unique<Merge>();
+        auto& m = *fixture;
         m.edited.transmitLevel = -10;
         m.edited.halfDuplexMode = false;
         result &= check("used as they are", m.merge(), (uint32_t)ConfigChange::NONE);
@@ -187,14 +197,16 @@ bool saysWhatChangesNeed()
     }
     {
         // Edited back to what it was: nothing changed.
-        Merge m;
+        auto fixture = std::make_unique<Merge>();
+        auto& m = *fixture;
         m.edited.fifoSizeMs = m.live.fifoSizeMs.get() + 100;
         m.edited.fifoSizeMs = m.live.fifoSizeMs.get();
         result &= check("edited back", m.merge(), (uint32_t)ConfigChange::NONE);
     }
     {
         // Changed meanwhile to what was entered: nothing more to do.
-        Merge m;
+        auto fixture = std::make_unique<Merge>();
+        auto& m = *fixture;
         m.live.audioConfiguration.soundCard1Out.deviceName = "Speaker";
         m.edited.audioConfiguration.soundCard1Out.deviceName = "Speaker";
         result &= check("already changed meanwhile", m.merge(), (uint32_t)ConfigChange::NONE);
