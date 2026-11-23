@@ -1,69 +1,69 @@
 {
   "data": [
     {
-      "count": 558,
+      "count": 651,
       "path": "/msteele999/freedv-gui/releases",
       "title": "/releases",
-      "uniques": 122
+      "uniques": 146
     },
     {
-      "count": 289,
+      "count": 339,
       "path": "/msteele999/freedv-gui",
       "title": "Overview",
-      "uniques": 97
+      "uniques": 112
     },
     {
-      "count": 259,
+      "count": 269,
       "path": "/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.7",
       "title": "/releases/tag/v3.0-dev-W2MWS-radev2.7",
-      "uniques": 90
+      "uniques": 92
     },
     {
-      "count": 155,
+      "count": 183,
       "path": "/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.8",
       "title": "/releases/tag/v3.0-dev-W2MWS-radev2.8",
-      "uniques": 61
+      "uniques": 70
     },
     {
-      "count": 151,
+      "count": 165,
       "path": "/msteele999/freedv-gui/actions",
       "title": "/actions",
-      "uniques": 11
+      "uniques": 13
     },
     {
-      "count": 119,
+      "count": 156,
       "path": "/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS.19",
       "title": "/releases/tag/v3.0-dev-W2MWS.19",
-      "uniques": 50
+      "uniques": 60
     },
     {
-      "count": 75,
+      "count": 139,
+      "path": "/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.9",
+      "title": "/releases/tag/v3.0-dev-W2MWS-radev2.9",
+      "uniques": 60
+    },
+    {
+      "count": 77,
       "path": "/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS.18",
       "title": "/releases/tag/v3.0-dev-W2MWS.18",
-      "uniques": 40
+      "uniques": 41
     },
     {
-      "count": 56,
+      "count": 54,
       "path": "/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.6",
       "title": "/releases/tag/v3.0-dev-W2MWS-radev2.6",
-      "uniques": 24
+      "uniques": 22
     },
     {
-      "count": 26,
-      "path": "/msteele999/freedv-gui/tree/v3.0-dev-W2MWS-radev2.7",
-      "title": "/tree/v3.0-dev-W2MWS-radev2.7",
-      "uniques": 9
-    },
-    {
-      "count": 24,
-      "path": "/msteele999/freedv-gui/issues",
-      "title": "/issues",
-      "uniques": 7
+      "count": 28,
+      "path": "/msteele999/freedv-gui/tree/v3.0-dev-W2MWS-radev2.9",
+      "title": "/tree/v3.0-dev-W2MWS-radev2.9",
+      "uniques": 6
     }
   ],
   "error": null,
-  "last_attempt_at": "2026-11-22T14:41:47Z",
-  "observed_at": "2026-11-22T14:41:47Z",
+  "last_attempt_at": "2026-11-23T10:45:08Z",
+  "observed_at": "2026-11-23T10:45:08Z",
   "repository": "msteele999/freedv-gui",
   "schema_version": 1,
   "status": "fresh",

@@ -2,19 +2,19 @@
 
 [msteele999/freedv-gui](https://github.com/msteele999/freedv-gui/releases) · downloads, engagement and repository traffic
 
-**Most recent successful collection: 2026-11-22T14:41:47Z UTC.**
+**Most recent successful collection: 2026-11-23T10:45:08Z UTC.**
 
 | Release downloads (cumulative) | Published releases | Stars |
 | ---: | ---: | ---: |
-| **974** | **27** | **2** |
+| **1,082** | **28** | **2** |
 
 | Subscribers / watchers | Forks | Unique visitors (14 days) |
 | ---: | ---: | ---: |
-| **0** | **0** | **215** |
+| **0** | **0** | **255** |
 
-Stable W2MWS: **415** · Experimental RADEV2: **559** · Other: **0** downloads.
+Stable W2MWS: **469** · Experimental RADEV2: **613** · Other: **0** downloads.
 
-Releases: Fresh · last successful collection 2026\-11\-22T14:41:47Z UTC. Engagement: Fresh · last successful collection 2026\-11\-22T14:41:47Z UTC. Traffic: Fresh · last successful collection 2026\-11\-22T14:41:47Z UTC.
+Releases: Fresh · last successful collection 2026\-11\-23T10:45:08Z UTC. Engagement: Fresh · last successful collection 2026\-11\-23T10:45:08Z UTC. Traffic: Fresh · last successful collection 2026\-11\-23T10:45:08Z UTC.
 
 ## Downloads by release
 
@@ -25,11 +25,12 @@ Releases: Fresh · last successful collection 2026\-11\-22T14:41:47Z UTC. Engage
 
 | Release | Name | Family | Published (UTC) | Downloads |
 | --- | --- | --- | --- | ---: |
-| [v3\.0\-dev\-W2MWS\-radev2\.9](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.9) | FreeDV W2MWS RADEV2 Experimental v3\.0\-dev\-W2MWS\-radev2\.9 | Experimental | 2026\-11\-21 | 79 |
-| [v3\.0\-dev\-W2MWS\-radev2\.8](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.8) | FreeDV W2MWS RADEV2 Experimental v3\.0\-dev\-W2MWS\-radev2\.8 | Experimental | 2026\-11\-17 | 186 |
-| [v3\.0\-dev\-W2MWS\.19](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS.19) | FreeDV GUI v3\.0\-dev — W2MWS Enhanced Client Release 19 | Stable | 2026\-11\-17 | 114 |
-| [v3\.0\-dev\-W2MWS\-radev2\.7](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.7) | FreeDV W2MWS RADEV2\.7 \(Experimental\) | Experimental | 2026\-11\-12 | 182 |
-| [v3\.0\-dev\-W2MWS\.18](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS.18) | FreeDV GUI v3\.0\-dev — W2MWS Enhanced Client Release 18 | Stable | 2026\-11\-12 | 106 |
+| [v3\.0\-dev\-W2MWS\.20](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS.20) | FreeDV GUI v3\.0\-dev — W2MWS Enhanced Client Release 20 | Stable | 2026\-11\-22 | 49 |
+| [v3\.0\-dev\-W2MWS\-radev2\.9](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.9) | FreeDV W2MWS RADEV2 Experimental v3\.0\-dev\-W2MWS\-radev2\.9 | Experimental | 2026\-11\-21 | 124 |
+| [v3\.0\-dev\-W2MWS\-radev2\.8](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.8) | FreeDV W2MWS RADEV2 Experimental v3\.0\-dev\-W2MWS\-radev2\.8 | Experimental | 2026\-11\-17 | 190 |
+| [v3\.0\-dev\-W2MWS\.19](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS.19) | FreeDV GUI v3\.0\-dev — W2MWS Enhanced Client Release 19 | Stable | 2026\-11\-17 | 117 |
+| [v3\.0\-dev\-W2MWS\-radev2\.7](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.7) | FreeDV W2MWS RADEV2\.7 \(Experimental\) | Experimental | 2026\-11\-12 | 187 |
+| [v3\.0\-dev\-W2MWS\.18](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS.18) | FreeDV GUI v3\.0\-dev — W2MWS Enhanced Client Release 18 | Stable | 2026\-11\-12 | 108 |
 | [v3\.0\-dev\-W2MWS\-radev2\.6](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.6) | FreeDV W2MWS RADEV2\.6 \(Experimental\) | Experimental | 2026\-11\-06 | 30 |
 | [v3\.0\-dev\-W2MWS\.17](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS.17) | FreeDV GUI v3\.0\-dev — W2MWS Enhanced Client Release 17 | Stable | 2026\-11\-06 | 17 |
 | [v3\.0\-dev\-W2MWS\-radev2\.5](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.5) | FreeDV W2MWS RADEV2\.5 Experimental | Experimental | 2026\-11\-04 | 4 |
@@ -64,17 +65,17 @@ Releases: Fresh · last successful collection 2026\-11\-22T14:41:47Z UTC. Engage
 
 | Platform | Downloads | Share |
 | --- | ---: | ---: |
-| Windows x64 | 613 | 62.9% |
-| Windows ARM64 | 61 | 6.3% |
-| Linux x64 | 172 | 17.7% |
-| Linux ARM64 | 39 | 4.0% |
-| macOS | 56 | 5.7% |
-| Other / Unknown | 33 | 3.4% |
+| Windows x64 | 688 | 63.6% |
+| Windows ARM64 | 68 | 6.3% |
+| Linux x64 | 190 | 17.6% |
+| Linux ARM64 | 41 | 3.8% |
+| macOS | 62 | 5.7% |
+| Other / Unknown | 33 | 3.0% |
 
 | Asset format | Downloads |
 | --- | ---: |
-| Installers / distributions | 744 |
-| ZIP archives | 230 |
+| Installers / distributions | 850 |
+| ZIP archives | 232 |
 | Other archives | 0 |
 | Other files | 0 |
 
@@ -84,11 +85,11 @@ Releases: Fresh · last successful collection 2026\-11\-22T14:41:47Z UTC. Engage
 
 **Rolling 14-day window; these are repository visits and clones, not release downloads.**
 
-Traffic snapshot: Fresh · last successful collection 2026\-11\-22T14:41:47Z UTC.
+Traffic snapshot: Fresh · last successful collection 2026\-11\-23T10:45:08Z UTC.
 
 | Views | Unique visitors | Clones | Unique cloners |
 | ---: | ---: | ---: | ---: |
-| 2,040 | 215 | 464 | 61 |
+| 2,508 | 255 | 675 | 86 |
 
 ![Daily repository views and unique visitors](docs/release-stats/traffic-trend.svg)
 
@@ -98,22 +99,22 @@ Top external referring websites in the traffic snapshot. Referrals do **not** es
 
 | Referrer | Views | Unique visitors |
 | --- | ---: | ---: |
-| ja4joe\.livedoor\.blog | 95 | 32 |
-| hamradio\.my | 76 | 32 |
-| tonaru\.net | 67 | 13 |
-| groups\.io | 30 | 15 |
-| mail3\.spectrum\.net | 26 | 1 |
-| reddit\.com | 22 | 15 |
-| blog\.livedoor\.jp | 16 | 7 |
-| t\.co | 12 | 4 |
-| qso\.freedv\.org | 9 | 8 |
+| ja4joe\.livedoor\.blog | 113 | 38 |
+| hamradio\.my | 86 | 38 |
+| tonaru\.net | 72 | 13 |
+| groups\.io | 41 | 18 |
+| mail3\.spectrum\.net | 28 | 1 |
+| reddit\.com | 25 | 16 |
+| jh3eca\.sakura\.ne\.jp | 21 | 10 |
+| blog\.livedoor\.jp | 20 | 8 |
+| qso\.freedv\.org | 17 | 13 |
 
 <details>
 <summary>GitHub self-referrals (excluded above)</summary>
 
 | Referrer | Views | Unique visitors |
 | --- | ---: | ---: |
-| github\.com | 19 | 17 |
+| github\.com | 22 | 19 |
 
 </details>
 
@@ -123,16 +124,16 @@ Top repository pages in the same traffic snapshot.
 
 | Repository page | Views | Unique visitors |
 | --- | ---: | ---: |
-| [/releases](https://github.com/msteele999/freedv-gui/releases) | 558 | 122 |
-| [Overview](https://github.com/msteele999/freedv-gui) | 289 | 97 |
-| [/releases/tag/v3\.0\-dev\-W2MWS\-radev2\.7](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.7) | 259 | 90 |
-| [/releases/tag/v3\.0\-dev\-W2MWS\-radev2\.8](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.8) | 155 | 61 |
-| [/actions](https://github.com/msteele999/freedv-gui/actions) | 151 | 11 |
-| [/releases/tag/v3\.0\-dev\-W2MWS\.19](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS.19) | 119 | 50 |
-| [/releases/tag/v3\.0\-dev\-W2MWS\.18](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS.18) | 75 | 40 |
-| [/releases/tag/v3\.0\-dev\-W2MWS\-radev2\.6](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.6) | 56 | 24 |
-| [/tree/v3\.0\-dev\-W2MWS\-radev2\.7](https://github.com/msteele999/freedv-gui/tree/v3.0-dev-W2MWS-radev2.7) | 26 | 9 |
-| [/issues](https://github.com/msteele999/freedv-gui/issues) | 24 | 7 |
+| [/releases](https://github.com/msteele999/freedv-gui/releases) | 651 | 146 |
+| [Overview](https://github.com/msteele999/freedv-gui) | 339 | 112 |
+| [/releases/tag/v3\.0\-dev\-W2MWS\-radev2\.7](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.7) | 269 | 92 |
+| [/releases/tag/v3\.0\-dev\-W2MWS\-radev2\.8](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.8) | 183 | 70 |
+| [/actions](https://github.com/msteele999/freedv-gui/actions) | 165 | 13 |
+| [/releases/tag/v3\.0\-dev\-W2MWS\.19](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS.19) | 156 | 60 |
+| [/releases/tag/v3\.0\-dev\-W2MWS\-radev2\.9](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.9) | 139 | 60 |
+| [/releases/tag/v3\.0\-dev\-W2MWS\.18](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS.18) | 77 | 41 |
+| [/releases/tag/v3\.0\-dev\-W2MWS\-radev2\.6](https://github.com/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.6) | 54 | 22 |
+| [/tree/v3\.0\-dev\-W2MWS\-radev2\.9](https://github.com/msteele999/freedv-gui/tree/v3.0-dev-W2MWS-radev2.9) | 28 | 6 |
 
 ## Data notes
 
