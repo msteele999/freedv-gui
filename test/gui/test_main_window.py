@@ -2420,7 +2420,9 @@ def test_menus():
             identity = app.state()
             application_title = identity["applicationTitle"]
             application_version = identity["applicationVersion"]
-            check_equal(title, application_title + " (freedv.conf)", "Window title")
+            expected_title = re.escape(application_title + " (freedv.conf)")
+            check(re.fullmatch(expected_title + r"(?: \[Expires [0-9]{2}/[0-9]{2}/[0-9]{2}\])?", title) is not None,
+                  "Window title is %r" % title)
 
             # File > Keep On Top, which is only offered where it works.
             if sys.platform != "linux":
