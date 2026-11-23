@@ -45,6 +45,8 @@
 #include "test_agent.h"
 #include "main.h"
 #include "freedv_interface.h"
+#include "git_version.h"
+#include "gui/util/ApplicationTitle.h"
 #include "gui/controls/LevelGauge.h"
 #include "gui/controls/LevelMeterLed.h"
 
@@ -2013,6 +2015,9 @@ void TestAgent::commandGetState_(yyjson_val* id)
 
     yyjson_mut_doc* doc = yyjson_mut_doc_new(nullptr);
     yyjson_mut_val* state = yyjson_mut_obj(doc);
+
+    AddString_(doc, state, "applicationTitle", GetFreeDVApplicationTitle());
+    AddString_(doc, state, "applicationVersion", wxString::FromUTF8(GetFreeDVVersion().c_str()));
 
     bool running = app.frame->m_RxRunning.load(std::memory_order_acquire);
     yyjson_mut_obj_add_bool(doc, state, "running", running);

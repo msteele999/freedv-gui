@@ -2417,7 +2417,10 @@ def test_menus():
         with freedvtest.start(settings=start) as app:
             app.wait_for_window("main")
             title = app.get("main")["label"]
-            check(title.startswith("FreeDV ") and "(freedv.conf)" in title, "Window title is %r" % title)
+            identity = app.state()
+            application_title = identity["applicationTitle"]
+            application_version = identity["applicationVersion"]
+            check_equal(title, application_title + " (freedv.conf)", "Window title")
 
             # File > Keep On Top, which is only offered where it works.
             if sys.platform != "linux":
@@ -2433,8 +2436,10 @@ def test_menus():
             app.menu("Help/About FreeDV")
             boxes = app.message_boxes(clear=True)
             check_equal([box["caption"] for box in boxes], ["About"], "Message displayed")
-            check(boxes[0]["message"].startswith("FreeDV W2MWS RADEV2 Experimental v.9\n") and
-                  "FreeDV GUI 3.0.0-dev-W2MWS-radev2.9" in boxes[0]["message"] and
+            # Read the build's identity from the same helpers as the UI, so
+            # stable and experimental releases share these assertions.
+            check(boxes[0]["message"].startswith(application_title + "\n") and
+                  "FreeDV GUI " + application_version in boxes[0]["message"] and
                   "freedv-gui git hash:" in boxes[0]["message"] and "Using Hamlib" in boxes[0]["message"],
                   "About says %r" % boxes[0]["message"])
 
