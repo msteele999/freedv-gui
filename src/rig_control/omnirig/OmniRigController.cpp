@@ -442,7 +442,8 @@ void OmniRigController::setModeImpl_(IRigFrequencyController::Mode mode, bool re
 
 bool OmniRigController::requestCurrentFrequencyModeImpl_()
 {
-    noteModeReadback_(UNKNOWN);
+    // A poll in flight does not invalidate the previous readback. Otherwise
+    // idle UI updates briefly show Unknown during every successful CAT poll.
     IRigX* rig = rig_.load(std::memory_order_acquire);
     RigParamX omniRigMode = PM_UNKNOWN;
     long freq = 0;
@@ -491,7 +492,11 @@ bool OmniRigController::requestCurrentFrequencyModeImpl_()
             result = rig->get_Freq(&freq);
         }
 
-        if (result != S_OK || freq <= 0) return false;
+        if (result != S_OK || freq <= 0)
+        {
+            noteModeReadback_(UNKNOWN);
+            return false;
+        }
         
         log_info("Got frequency as %ld", freq);
         
@@ -550,5 +555,6 @@ bool OmniRigController::requestCurrentFrequencyModeImpl_()
         }
         return true;
     }
+    noteModeReadback_(UNKNOWN);
     return false;
 }

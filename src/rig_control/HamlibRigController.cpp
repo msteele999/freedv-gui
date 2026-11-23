@@ -847,10 +847,13 @@ void HamlibRigController::setModeImpl_(IRigFrequencyController::Mode mode, bool 
 
 void HamlibRigController::requestCurrentFrequencyModeImpl_()
 {
-    noteModeReadback_(UNKNOWN);
+    // Keep the last confirmed mode while a poll is in flight. Publishing
+    // UNKNOWN here makes idle UI updates alternate between Unknown and the
+    // actual mode on every successful poll. Invalidate only on failure/TX.
     auto tmpRig = rig_.load(std::memory_order_acquire);
     if (tmpRig == nullptr || pttSet_ || isTransmitActive())
     {
+        noteModeReadback_(UNKNOWN);
         // Note: we ignore attempts to retrieve frequency/mode during
         // TX for several reasons:
         //   a. Some radios do not respond to commands during TX (ex: FT-817)
@@ -871,6 +874,7 @@ modeAttempt:
     rig_set_cache_timeout_ms(tmpRig, HAMLIB_CACHE_MODE, cacheTimeout);
     if (result != RIG_OK && currVfo == RIG_VFO_CURR)
     {
+        noteModeReadback_(UNKNOWN);
         log_debug("rig_get_mode: error = %s ", rigerror(result));
         getFreqModeErrorCount_++;
         if (!errorEncountered_ && getFreqModeErrorCount_ > MAX_GET_FREQUENCY_ERR_COUNT)
@@ -895,6 +899,7 @@ freqAttempt:
         result = rig_get_freq(tmpRig, currVfo, &freq);
         if (result != RIG_OK && currVfo == RIG_VFO_CURR)
         {
+            noteModeReadback_(UNKNOWN);
             log_debug("rig_get_freq: error = %s ", rigerror(result));
             
             getFreqModeErrorCount_++;
