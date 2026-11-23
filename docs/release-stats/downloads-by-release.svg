@@ -22,16 +22,16 @@
 <text x="820.0" y="470" font-size="11" fill="#64748b" text-anchor="middle">192</text>
 <text x="20" y="111" font-size="13" fill="#0f172a" text-anchor="start">RADEV2.10</text>
 <text x="20" y="125" font-size="11" fill="#475569" text-anchor="start">FreeDV W2MWS RADEV2 Experimental v3.0-dev-W2MWS-ra...</text>
-<rect x="370" y="102" width="2.34" height="23" rx="3" fill="#7c3aed"><title>FreeDV W2MWS RADEV2 Experimental v3.0-dev-W2MWS-radev2.10 — v3.0-dev-W2MWS-radev2.10: 1</title></rect>
-<text x="382.34" y="118" font-size="13" fill="#0f172a" text-anchor="start">1</text>
+<rect x="370" y="102" width="23.44" height="23" rx="3" fill="#7c3aed"><title>FreeDV W2MWS RADEV2 Experimental v3.0-dev-W2MWS-radev2.10 — v3.0-dev-W2MWS-radev2.10: 10</title></rect>
+<text x="403.44" y="118" font-size="13" fill="#0f172a" text-anchor="start">10</text>
 <text x="20" y="146" font-size="13" fill="#0f172a" text-anchor="start">W2MWS.20</text>
 <text x="20" y="160" font-size="11" fill="#475569" text-anchor="start">FreeDV GUI v3.0-dev — W2MWS Enhanced Client Releas...</text>
-<rect x="370" y="137" width="119.53" height="23" rx="3" fill="#2563eb"><title>FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release 20 — v3.0-dev-W2MWS.20: 51</title></rect>
-<text x="499.53" y="153" font-size="13" fill="#0f172a" text-anchor="start">51</text>
+<rect x="370" y="137" width="128.91" height="23" rx="3" fill="#2563eb"><title>FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release 20 — v3.0-dev-W2MWS.20: 55</title></rect>
+<text x="508.91" y="153" font-size="13" fill="#0f172a" text-anchor="start">55</text>
 <text x="20" y="181" font-size="13" fill="#0f172a" text-anchor="start">RADEV2.9</text>
 <text x="20" y="195" font-size="11" fill="#475569" text-anchor="start">FreeDV W2MWS RADEV2 Experimental v3.0-dev-W2MWS-ra...</text>
-<rect x="370" y="172" width="304.69" height="23" rx="3" fill="#7c3aed"><title>FreeDV W2MWS RADEV2 Experimental v3.0-dev-W2MWS-radev2.9 — v3.0-dev-W2MWS-radev2.9: 130</title></rect>
-<text x="684.69" y="188" font-size="13" fill="#0f172a" text-anchor="start">130</text>
+<rect x="370" y="172" width="307.03" height="23" rx="3" fill="#7c3aed"><title>FreeDV W2MWS RADEV2 Experimental v3.0-dev-W2MWS-radev2.9 — v3.0-dev-W2MWS-radev2.9: 131</title></rect>
+<text x="687.03" y="188" font-size="13" fill="#0f172a" text-anchor="start">131</text>
 <text x="20" y="216" font-size="13" fill="#0f172a" text-anchor="start">RADEV2.8</text>
 <text x="20" y="230" font-size="11" fill="#475569" text-anchor="start">FreeDV W2MWS RADEV2 Experimental v3.0-dev-W2MWS-ra...</text>
 <rect x="370" y="207" width="445.31" height="23" rx="3" fill="#7c3aed"><title>FreeDV W2MWS RADEV2 Experimental v3.0-dev-W2MWS-radev2.8 — v3.0-dev-W2MWS-radev2.8: 190</title></rect>
@@ -42,8 +42,8 @@
 <text x="654.22" y="258" font-size="13" fill="#0f172a" text-anchor="start">117</text>
 <text x="20" y="286" font-size="13" fill="#0f172a" text-anchor="start">RADEV2.7</text>
 <text x="20" y="300" font-size="11" fill="#475569" text-anchor="start">FreeDV W2MWS RADEV2.7 (Experimental)</text>
-<rect x="370" y="277" width="438.28" height="23" rx="3" fill="#7c3aed"><title>FreeDV W2MWS RADEV2.7 (Experimental) — v3.0-dev-W2MWS-radev2.7: 187</title></rect>
-<text x="818.28" y="293" font-size="13" fill="#0f172a" text-anchor="start">187</text>
+<rect x="370" y="277" width="442.97" height="23" rx="3" fill="#7c3aed"><title>FreeDV W2MWS RADEV2.7 (Experimental) — v3.0-dev-W2MWS-radev2.7: 189</title></rect>
+<text x="822.97" y="293" font-size="13" fill="#0f172a" text-anchor="start">189</text>
 <text x="20" y="321" font-size="13" fill="#0f172a" text-anchor="start">W2MWS.18</text>
 <text x="20" y="335" font-size="11" fill="#475569" text-anchor="start">FreeDV GUI v3.0-dev — W2MWS Enhanced Client Releas...</text>
 <rect x="370" y="312" width="253.12" height="23" rx="3" fill="#2563eb"><title>FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release 18 — v3.0-dev-W2MWS.18: 108</title></rect>
