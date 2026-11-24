@@ -1,0 +1,482 @@
+name: Build FreeDV (macOS Intel Fallback)
+
+on:
+  # GitHub requires this workflow path on the default branch before dispatch.
+  # Once registered, --ref experimental/radev2 selects that branch's workflow
+  # and source commit; no independent checkout-ref input is needed.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-universal:
+    runs-on: macos-26-intel
+    timeout-minutes: 180
+    defaults:
+      run:
+        shell: bash
+    env:
+      BUILD_TYPE: Release
+      UT_ENABLE: '0'
+      UNIV_BUILD: '1'
+      BUILD_DEPS: '1'
+      ENABLE_LTO: '0'
+      PGO_INSTRUMENT: '0'
+      PGO_USE_PROFILE: ''
+      WITH_ASAN: '0'
+      WITH_RTSAN: '0'
+      WITH_TSAN: '0'
+      WITH_UBSAN: '0'
+      CODESIGN_IDENTITY: '-'
+      CODESIGN_KEYCHAIN_PROFILE: ''
+      USE_CCACHE: '0'
+      CCACHE_DISABLE: '1'
+      USE_NATIVE_AUDIO: '1'
+      ENABLE_AUDIO_DIAG_LOGGING: '0'
+      CC: /usr/bin/clang
+      CXX: /usr/bin/clang++
+      OBJCXX: /usr/bin/clang++
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Verify Intel host and select SDK
+        run: |
+          test "$(uname -m)" = x86_64
+          test "$RUNNER_ARCH" = X64
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
+
+      # Match cmake-macos.yml's distribution prerequisites. No shared CI caches.
+      - name: Install needed packages
+        run: |
+          brew install automake libtool numpy sox llvm@20 lld@20 gettext # LLVM 21 incompatibilities: Homebrew/homebrew-core#235411
+
+      - name: Record build provenance
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+
+          def output(*args):
+              return subprocess.check_output(args, text=True, stderr=subprocess.STDOUT).strip()
+
+          keys = (
+              'BUILD_TYPE', 'UT_ENABLE', 'UNIV_BUILD', 'BUILD_DEPS', 'ENABLE_LTO',
+              'PGO_INSTRUMENT', 'PGO_USE_PROFILE', 'WITH_ASAN', 'WITH_RTSAN',
+              'WITH_TSAN', 'WITH_UBSAN', 'CODESIGN_IDENTITY', 'CODESIGN_KEYCHAIN_PROFILE',
+              'USE_CCACHE', 'USE_NATIVE_AUDIO', 'ENABLE_AUDIO_DIAG_LOGGING',
+          )
+          manifest = {
+              'schema_version': 1,
+              'status': 'pending',
+              'source_commit': output('git', 'rev-parse', 'HEAD'),
+              'repository': os.environ['GITHUB_REPOSITORY'],
+              'source_ref': os.environ['GITHUB_REF'],
+              'workflow_ref': os.environ['GITHUB_WORKFLOW_REF'],
+              'workflow_sha': os.environ['GITHUB_WORKFLOW_SHA'],
+              'event': os.environ['GITHUB_EVENT_NAME'],
+              'run_id': os.environ['GITHUB_RUN_ID'],
+              'run_attempt': os.environ['GITHUB_RUN_ATTEMPT'],
+              'runner_architecture': os.environ['RUNNER_ARCH'],
+              'host_architecture': output('uname', '-m'),
+              'runner_image': {key: os.environ.get(key) for key in ('ImageOS', 'ImageVersion')},
+              'macos': output('sw_vers'),
+              'xcode': output('xcodebuild', '-version'),
+              'developer_directory': output('xcode-select', '-p'),
+              'compilers': {key: {'path': os.environ[key], 'version': output(os.environ[key], '--version')}
+                            for key in ('CC', 'CXX', 'OBJCXX')},
+              'sdk': {'path': os.environ['SDKROOT'], 'version': output('xcrun', '--sdk', 'macosx', '--show-sdk-version')},
+              'cmake': output('cmake', '--version'),
+              'homebrew_packages': output('brew', 'list', '--versions'),
+              'build_configuration': {key: os.environ[key] for key in keys},
+              'native_arm64_runtime_testing': 'NOT PERFORMED: this Intel workflow performs static validation only.',
+              'validation_scope': 'Mach-O slices, declared load-command dependency closure, ad hoc signatures and DMG integrity; no application execution or dynamic dlopen tracing.',
+          }
+          path = Path(os.environ['RUNNER_TEMP']) / 'macos-intel-fallback-validation.json'
+          path.write_text(json.dumps(manifest, indent=2) + '\n')
+          PY
+
+      - name: Build universal application without PGO
+        run: bash -e ./build_osx.sh
+
+      - name: Package using existing DMG mechanism
+        run: make -C build_osx release
+
+      - name: Validate application and packaged DMG
+        id: validate
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from decimal import Decimal, InvalidOperation
+          from pathlib import Path
+          import plistlib
+          import re
+          import subprocess
+
+          workspace = Path(os.environ['GITHUB_WORKSPACE']).resolve()
+          manifest_path = Path(os.environ['RUNNER_TEMP']) / 'macos-intel-fallback-validation.json'
+          manifest = json.loads(manifest_path.read_text())
+          mount = Path(os.environ['RUNNER_TEMP']) / 'freedv-intel-fallback-mount'
+          architectures = ('x86_64', 'arm64')
+          load_commands = {
+              'LC_LOAD_DYLIB', 'LC_LOAD_WEAK_DYLIB', 'LC_REEXPORT_DYLIB',
+              'LC_LOAD_UPWARD_DYLIB', 'LC_LAZY_LOAD_DYLIB',
+          }
+
+          def require(condition, message):
+              if not condition:
+                  raise RuntimeError(message)
+
+          def cmake_bool(value):
+              value = value.strip().upper()
+              if value in ('ON', 'YES', 'TRUE', 'Y'):
+                  return True
+              if value in ('', 'OFF', 'NO', 'FALSE', 'N', 'IGNORE', 'NOTFOUND') or value.endswith('-NOTFOUND'):
+                  return False
+              try:
+                  number = Decimal(value)
+              except InvalidOperation:
+                  raise RuntimeError(f'Unrecognized CMake boolean: {value!r}')
+              require(number.is_finite(), f'Invalid numeric CMake boolean: {value!r}')
+              return number != 0
+
+          def output(*args):
+              result = subprocess.run([str(arg) for arg in args], text=True,
+                                      stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+              require(result.returncode == 0, f"Command failed: {args!r}\n{result.stdout}")
+              return result.stdout.strip()
+
+          def within(path, root):
+              return path == root or root in path.parents
+
+          def sha256(path):
+              digest = hashlib.sha256()
+              with path.open('rb') as stream:
+                  for block in iter(lambda: stream.read(1024 * 1024), b''):
+                      digest.update(block)
+              return digest.hexdigest()
+
+          def system(path):
+              # System install names may be cache-only or weak-linked against a
+              # newer OS. Do not require them to exist on this Intel runner.
+              # This exception never applies to missing non-system weak links.
+              normalized = Path(os.path.normpath(str(path)))
+              return any(within(normalized, Path(prefix)) for prefix in ('/usr/lib', '/System/Library'))
+
+          def validate_bundle(bundle):
+              bundle = bundle.resolve(strict=True)
+              require(bundle.is_dir(), f'Missing application: {bundle}')
+              with (bundle / 'Contents/Info.plist').open('rb') as stream:
+                  executable_name = plistlib.load(stream)['CFBundleExecutable']
+              main = (bundle / 'Contents/MacOS' / executable_name).resolve(strict=True)
+              require(within(main, bundle), 'Main executable escapes application')
+              binaries = {}
+              aliases = {}
+              # Do not follow directory symlinks: framework Versions/Current and
+              # top-level aliases point to physical files visited in this walk.
+              for directory, dirs, files in os.walk(bundle, followlinks=False):
+                  for name in dirs + files:
+                      entry = Path(directory) / name
+                      if entry.is_symlink():
+                          target = entry.resolve(strict=True)
+                          require(within(target, bundle), f'Bundle symlink escapes application: {entry}')
+                          aliases[str(entry.relative_to(bundle))] = str(target.relative_to(bundle))
+                  for name in files:
+                      path = (Path(directory) / name).resolve(strict=True)
+                      require(within(path, bundle), f'File escapes application: {path}')
+                      if path in binaries:
+                          continue
+                      description = output('/usr/bin/file', '-b', path)
+                      if 'Mach-O' not in description:
+                          continue
+                      output('xcrun', 'lipo', '-verify_arch', *architectures, path)
+                      slices = output('xcrun', 'lipo', '-archs', path).split()
+                      require(set(slices) == set(architectures), f'Unexpected slices: {path}: {slices}')
+                      info = {'path': str(path.relative_to(bundle)), 'sha256': sha256(path),
+                              'architectures': slices, 'slices': {}}
+                      for arch in architectures:
+                          text = output('xcrun', 'otool', '-arch', arch, '-l', path)
+                          dependencies, rpaths = [], []
+                          # Parse load commands, excluding LC_ID_DYLIB (the image's
+                          # own identity). Keep spaces in framework/library paths.
+                          for block in re.split(r'(?m)^Load command \d+\s*$', text)[1:]:
+                              command = re.search(r'(?m)^\s*cmd (\S+)\s*$', block)
+                              require(command is not None, f'Cannot parse load command in {path}')
+                              kind = command[1]
+                              if kind in load_commands or kind == 'LC_RPATH':
+                                  field = 'path' if kind == 'LC_RPATH' else 'name'
+                                  value = re.search(rf'(?m)^\s*{field} (.+) \(offset \d+\)\s*$', block)
+                                  require(value is not None, f'Cannot parse {kind} in {path}')
+                                  if kind == 'LC_RPATH':
+                                      rpaths.append(value[1])
+                                  else:
+                                      dependencies.append({'command': kind, 'name': value[1]})
+                              elif kind.startswith('LC_LOAD_') and kind != 'LC_LOAD_DYLINKER':
+                                  raise RuntimeError(f'Unsupported load command {kind} in {path}')
+                              elif kind == 'LC_DYLD_ENVIRONMENT':
+                                  raise RuntimeError(f'Embedded dyld environment in {path}')
+                          header = output('xcrun', 'otool', '-arch', arch, '-hv', path)
+                          info['slices'][arch] = {
+                              'executable': bool(re.search(r'\bEXECUTE\b', header)),
+                              'dependencies': dependencies, 'rpaths': rpaths,
+                          }
+                      info['signature_verification'] = output('/usr/bin/codesign', '--verify', '--all-architectures', '--strict', '--verbose=2', path)
+                      info['signature_details'] = output('/usr/bin/codesign', '--display', '--verbose=4', path)
+                      binaries[path] = info
+              require(main in binaries, 'Main executable is not a validated universal Mach-O')
+              edges = []
+              rpath_contexts = []
+              covered = {arch: set() for arch in architectures}
+
+              def expand(value, loader, executable):
+                  for token, base in (('@loader_path', loader.parent), ('@executable_path', executable.parent)):
+                      if value == token or value.startswith(token + '/'):
+                          return Path(os.path.normpath(str(base) + value[len(token):]))
+                  require(value.startswith('/'), f'Unsupported relative path: {value} in {loader}')
+                  return Path(os.path.normpath(value))
+
+              def allowed(path):
+                  # Check the lexical path AND resolved symlink destination.
+                  # Absolute workspace/Homebrew references are rejected even if
+                  # a symlink could make them point back into the application.
+                  require(within(path, bundle) or system(path), f'External runtime path: {path}')
+                  if system(path):
+                      return path
+                  resolved = path.resolve()
+                  require(within(resolved, bundle), f'Runtime path escapes application: {path}')
+                  return resolved
+
+              def walk(loader, executable, arch, inherited=(), ancestors=()):
+                  if loader in ancestors:
+                      return
+                  covered[arch].add(loader)
+                  info = binaries[loader]['slices'][arch]
+                  own = tuple(allowed(expand(value, loader, executable)) for value in info['rpaths'])
+                  # Expand each LC_RPATH in its declaring image's context before
+                  # inheritance. Never re-expand a parent's @loader_path in a
+                  # child's directory. dyld searches current image then ancestors.
+                  search = tuple(dict.fromkeys(own + inherited))
+                  rpath_contexts.append({
+                      'architecture': arch, 'executable': str(executable.relative_to(bundle)),
+                      'loader': str(loader.relative_to(bundle)),
+                      'own': [str(path) for path in own],
+                      'inherited': [str(path) for path in inherited],
+                      'search_order': [str(path) for path in search],
+                  })
+                  for dependency in info['dependencies']:
+                      name = dependency['name']
+                      if name.startswith('@rpath/'):
+                          # Resolve in order, stopping at the first candidate.
+                          # An unused later expansion must not invalidate a
+                          # dependency already resolved through inherited rpaths.
+                          tail = name[len('@rpath/'):]
+                          candidates = (
+                              Path(os.path.normpath(str(base / tail)))
+                              for base in search
+                          )
+                      else:
+                          candidates = [allowed(expand(name, loader, executable))]
+                      target = None
+                      for candidate in candidates:
+                          if system(candidate) or candidate.is_file():
+                              target = allowed(candidate)
+                              break
+                      require(target is not None, f'Unresolved {arch} dependency {name} in {loader}')
+                      is_system = system(target)
+                      edges.append({
+                          'architecture': arch, 'executable': str(executable.relative_to(bundle)),
+                          'loader': str(loader.relative_to(bundle)), **dependency,
+                          'resolved': str(target) if is_system else str(target.relative_to(bundle)),
+                          'system': is_system,
+                          'validation': ('system-install-name (weak; availability OS-dependent)'
+                                         if is_system and dependency['command'] == 'LC_LOAD_WEAK_DYLIB'
+                                         else 'system-install-name' if is_system else 'bundled-universal-Mach-O'),
+                      })
+                      if not is_system:
+                          require(target in binaries, f'Dependency is not a validated Mach-O: {target}')
+                          walk(target, executable, arch, search, ancestors + (loader,))
+
+              for arch in architectures:
+                  require(binaries[main]['slices'][arch]['executable'], f'Main image is not executable: {arch}')
+                  roots = [path for path, info in binaries.items() if info['slices'][arch]['executable']]
+                  for executable in roots:
+                      walk(executable, executable, arch)
+                  # Also validate unreferenced modules/dylibs as potential dlopen
+                  # roots in the main application's context, inheriting its rpaths.
+                  main_rpaths = tuple(allowed(expand(value, main, main))
+                                      for value in binaries[main]['slices'][arch]['rpaths'])
+                  for path in binaries:
+                      if path not in covered[arch]:
+                          walk(path, main, arch, main_rpaths)
+                  require(covered[arch] == set(binaries), f'Incomplete dependency inspection: {arch}')
+              signature = output('/usr/bin/codesign', '--verify', '--all-architectures', '--deep', '--strict', '--verbose=2', bundle)
+              details = output('/usr/bin/codesign', '--display', '--verbose=4', bundle)
+              require('Signature=adhoc' in details, 'Expected an ad hoc signed application')
+              return {
+                  'status': 'passed', 'bundle': bundle.name, 'symlink_aliases': aliases,
+                  'mach_o_files': list(binaries.values()), 'dependency_edges': edges,
+                  'rpath_contexts': rpath_contexts,
+                  'signature': {'status': 'passed', 'verification': signature, 'details': details},
+              }
+
+          def dependencies():
+              revisions = []
+              for base in (workspace / 'build_osx', workspace / 'macdylibbundler'):
+                  for directory, dirs, files in os.walk(base):
+                      if '.git' in dirs or '.git' in files:
+                          source = Path(directory)
+                          revisions.append({
+                              'path': str(source.relative_to(workspace)),
+                              'commit': output('git', '-C', source, 'rev-parse', 'HEAD'),
+                              'tracked_changes': output('git', '-c', 'core.autocrlf=false', '-C', source, 'diff', '--name-only', 'HEAD'),
+                          })
+                      dirs[:] = [name for name in dirs if name != '.git']
+              caches = {}
+              for cache in (workspace / 'build_osx').rglob('CMakeCache.txt'):
+                  selected = {}
+                  for line in cache.read_text(errors='replace').splitlines():
+                      match = re.match(r'([^/#][^:=]*):[^=]+=(.*)', line)
+                      if match and (re.search(r'(VERSION|GIT_TAG|URL|URL_HASH)$', match[1]) or
+                                    match[1] in ('CMAKE_C_COMPILER', 'CMAKE_CXX_COMPILER', 'CMAKE_OBJCXX_COMPILER',
+                                                 'CMAKE_OSX_SYSROOT', 'CMAKE_OSX_DEPLOYMENT_TARGET', 'CMAKE_OSX_ARCHITECTURES')):
+                          selected[match[1]] = match[2]
+                  caches[str(cache.relative_to(workspace))] = selected
+              # release is defined in src/CMakeLists.txt without a working-directory
+              # override; macos_build_dmg.sh creates dmg-venv in that directory.
+              return {'git_checkouts': revisions, 'cmake_dependency_metadata': caches,
+                      'dmg_python_packages': output(workspace / 'build_osx/src/dmg-venv/bin/python3', '-m', 'pip', 'freeze')}
+
+          try:
+              cache_values = {}
+              for line in (workspace / 'build_osx/CMakeCache.txt').read_text().splitlines():
+                  match = re.match(r'([^/#][^:=]*):[^=]+=(.*)', line)
+                  if match:
+                      cache_values[match[1]] = match[2]
+              expected = {
+                  'CMAKE_BUILD_TYPE': 'Release', 'PGO_USE_PROFILE': '', 'MACOS_CODESIGN_IDENTITY': '-',
+              }
+              expected_booleans = {
+                  'UNITTEST': False, 'BUILD_OSX_UNIVERSAL': True, 'ENABLE_LTO': False,
+                  'PGO_INSTRUMENT': False, 'ENABLE_ASAN': False, 'ENABLE_RTSAN': False,
+                  'ENABLE_TSAN': False, 'ENABLE_UBSAN': False, 'BOOTSTRAP_WXWIDGETS': True,
+                  'USE_STATIC_SNDFILE': True, 'USE_STATIC_LIBRESSL': True,
+                  'USE_STATIC_SAMPLERATE': True, 'W2MWS_PACKAGE': True,
+              }
+              for key, value in expected.items():
+                  require(cache_values.get(key) == value, f'Unexpected CMake configuration: {key}={cache_values.get(key)!r}')
+              normalized = {}
+              for key, value in expected_booleans.items():
+                  require(key in cache_values, f'Missing CMake boolean: {key}')
+                  normalized[key] = cmake_bool(cache_values[key])
+                  require(normalized[key] == value, f'Unexpected CMake configuration: {key}={cache_values[key]!r}')
+              require(not cache_values.get('MACOS_CODESIGN_KEYCHAIN_PROFILE'), 'Unexpected notarization profile')
+              manifest['verified_cmake_configuration'] = {key: cache_values[key] for key in (*expected, *expected_booleans)}
+              manifest['normalized_cmake_booleans'] = normalized
+              manifest['dependencies'] = dependencies()
+              # The target is named FreeDV (src/CMakeLists.txt), independently of
+              # its display name. dmg_settings.py renames only the packaged copy.
+              manifest['generated_application'] = validate_bundle(workspace / 'build_osx/src/FreeDV.app')
+              version = (workspace / 'build_osx/freedv-version.txt').read_text().strip()
+              require(re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._+-]*', version), 'Unsafe or empty package version')
+              dmg = workspace / 'build_osx/src' / f'FreeDV-{version}.dmg'
+              require(not dmg.exists(), f'DMG destination already exists: {dmg}')
+              original = workspace / 'build_osx/src/FreeDV.dmg'
+              require(original.is_file() and original.stat().st_size > 0, 'Missing or empty DMG')
+              original.rename(dmg)
+              require(list(dmg.parent.glob('*.dmg')) == [dmg], 'Expected exactly one production DMG')
+              manifest['dmg_integrity'] = output('hdiutil', 'verify', dmg)
+              mount.mkdir(exist_ok=True)
+              try:
+                  # The finally block also covers attach/validation failures.
+                  output('hdiutil', 'attach', '-readonly', '-nobrowse', '-noautoopen', '-mountpoint', mount, dmg)
+                  applications = list(mount.glob('*.app'))
+                  require(len(applications) == 1 and applications[0].name == 'FreeDV W2MWS.app',
+                          f'Unexpected packaged applications: {applications}')
+                  manifest['packaged_application'] = validate_bundle(applications[0])
+                  # codesign diagnostics contain absolute paths, which change on
+                  # the mounted image. Compare the signed file bytes instead.
+                  generated = {item['path']: item['sha256'] for item in manifest['generated_application']['mach_o_files']}
+                  packaged = {item['path']: item['sha256'] for item in manifest['packaged_application']['mach_o_files']}
+                  require(generated == packaged, 'Packaged Mach-O files differ from the generated application')
+              finally:
+                  if os.path.ismount(mount):
+                      output('hdiutil', 'detach', mount)
+              checksum = sha256(dmg)
+              manifest['dmg'] = {'filename': dmg.name, 'size': dmg.stat().st_size, 'sha256': checksum}
+              manifest['status'] = 'passed'
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as stream:
+                  stream.write(f'dmg_filename={dmg.name}\n')
+              with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as stream:
+                  stream.write(f"## Intel macOS universal fallback\n\nCommit: `{manifest['source_commit']}`\n\n")
+                  stream.write(f"Run: `{manifest['run_id']}`, attempt `{manifest['run_attempt']}`; host: `x86_64`.\n\n")
+                  stream.write('Release, universal x86_64 + arm64, dependency builds enabled; PGO/LTO/sanitizers disabled.\n\n')
+                  stream.write(f"Validated {len(manifest['packaged_application']['mach_o_files'])} Mach-O files in both bundles, both architecture dependency graphs, and ad hoc signatures. DMG integrity and read-only mount validation passed.\n\n")
+                  stream.write(f"DMG: `{dmg.name}` ({dmg.stat().st_size} bytes)\n\nSHA-256: `{checksum}`\n\n")
+                  stream.write('Native ARM64 runtime testing has **not** been performed. This artifact is ad hoc signed, without Developer ID signing or notarization. No release was published.\n')
+          except Exception as error:
+              manifest['status'] = 'failed'
+              manifest['error'] = str(error)
+              raise
+          finally:
+              manifest_path.write_text(json.dumps(manifest, indent=2) + '\n')
+          PY
+
+      - name: Ensure validation image is detached
+        if: ${{ always() }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          import subprocess
+          mount = Path(os.environ['RUNNER_TEMP']) / 'freedv-intel-fallback-mount'
+          if os.path.ismount(mount):
+              subprocess.run(['hdiutil', 'detach', '-force', str(mount)], check=True)
+          PY
+
+      - name: Record unsuccessful validation
+        if: ${{ failure() || cancelled() }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          path = Path(os.environ['RUNNER_TEMP']) / 'macos-intel-fallback-validation.json'
+          manifest = json.loads(path.read_text()) if path.exists() else {
+              'source_commit': os.environ['GITHUB_SHA'],
+              'run_id': os.environ['GITHUB_RUN_ID'],
+              'run_attempt': os.environ['GITHUB_RUN_ATTEMPT'],
+              'runner_architecture': os.environ['RUNNER_ARCH'],
+              'native_arm64_runtime_testing': 'NOT PERFORMED.',
+          }
+          manifest['status'] = 'failed'
+          manifest.setdefault('error', 'Build, packaging, validation or image cleanup did not complete successfully; see step logs.')
+          path.write_text(json.dumps(manifest, indent=2) + '\n')
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as stream:
+              stream.write('## Intel macOS fallback failed\n\nNo production DMG will be uploaded.\n\n')
+              stream.write(manifest['error'] + '\n\nNative ARM64 runtime testing has not been performed.\n')
+          PY
+
+      - name: Stash validated disk image
+        if: ${{ success() && steps.validate.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.validate.outputs.dmg_filename }}
+          path: ${{ github.workspace }}/build_osx/src/${{ steps.validate.outputs.dmg_filename }}
+          archive: false
+          if-no-files-found: error
+
+      - name: Stash validation manifest
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-intel-fallback-validation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/macos-intel-fallback-validation.json
+          if-no-files-found: error
