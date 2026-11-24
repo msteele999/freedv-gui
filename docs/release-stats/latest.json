@@ -1,11 +1,11 @@
 {
-  "last_attempt_at": "2026-11-23T18:25:33Z",
-  "last_successful_collection_at": "2026-11-23T18:25:33Z",
-  "observed_at": "2026-11-23T18:25:33Z",
+  "last_attempt_at": "2026-11-24T13:53:27Z",
+  "last_successful_collection_at": "2026-11-24T13:53:27Z",
+  "observed_at": "2026-11-24T13:53:27Z",
   "release_collection": {
     "error": null,
-    "last_attempt_at": "2026-11-23T18:25:33Z",
-    "observed_at": "2026-11-23T18:25:33Z",
+    "last_attempt_at": "2026-11-24T13:53:27Z",
+    "observed_at": "2026-11-24T13:53:27Z",
     "status": "fresh"
   },
   "releases": [
@@ -841,7 +841,7 @@
       "assets": [
         {
           "asset_type": "archive",
-          "download_count": 32,
+          "download_count": 33,
           "filename": "FreeDV-W2MWS-RADEV2.4-windows-x86_64.zip",
           "id": 699865296,
           "is_zip": true,
@@ -849,7 +849,7 @@
         }
       ],
       "classification": "experimental",
-      "download_count": 32,
+      "download_count": 33,
       "id": 430934512,
       "is_w2mws": true,
       "name": "FreeDV W2MWS RADEV2.4 (Experimental)",
@@ -1073,7 +1073,7 @@
         },
         {
           "asset_type": "archive",
-          "download_count": 136,
+          "download_count": 138,
           "filename": "FreeDV-W2MWS-RADEV2.7-windows-x86_64.zip",
           "id": 739629074,
           "is_zip": true,
@@ -1081,7 +1081,7 @@
         }
       ],
       "classification": "experimental",
-      "download_count": 189,
+      "download_count": 191,
       "id": 442998804,
       "is_w2mws": true,
       "name": "FreeDV W2MWS RADEV2.7 (Experimental)",
@@ -1177,7 +1177,7 @@
         },
         {
           "asset_type": "installer",
-          "download_count": 126,
+          "download_count": 131,
           "filename": "FreeDV-W2MWS-RADEV2.8-windows-x86_64.exe",
           "id": 760112348,
           "is_zip": false,
@@ -1185,7 +1185,7 @@
         }
       ],
       "classification": "experimental",
-      "download_count": 190,
+      "download_count": 195,
       "id": 449018348,
       "is_w2mws": true,
       "name": "FreeDV W2MWS RADEV2 Experimental v3.0-dev-W2MWS-radev2.8",
@@ -1197,7 +1197,7 @@
       "assets": [
         {
           "asset_type": "installer",
-          "download_count": 3,
+          "download_count": 4,
           "filename": "FreeDV-W2MWS-RADEV2.9-linux-arm64.AppImage",
           "id": 776190826,
           "is_zip": false,
@@ -1221,7 +1221,7 @@
         },
         {
           "asset_type": "installer",
-          "download_count": 8,
+          "download_count": 9,
           "filename": "FreeDV-W2MWS-RADEV2.9-windows-arm64.exe",
           "id": 776190829,
           "is_zip": false,
@@ -1229,7 +1229,7 @@
         },
         {
           "asset_type": "installer",
-          "download_count": 94,
+          "download_count": 95,
           "filename": "FreeDV-W2MWS-RADEV2.9-windows-x86_64.exe",
           "id": 776190822,
           "is_zip": false,
@@ -1237,7 +1237,7 @@
         }
       ],
       "classification": "experimental",
-      "download_count": 131,
+      "download_count": 134,
       "id": 453829441,
       "is_w2mws": true,
       "name": "FreeDV W2MWS RADEV2 Experimental v3.0-dev-W2MWS-radev2.9",
@@ -1249,7 +1249,7 @@
       "assets": [
         {
           "asset_type": "installer",
-          "download_count": 5,
+          "download_count": 8,
           "filename": "FreeDV-3.0.0-dev-11ea.dmg",
           "id": 780665510,
           "is_zip": false,
@@ -1257,7 +1257,7 @@
         },
         {
           "asset_type": "installer",
-          "download_count": 4,
+          "download_count": 9,
           "filename": "FreeDV-3.0.0-dev-2026-11-22-11ea-windows-aarch64.exe",
           "id": 780665513,
           "is_zip": false,
@@ -1265,7 +1265,7 @@
         },
         {
           "asset_type": "installer",
-          "download_count": 38,
+          "download_count": 49,
           "filename": "FreeDV-3.0.0-dev-2026-11-22-11ea-windows-x86_64.exe",
           "id": 780665516,
           "is_zip": false,
@@ -1273,7 +1273,7 @@
         },
         {
           "asset_type": "installer",
-          "download_count": 1,
+          "download_count": 4,
           "filename": "FreeDV-W2MWS-3.0.0-dev-11ea-aarch64.AppImage",
           "id": 780665511,
           "is_zip": false,
@@ -1281,7 +1281,7 @@
         },
         {
           "asset_type": "installer",
-          "download_count": 7,
+          "download_count": 14,
           "filename": "FreeDV-W2MWS-3.0.0-dev-11ea-x86_64.AppImage",
           "id": 780665512,
           "is_zip": false,
@@ -1289,7 +1289,7 @@
         }
       ],
       "classification": "stable",
-      "download_count": 55,
+      "download_count": 84,
       "id": 454795741,
       "is_w2mws": true,
       "name": "FreeDV GUI v3.0-dev — W2MWS Enhanced Client Release 20",
@@ -1301,7 +1301,7 @@
       "assets": [
         {
           "asset_type": "installer",
-          "download_count": 1,
+          "download_count": 3,
           "filename": "FreeDV-W2MWS-RADEV2.10-linux-arm64.AppImage",
           "id": 783058959,
           "is_zip": false,
@@ -1309,7 +1309,7 @@
         },
         {
           "asset_type": "installer",
-          "download_count": 1,
+          "download_count": 7,
           "filename": "FreeDV-W2MWS-RADEV2.10-linux-x86_64.AppImage",
           "id": 783058962,
           "is_zip": false,
@@ -1317,7 +1317,7 @@
         },
         {
           "asset_type": "installer",
-          "download_count": 2,
+          "download_count": 9,
           "filename": "FreeDV-W2MWS-RADEV2.10-macos.dmg",
           "id": 783058961,
           "is_zip": false,
@@ -1325,7 +1325,7 @@
         },
         {
           "asset_type": "installer",
-          "download_count": 1,
+          "download_count": 4,
           "filename": "FreeDV-W2MWS-RADEV2.10-windows-arm64.exe",
           "id": 783058952,
           "is_zip": false,
@@ -1333,7 +1333,7 @@
         },
         {
           "asset_type": "installer",
-          "download_count": 5,
+          "download_count": 92,
           "filename": "FreeDV-W2MWS-RADEV2.10-windows-x86_64.exe",
           "id": 783058960,
           "is_zip": false,
@@ -1341,7 +1341,7 @@
         }
       ],
       "classification": "experimental",
-      "download_count": 10,
+      "download_count": 115,
       "id": 455464946,
       "is_w2mws": true,
       "name": "FreeDV W2MWS RADEV2 Experimental v3.0-dev-W2MWS-radev2.10",
@@ -1358,8 +1358,8 @@
       "subscribers": 0
     },
     "error": null,
-    "last_attempt_at": "2026-11-23T18:25:33Z",
-    "observed_at": "2026-11-23T18:25:33Z",
+    "last_attempt_at": "2026-11-24T13:53:27Z",
+    "observed_at": "2026-11-24T13:53:27Z",
     "status": "fresh"
   },
   "schema_version": 2,
@@ -1367,37 +1367,32 @@
   "totals": {
     "assets": 124,
     "by_asset_type": {
-      "archive": 235,
-      "installer": 873,
+      "archive": 238,
+      "installer": 1015,
       "other": 0
     },
     "by_classification": {
-      "experimental": 633,
+      "experimental": 749,
       "other": 0,
-      "stable": 475
+      "stable": 504
     },
     "by_platform": {
-      "Linux ARM64": 42,
-      "Linux x64": 193,
+      "Linux ARM64": 48,
+      "Linux x64": 206,
       "Other / Unknown": 33,
-      "Windows ARM64": 71,
-      "Windows x64": 705,
-      "macOS": 64
+      "Windows ARM64": 80,
+      "Windows x64": 812,
+      "macOS": 74
     },
-    "downloads": 1108,
+    "downloads": 1253,
     "releases": 29,
-    "zip_downloads": 235
+    "zip_downloads": 238
   },
   "traffic": {
     "data": {
       "clones": {
-        "count": 675,
+        "count": 780,
         "days": [
-          {
-            "count": 1,
-            "date": "2026-11-09",
-            "uniques": 1
-          },
           {
             "count": 0,
             "date": "2026-11-10",
@@ -1462,40 +1457,51 @@
             "count": 211,
             "date": "2026-11-22",
             "uniques": 28
+          },
+          {
+            "count": 106,
+            "date": "2026-11-23",
+            "uniques": 12
           }
         ],
-        "uniques": 86
+        "uniques": 93
       },
       "popular_pages": [
         {
-          "count": 651,
+          "count": 740,
           "path": "/msteele999/freedv-gui/releases",
           "title": "/releases",
-          "uniques": 146
+          "uniques": 156
         },
         {
-          "count": 339,
+          "count": 388,
           "path": "/msteele999/freedv-gui",
           "title": "Overview",
-          "uniques": 112
+          "uniques": 126
         },
         {
-          "count": 269,
+          "count": 277,
           "path": "/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.7",
           "title": "/releases/tag/v3.0-dev-W2MWS-radev2.7",
-          "uniques": 92
+          "uniques": 97
         },
         {
-          "count": 183,
-          "path": "/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.8",
-          "title": "/releases/tag/v3.0-dev-W2MWS-radev2.8",
-          "uniques": 70
-        },
-        {
-          "count": 165,
+          "count": 198,
           "path": "/msteele999/freedv-gui/actions",
           "title": "/actions",
           "uniques": 13
+        },
+        {
+          "count": 195,
+          "path": "/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.8",
+          "title": "/releases/tag/v3.0-dev-W2MWS-radev2.8",
+          "uniques": 74
+        },
+        {
+          "count": 184,
+          "path": "/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.9",
+          "title": "/releases/tag/v3.0-dev-W2MWS-radev2.9",
+          "uniques": 74
         },
         {
           "count": 156,
@@ -1504,10 +1510,10 @@
           "uniques": 60
         },
         {
-          "count": 139,
-          "path": "/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.9",
-          "title": "/releases/tag/v3.0-dev-W2MWS-radev2.9",
-          "uniques": 60
+          "count": 93,
+          "path": "/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS.20",
+          "title": "/releases/tag/v3.0-dev-W2MWS.20",
+          "uniques": 29
         },
         {
           "count": 77,
@@ -1516,30 +1522,24 @@
           "uniques": 41
         },
         {
-          "count": 54,
+          "count": 52,
           "path": "/msteele999/freedv-gui/releases/tag/v3.0-dev-W2MWS-radev2.6",
           "title": "/releases/tag/v3.0-dev-W2MWS-radev2.6",
           "uniques": 22
-        },
-        {
-          "count": 28,
-          "path": "/msteele999/freedv-gui/tree/v3.0-dev-W2MWS-radev2.9",
-          "title": "/tree/v3.0-dev-W2MWS-radev2.9",
-          "uniques": 6
         }
       ],
       "referrers": [
         {
-          "count": 113,
+          "count": 143,
           "referrer": "ja4joe.livedoor.blog",
           "self_referral": false,
-          "uniques": 38
+          "uniques": 47
         },
         {
-          "count": 86,
+          "count": 90,
           "referrer": "hamradio.my",
           "self_referral": false,
-          "uniques": 38
+          "uniques": 40
         },
         {
           "count": 72,
@@ -1548,56 +1548,51 @@
           "uniques": 13
         },
         {
-          "count": 41,
-          "referrer": "groups.io",
+          "count": 48,
+          "referrer": "jh3eca.sakura.ne.jp",
           "self_referral": false,
           "uniques": 18
         },
         {
-          "count": 28,
+          "count": 47,
+          "referrer": "groups.io",
+          "self_referral": false,
+          "uniques": 20
+        },
+        {
+          "count": 30,
           "referrer": "mail3.spectrum.net",
           "self_referral": false,
           "uniques": 1
         },
         {
-          "count": 25,
+          "count": 29,
           "referrer": "reddit.com",
           "self_referral": false,
-          "uniques": 16
+          "uniques": 18
         },
         {
-          "count": 22,
-          "referrer": "github.com",
-          "self_referral": true,
-          "uniques": 19
-        },
-        {
-          "count": 21,
-          "referrer": "jh3eca.sakura.ne.jp",
-          "self_referral": false,
-          "uniques": 10
-        },
-        {
-          "count": 20,
+          "count": 25,
           "referrer": "blog.livedoor.jp",
           "self_referral": false,
-          "uniques": 8
+          "uniques": 11
         },
         {
-          "count": 17,
+          "count": 24,
+          "referrer": "github.com",
+          "self_referral": true,
+          "uniques": 21
+        },
+        {
+          "count": 18,
           "referrer": "qso.freedv.org",
           "self_referral": false,
           "uniques": 13
         }
       ],
       "views": {
-        "count": 2508,
+        "count": 2901,
         "days": [
-          {
-            "count": 3,
-            "date": "2026-11-09",
-            "uniques": 2
-          },
           {
             "count": 2,
             "date": "2026-11-10",
@@ -1662,15 +1657,20 @@
             "count": 479,
             "date": "2026-11-22",
             "uniques": 87
+          },
+          {
+            "count": 396,
+            "date": "2026-11-23",
+            "uniques": 71
           }
         ],
-        "uniques": 255
+        "uniques": 285
       },
       "window_days": 14
     },
     "error": null,
-    "last_attempt_at": "2026-11-23T18:25:33Z",
-    "observed_at": "2026-11-23T18:25:33Z",
+    "last_attempt_at": "2026-11-24T13:53:27Z",
+    "observed_at": "2026-11-24T13:53:27Z",
     "status": "fresh"
   }
 }

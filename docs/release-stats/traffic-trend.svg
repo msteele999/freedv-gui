@@ -3,7 +3,7 @@
 <rect width="100%" height="100%" rx="12" fill="#ffffff"/>
 <g font-family="Segoe UI, Arial, sans-serif" fill="#0f172a">
 <text x="20" y="28" font-size="20" fill="#0f172a" text-anchor="start">Repository traffic trends</text>
-<text x="20" y="49" font-size="11" fill="#475569" text-anchor="start">Fresh · last successful collection 2026-11-23T18:25:33Z UTC</text>
+<text x="20" y="49" font-size="11" fill="#475569" text-anchor="start">Fresh · last successful collection 2026-11-24T13:53:27Z UTC</text>
 <path d="M 52 195.00 H 775" stroke="#e2e8f0"/>
 <text x="43" y="199.0" font-size="10" fill="#64748b" text-anchor="end">0</text>
 <path d="M 52 158.33 H 775" stroke="#e2e8f0"/>
@@ -12,41 +12,41 @@
 <text x="43" y="125.67" font-size="10" fill="#64748b" text-anchor="end">320</text>
 <path d="M 52 85.00 H 775" stroke="#e2e8f0"/>
 <text x="43" y="89.0" font-size="10" fill="#64748b" text-anchor="end">480</text>
-<circle cx="52.00" cy="194.31" r="2.3" fill="#2563eb"><title>2026-11-09 Views: 3</title></circle>
-<circle cx="107.62" cy="194.54" r="2.3" fill="#2563eb"><title>2026-11-10 Views: 2</title></circle>
-<circle cx="163.23" cy="185.15" r="2.3" fill="#2563eb"><title>2026-11-11 Views: 43</title></circle>
-<circle cx="218.85" cy="148.48" r="2.3" fill="#2563eb"><title>2026-11-12 Views: 203</title></circle>
-<circle cx="274.46" cy="160.17" r="2.3" fill="#2563eb"><title>2026-11-13 Views: 152</title></circle>
-<circle cx="330.08" cy="165.44" r="2.3" fill="#2563eb"><title>2026-11-14 Views: 129</title></circle>
-<circle cx="385.69" cy="157.42" r="2.3" fill="#2563eb"><title>2026-11-15 Views: 164</title></circle>
-<circle cx="441.31" cy="170.48" r="2.3" fill="#2563eb"><title>2026-11-16 Views: 107</title></circle>
-<circle cx="496.92" cy="138.17" r="2.3" fill="#2563eb"><title>2026-11-17 Views: 248</title></circle>
-<circle cx="552.54" cy="123.04" r="2.3" fill="#2563eb"><title>2026-11-18 Views: 314</title></circle>
-<circle cx="608.15" cy="132.44" r="2.3" fill="#2563eb"><title>2026-11-19 Views: 273</title></circle>
-<circle cx="663.77" cy="156.04" r="2.3" fill="#2563eb"><title>2026-11-20 Views: 170</title></circle>
-<circle cx="719.38" cy="144.35" r="2.3" fill="#2563eb"><title>2026-11-21 Views: 221</title></circle>
-<circle cx="775.00" cy="85.23" r="2.3" fill="#2563eb"><title>2026-11-22 Views: 479</title></circle>
-<path d="M 52.00 194.31 L 107.62 194.54 L 163.23 185.15 L 218.85 148.48 L 274.46 160.17 L 330.08 165.44 L 385.69 157.42 L 441.31 170.48 L 496.92 138.17 L 552.54 123.04 L 608.15 132.44 L 663.77 156.04 L 719.38 144.35 L 775.00 85.23" fill="none" stroke="#2563eb" stroke-width="2.2"/>
-<circle cx="52.00" cy="194.54" r="2.3" fill="#0891b2"><title>2026-11-09 Unique visitors: 2</title></circle>
-<circle cx="107.62" cy="194.54" r="2.3" fill="#0891b2"><title>2026-11-10 Unique visitors: 2</title></circle>
-<circle cx="163.23" cy="193.40" r="2.3" fill="#0891b2"><title>2026-11-11 Unique visitors: 7</title></circle>
-<circle cx="218.85" cy="189.50" r="2.3" fill="#0891b2"><title>2026-11-12 Unique visitors: 24</title></circle>
-<circle cx="274.46" cy="188.12" r="2.3" fill="#0891b2"><title>2026-11-13 Unique visitors: 30</title></circle>
-<circle cx="330.08" cy="186.52" r="2.3" fill="#0891b2"><title>2026-11-14 Unique visitors: 37</title></circle>
-<circle cx="385.69" cy="187.21" r="2.3" fill="#0891b2"><title>2026-11-15 Unique visitors: 34</title></circle>
-<circle cx="441.31" cy="188.81" r="2.3" fill="#0891b2"><title>2026-11-16 Unique visitors: 27</title></circle>
-<circle cx="496.92" cy="185.60" r="2.3" fill="#0891b2"><title>2026-11-17 Unique visitors: 41</title></circle>
-<circle cx="552.54" cy="182.62" r="2.3" fill="#0891b2"><title>2026-11-18 Unique visitors: 54</title></circle>
-<circle cx="608.15" cy="180.56" r="2.3" fill="#0891b2"><title>2026-11-19 Unique visitors: 63</title></circle>
-<circle cx="663.77" cy="186.29" r="2.3" fill="#0891b2"><title>2026-11-20 Unique visitors: 38</title></circle>
-<circle cx="719.38" cy="183.31" r="2.3" fill="#0891b2"><title>2026-11-21 Unique visitors: 51</title></circle>
-<circle cx="775.00" cy="175.06" r="2.3" fill="#0891b2"><title>2026-11-22 Unique visitors: 87</title></circle>
-<path d="M 52.00 194.54 L 107.62 194.54 L 163.23 193.40 L 218.85 189.50 L 274.46 188.12 L 330.08 186.52 L 385.69 187.21 L 441.31 188.81 L 496.92 185.60 L 552.54 182.62 L 608.15 180.56 L 663.77 186.29 L 719.38 183.31 L 775.00 175.06" fill="none" stroke="#0891b2" stroke-width="2.2"/>
-<text x="52.0" y="218" font-size="10" fill="#64748b" text-anchor="middle">Nov 09</text>
-<text x="218.85" y="218" font-size="10" fill="#64748b" text-anchor="middle">Nov 12</text>
-<text x="385.69" y="218" font-size="10" fill="#64748b" text-anchor="middle">Nov 15</text>
-<text x="608.15" y="218" font-size="10" fill="#64748b" text-anchor="middle">Nov 19</text>
-<text x="775.0" y="218" font-size="10" fill="#64748b" text-anchor="middle">Nov 22</text>
+<circle cx="52.00" cy="194.54" r="2.3" fill="#2563eb"><title>2026-11-10 Views: 2</title></circle>
+<circle cx="107.62" cy="185.15" r="2.3" fill="#2563eb"><title>2026-11-11 Views: 43</title></circle>
+<circle cx="163.23" cy="148.48" r="2.3" fill="#2563eb"><title>2026-11-12 Views: 203</title></circle>
+<circle cx="218.85" cy="160.17" r="2.3" fill="#2563eb"><title>2026-11-13 Views: 152</title></circle>
+<circle cx="274.46" cy="165.44" r="2.3" fill="#2563eb"><title>2026-11-14 Views: 129</title></circle>
+<circle cx="330.08" cy="157.42" r="2.3" fill="#2563eb"><title>2026-11-15 Views: 164</title></circle>
+<circle cx="385.69" cy="170.48" r="2.3" fill="#2563eb"><title>2026-11-16 Views: 107</title></circle>
+<circle cx="441.31" cy="138.17" r="2.3" fill="#2563eb"><title>2026-11-17 Views: 248</title></circle>
+<circle cx="496.92" cy="123.04" r="2.3" fill="#2563eb"><title>2026-11-18 Views: 314</title></circle>
+<circle cx="552.54" cy="132.44" r="2.3" fill="#2563eb"><title>2026-11-19 Views: 273</title></circle>
+<circle cx="608.15" cy="156.04" r="2.3" fill="#2563eb"><title>2026-11-20 Views: 170</title></circle>
+<circle cx="663.77" cy="144.35" r="2.3" fill="#2563eb"><title>2026-11-21 Views: 221</title></circle>
+<circle cx="719.38" cy="85.23" r="2.3" fill="#2563eb"><title>2026-11-22 Views: 479</title></circle>
+<circle cx="775.00" cy="104.25" r="2.3" fill="#2563eb"><title>2026-11-23 Views: 396</title></circle>
+<path d="M 52.00 194.54 L 107.62 185.15 L 163.23 148.48 L 218.85 160.17 L 274.46 165.44 L 330.08 157.42 L 385.69 170.48 L 441.31 138.17 L 496.92 123.04 L 552.54 132.44 L 608.15 156.04 L 663.77 144.35 L 719.38 85.23 L 775.00 104.25" fill="none" stroke="#2563eb" stroke-width="2.2"/>
+<circle cx="52.00" cy="194.54" r="2.3" fill="#0891b2"><title>2026-11-10 Unique visitors: 2</title></circle>
+<circle cx="107.62" cy="193.40" r="2.3" fill="#0891b2"><title>2026-11-11 Unique visitors: 7</title></circle>
+<circle cx="163.23" cy="189.50" r="2.3" fill="#0891b2"><title>2026-11-12 Unique visitors: 24</title></circle>
+<circle cx="218.85" cy="188.12" r="2.3" fill="#0891b2"><title>2026-11-13 Unique visitors: 30</title></circle>
+<circle cx="274.46" cy="186.52" r="2.3" fill="#0891b2"><title>2026-11-14 Unique visitors: 37</title></circle>
+<circle cx="330.08" cy="187.21" r="2.3" fill="#0891b2"><title>2026-11-15 Unique visitors: 34</title></circle>
+<circle cx="385.69" cy="188.81" r="2.3" fill="#0891b2"><title>2026-11-16 Unique visitors: 27</title></circle>
+<circle cx="441.31" cy="185.60" r="2.3" fill="#0891b2"><title>2026-11-17 Unique visitors: 41</title></circle>
+<circle cx="496.92" cy="182.62" r="2.3" fill="#0891b2"><title>2026-11-18 Unique visitors: 54</title></circle>
+<circle cx="552.54" cy="180.56" r="2.3" fill="#0891b2"><title>2026-11-19 Unique visitors: 63</title></circle>
+<circle cx="608.15" cy="186.29" r="2.3" fill="#0891b2"><title>2026-11-20 Unique visitors: 38</title></circle>
+<circle cx="663.77" cy="183.31" r="2.3" fill="#0891b2"><title>2026-11-21 Unique visitors: 51</title></circle>
+<circle cx="719.38" cy="175.06" r="2.3" fill="#0891b2"><title>2026-11-22 Unique visitors: 87</title></circle>
+<circle cx="775.00" cy="178.73" r="2.3" fill="#0891b2"><title>2026-11-23 Unique visitors: 71</title></circle>
+<path d="M 52.00 194.54 L 107.62 193.40 L 163.23 189.50 L 218.85 188.12 L 274.46 186.52 L 330.08 187.21 L 385.69 188.81 L 441.31 185.60 L 496.92 182.62 L 552.54 180.56 L 608.15 186.29 L 663.77 183.31 L 719.38 175.06 L 775.00 178.73" fill="none" stroke="#0891b2" stroke-width="2.2"/>
+<text x="52.0" y="218" font-size="10" fill="#64748b" text-anchor="middle">Nov 10</text>
+<text x="218.85" y="218" font-size="10" fill="#64748b" text-anchor="middle">Nov 13</text>
+<text x="385.69" y="218" font-size="10" fill="#64748b" text-anchor="middle">Nov 16</text>
+<text x="608.15" y="218" font-size="10" fill="#64748b" text-anchor="middle">Nov 20</text>
+<text x="775.0" y="218" font-size="10" fill="#64748b" text-anchor="middle">Nov 23</text>
 <text x="52" y="242" font-size="11" fill="#2563eb" text-anchor="start">UTC dates · views</text>
 <text x="200" y="242" font-size="11" fill="#0891b2" text-anchor="start">Unique visitors</text>
 </g></svg>
