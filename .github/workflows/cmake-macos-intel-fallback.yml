@@ -197,7 +197,7 @@ jobs:
                       description = output('/usr/bin/file', '-b', path)
                       if 'Mach-O' not in description:
                           continue
-                      output('xcrun', 'lipo', '-verify_arch', *architectures, path)
+                      output('xcrun', 'lipo', path, '-verify_arch', *architectures)
                       slices = output('xcrun', 'lipo', '-archs', path).split()
                       require(set(slices) == set(architectures), f'Unexpected slices: {path}: {slices}')
                       info = {'path': str(path.relative_to(bundle)), 'sha256': sha256(path),
